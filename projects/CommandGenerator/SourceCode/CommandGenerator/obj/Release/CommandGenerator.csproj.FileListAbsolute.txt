@@ -11,3 +11,15 @@ C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\CommandGenerato
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\CommandGenerator\obj\Release\CommandGenerator.csproj.CopyComplete
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\CommandGenerator\obj\Release\CommandCreator.exe
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\CommandGenerator\obj\Release\CommandCreator.pdb
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Release\CommandCreator.exe.config
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Release\CommandCreator.exe
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Release\CommandCreator.pdb
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Release\Newtonsoft.Json.dll
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Release\Newtonsoft.Json.xml
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Release\CommandGenerator.FormList.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Release\CommandGenerator.FormEdit.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Release\CommandCreator.Properties.Resources.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Release\CommandGenerator.csproj.GenerateResource.cache
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Release\CommandGenerator.csproj.CopyComplete
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Release\CommandCreator.exe
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Release\CommandCreator.pdb

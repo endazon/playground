@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -37,61 +38,117 @@ namespace CommandGenerator.Class.Display
 			}
 		}
 
-		private Label GetLabelObj(string param, float font_size, Point point)
+		private int GetTextWidth(Font font)
+		{
+			Label label    = new Label();
+			label.AutoSize = true;
+			label.Font     = font;
+			label.Name     = " ";
+			label.Text     = " ";
+			return label.PreferredWidth - 5;
+		}
+
+		private Label GetLabelObj(CommandJsonStorage.Parameter item, Font font, Point point)
 		{
 			Label label       = new Label();
 			label.AutoSize    = true;
 			label.BorderStyle = BorderStyle.FixedSingle;
-			label.Font        = new Font("MS UI Gothic", font_size, FontStyle.Regular, GraphicsUnit.Point, 128);
-			label.Name        = param;
-			label.Text        = param;
+			label.Font        = font;
+			label.Name        = item.Name;
+			label.Text        = item.Name;
 			label.Location    = point;
+			label.Enabled     = !item.Fixed;
 			return label;
 		}
 
-		private TextBox GetTextBoxObj(string param, float font_size, Point point, Size size)
+		private TextBox GetTextBoxObj(CommandJsonStorage.Parameter item, Font font, Point point, Size size)
 		{
 			TextBox textbox     = new TextBox();
 			textbox.BackColor   = SystemColors.WindowText;
 			textbox.BorderStyle = BorderStyle.FixedSingle;
-			textbox.Font        = new Font("MS UI Gothic", font_size, FontStyle.Regular, GraphicsUnit.Point, 128);
+			textbox.Font        = font;
 			textbox.ForeColor   = SystemColors.GrayText;
-			textbox.MaxLength   = 4;
-			textbox.Name        = param;
-			textbox.Text        = param;
+			textbox.MaxLength   = 2 + (2 * item.Size);
+			textbox.Name        = item.Value;
+			textbox.Text        = item.Value;
 			textbox.Location    = point;
-			textbox.Size        = new Size(size.Width * 4, size.Height);
+			textbox.Size        = new Size(size.Width * textbox.MaxLength, size.Height);
+			textbox.TextChanged+= new EventHandler(textBox_TextChanged);
+			textbox.Enabled     = !item.Fixed;
 			return textbox;
 		}
+		private void textBox_TextChanged(object sender, EventArgs e)
+		{
+			TextBox target = (TextBox)sender;
+			string text    = (string)target.Text.Clone();
+			int length     = text.Length;
 
-		private NumericUpDown GetNumericUpDownObj(string param, float font_size, Point point, Size size)
+			if ((length < 2)
+				|| text.Substring(0, 1) != "0"
+				|| text.Substring(1, 1) != "x")
+			{
+				target.Text = "0x";
+				target.SelectionStart = target.TextLength;
+				System.Media.SystemSounds.Asterisk.Play();
+			}
+			else if (length == 2) { return; }
+			else
+			{
+				int char_pos = 2;
+				foreach (var c in text.Substring(char_pos, length- char_pos))
+				{
+					if (!Uri.IsHexDigit(c))
+					{
+						target.Text = text.Remove(char_pos, 1);
+						System.Media.SystemSounds.Asterisk.Play();
+					}
+					char_pos++;
+				}
+			}
+		}
+
+		private NumericUpDown GetNumericUpDownObj(CommandJsonStorage.Parameter item, Font font, Point point, Size size)
 		{
 			NumericUpDown numericupdown = new NumericUpDown();
 			numericupdown.BackColor     = SystemColors.WindowText;
 			numericupdown.BorderStyle   = BorderStyle.FixedSingle;
-			numericupdown.Font          = new Font("MS UI Gothic", font_size, FontStyle.Regular, GraphicsUnit.Point, 128);
+			numericupdown.Font          = font;
 			numericupdown.ForeColor     = SystemColors.GrayText;
 			numericupdown.Minimum       = 0;
-			numericupdown.Maximum       = 255;
-			numericupdown.Name          = param;
-			numericupdown.Text          = param;
+			numericupdown.Maximum       = (int)Math.Pow(2, (8 * item.Size)) - 1;
+			numericupdown.Name          = item.Value;
+			numericupdown.Text          = item.Value;
 			numericupdown.Location      = point;
-			numericupdown.Size          = new Size(size.Width * 4, size.Height);
+			int digits                  = (int)Math.Log10((double)numericupdown.Maximum) + 1;
+			numericupdown.Size          = new Size(size.Width * (digits + 1), size.Height);
+			numericupdown.ValueChanged += new EventHandler(numericUpDown_ValueChanged);
+			numericupdown.Enabled       = !item.Fixed;
 			return numericupdown;
 		}
+		private void numericUpDown_ValueChanged(object sender, EventArgs e)
+		{
+			NumericUpDown target = (NumericUpDown)sender;
+			decimal value        = target.Value;
+			decimal maximum      = target.Maximum;
 
-		private Control GetInputBoxObj(string type, string param, float font_size, Point point, Size size)
+			if (maximum < value)
+			{
+				target.Value = maximum;
+			}
+		}
+
+		private Control GetInputBoxObj(CommandJsonStorage.Parameter item, Font font, Point point, Size size)
 		{
 			Control result;
 
-			switch (type)
+			switch (item.Type)
 			{
 				case "HEX":
-					result = GetTextBoxObj(param, font_size, point, size);
+					result = GetTextBoxObj(item, font, point, size);
 					break;
 				case "DEC":
 				default:
-					result = GetNumericUpDownObj(param, font_size, point, size);
+					result = GetNumericUpDownObj(item, font, point, size);
 					break;
 			}
 
@@ -100,7 +157,7 @@ namespace CommandGenerator.Class.Display
 
 		private List<InputScreenStorage.Input> GetDetailObj(CommandJsonStorage.Detail target)
 		{
-			const float FONT_SIZE                       = 16F;
+			Font FONT                                   = new Font("MS UI Gothic", 16F, FontStyle.Regular, GraphicsUnit.Point, 128); ;
 			int X                                       = 5;
 			int Y                                       = 15;
 			List<InputScreenStorage.Input> inputObjList = new List<InputScreenStorage.Input>();
@@ -108,14 +165,13 @@ namespace CommandGenerator.Class.Display
 			foreach (var parameter in target.Parameter)
 			{
 				InputScreenStorage.Input inputObj = new InputScreenStorage.Input();
-				inputObj.Label    = GetLabelObj(parameter.Name,
-											    FONT_SIZE,
+				inputObj.Label    = GetLabelObj(parameter,
+												FONT,
 											    new Point(X, Y));
-				inputObj.InputBox = GetInputBoxObj(parameter.Type,
-												   parameter.Value,
-												   FONT_SIZE,
+				inputObj.InputBox = GetInputBoxObj(parameter,
+												   FONT,
 												   new Point(X + inputObj.Label.PreferredWidth, Y),
-												   new Size((int)FONT_SIZE, inputObj.Label.PreferredHeight));
+												   new Size(GetTextWidth(FONT), inputObj.Label.PreferredHeight));
 				X = inputObj.InputBox.Location.X + inputObj.InputBox.Size.Width + 5;
 
 				inputObjList.Add(inputObj);

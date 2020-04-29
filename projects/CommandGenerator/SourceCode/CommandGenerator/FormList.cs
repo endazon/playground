@@ -120,7 +120,7 @@ namespace CommandGenerator
 					CommandListBox.Items.Clear();
 					foreach (var item in CommandObj.Items)
 					{
-						string displayName = item.Name + "(Len：" + item.Length + ")";
+						string displayName = item.Name;
 						// リストボックスにアイテム追加 
 						//for (int i = 0; i < 100; i++)
 						CommandListBox.Items.Add(displayName);
@@ -129,6 +129,7 @@ namespace CommandGenerator
 						CommandListBox.SetSelected(0, true);
 
 						FormListShow();
+						editFileOpenToolStripMenuItem.Enabled = true;
 					}
 				}
 			}
@@ -165,12 +166,20 @@ namespace CommandGenerator
 			clear();
 			Close();
 		}
+
+		private void editFileOpenToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+
+		}
 		#endregion
 
 		#region ListBox
 		private void CommandListBox_DoubleClick(object sender, EventArgs e)
 		{
 			int index = ((ListBox)sender).SelectedIndex;
+
+			if (index < 0) { return; }
+
 			CommandJsonStorage.Item item = CommandObj.Items[index];
 
 			FormEdit.add(item);

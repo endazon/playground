@@ -40,6 +40,7 @@
 			this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
 			this.endToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.CommandListBox = new System.Windows.Forms.ListBox();
+			this.editFileOpenToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.MenuStripMain.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -47,7 +48,8 @@
 			// 
 			this.MenuStripMain.BackColor = System.Drawing.SystemColors.ControlDark;
 			this.MenuStripMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.fileToolStripMenuItem});
+            this.fileToolStripMenuItem,
+            this.editFileOpenToolStripMenuItem});
 			this.MenuStripMain.Location = new System.Drawing.Point(0, 0);
 			this.MenuStripMain.Name = "MenuStripMain";
 			this.MenuStripMain.Size = new System.Drawing.Size(284, 24);
@@ -142,6 +144,14 @@
 			this.CommandListBox.TabIndex = 2;
 			this.CommandListBox.DoubleClick += new System.EventHandler(this.CommandListBox_DoubleClick);
 			// 
+			// editFileOpenToolStripMenuItem
+			// 
+			this.editFileOpenToolStripMenuItem.Enabled = false;
+			this.editFileOpenToolStripMenuItem.Name = "editFileOpenToolStripMenuItem";
+			this.editFileOpenToolStripMenuItem.Size = new System.Drawing.Size(86, 20);
+			this.editFileOpenToolStripMenuItem.Text = "EditFileOpen";
+			this.editFileOpenToolStripMenuItem.Click += new System.EventHandler(this.editFileOpenToolStripMenuItem_Click);
+			// 
 			// FormList
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -176,5 +186,6 @@
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
 		private System.Windows.Forms.ToolStripMenuItem endToolStripMenuItem;
 		private System.Windows.Forms.ListBox CommandListBox;
+		private System.Windows.Forms.ToolStripMenuItem editFileOpenToolStripMenuItem;
 	}
 }

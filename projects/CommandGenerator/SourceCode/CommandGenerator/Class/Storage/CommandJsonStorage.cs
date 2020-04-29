@@ -12,7 +12,7 @@ namespace CommandGenerator.Class.Storage
 			public int Size { get; set; } = 0;
 			public string Type { get; set; } = "";
 			public string Value { get; set; } = "";
-			public bool Hidden { get; set; } = false;
+			public bool Fixed { get; set; } = false;
 
 
 			/// <summary>
@@ -177,7 +177,7 @@ namespace CommandGenerator.Class.Storage
 			/// 電文生成
 			/// </summary>
 			/// <returns>電文</returns>
-			public string Parser()
+			public List<string> Parser()
 			{
 				List<string> buff = new List<string>(Length);
 				for (int index = 0; index < buff.Capacity; index++)
@@ -190,7 +190,7 @@ namespace CommandGenerator.Class.Storage
 					buff.InsertRange(p.Offset, p.Parser());
 				}
 
-				return string.Join("", buff.ToArray());
+				return buff;
 			}
 		}
 

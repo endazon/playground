@@ -9,6 +9,7 @@ using CommandGenerator.Class.Display;
 using System.Security.Permissions;
 using CommandCreator.Class.Storage;
 using System.Drawing;
+using CommandCreator;
 
 namespace CommandGenerator
 {
@@ -74,15 +75,19 @@ namespace CommandGenerator
 
 		internal void add(CommandJsonStorage.Item item)
 		{
-			CommandItems.Add(item.Clone());
+			string displayName = new FormInputBox("表示名を入力して下さい。",
+									"表示名の入力",
+									  item.Name
+									  ).GetInputText();
+			if (displayName != "") {
+				CommandItems.Add(item.Clone());
 
-			string displayName = item.Name + "(Len：" + item.Length + ")";
-			// リストボックスにアイテム追加 
-			//for (int i = 0; i < 100; i++)
-			CommandListBox.Items.Add(displayName);
+				//for (int i = 0; i < 100; i++)
+				CommandListBox.Items.Add(displayName);
 
-			// リストボックスの一番上を選択
-			CommandListBox.SetSelected(CommandListBox.Items.Count - 1, true);
+				// リストボックスの一番上を選択
+				CommandListBox.SetSelected(CommandListBox.Items.Count - 1, true);
+			}
 		}
 
 		private void generator()
@@ -95,8 +100,8 @@ namespace CommandGenerator
 				foreach (var item in CommandItems)
 				{
 					CommandCsvStorage.Detail item_obj = new CommandCsvStorage.Detail();
-					item_obj.Name = item.Name;
-					item_obj.Command = item.Parser();
+					item_obj.Name = item.Name;					
+					item_obj.Command = string.Join("", item.Parser().ToArray());
 
 					CommandList.Items.Add(item_obj);
 				}
@@ -198,6 +203,9 @@ namespace CommandGenerator
 		private void CommandListBox_DoubleClick(object sender, EventArgs e)
 		{
 			int index = ((ListBox)sender).SelectedIndex;
+
+			if (index < 0) { return; }
+
 			CommandItems.RemoveAt(index);
 			CommandListBox.Items.RemoveAt(index);
 			ScreenObj.clear();
