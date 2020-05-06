@@ -15,21 +15,28 @@ namespace CommandGenerator
 {
 	public partial class FormEdit : Form
 	{
+		private new FormList Owner { get; set; }
 		private CommandCsvStorage.CommandCsvObject CommandList { get; set; } = new CommandCsvStorage.CommandCsvObject();
 		private List<CommandJsonStorage.Item> CommandItems { get; set; } = new List<CommandJsonStorage.Item>();
-		private string GeneratesFileName { get; set; } = "";
+		private string FileName { get; set; } = "";
 		private InputScreen ScreenObj { get; set; } = new InputScreen(null);
 
-		public FormEdit(string name, string ver)
+		public FormEdit() 
 		{
 			InitializeComponent();
 			CommandItems = new List<CommandJsonStorage.Item>();
 			ScreenObj = new InputScreen(SplitContainer.Panel2);
-			CommandList.Name = name;
-			CommandList.Version = ver;
 		}
 
-		public FormEdit() : this("", ""){}
+		public FormEdit(FormList owner)
+			: this()
+		{
+			Owner = owner;
+			CommandList.Name    = Owner.CommandObj.Name;
+			CommandList.Version = Owner.CommandObj.Version;
+		}
+
+
 
 		//ウィンドウを閉じるボタン・ショートカットを無効化
 		protected override CreateParams CreateParams
@@ -68,7 +75,7 @@ namespace CommandGenerator
 			CommandList.Version = "";
 			CommandList.Items.Clear();
 			CommandItems.Clear();
-			GeneratesFileName = "";
+			FileName = "";
 			CommandListBox.Items.Clear();
 			ScreenObj.clear();
 		}
@@ -90,7 +97,7 @@ namespace CommandGenerator
 			}
 		}
 
-		private void generator()
+		private void save()
 		{
 			#region 前処理
 			try
@@ -112,35 +119,22 @@ namespace CommandGenerator
 			}
 			#endregion
 
-			#region 生成先ファイル選択
+			#region 保存先ファイル選択
 			try
 			{
-				if (GeneratesFileName == "")
+				if (FileName == "")
 				{
-					SaveFileDialog genFile = new SaveFileDialog();
 					string fileName = "";
 
-					//初期値
-					genFile.FileName = "default.csv";
-
-					//ファイルの指定
-					genFile.Filter = "CSVファイル(*.csv)|*.csv";
-
-					//タイトルの設定
-					genFile.Title = "保存先を指定してください";
-
-					//ダイアログボックスを閉じる前に現在のディレクトリを復元するようにする
-					genFile.RestoreDirectory = true;
-
 					//ダイアログを表示する
-					if (genFile.ShowDialog() == DialogResult.OK)
+					if (saveFileDialogCsv.ShowDialog() == DialogResult.OK)
 					{
 						//ファイル名取得(パス込み)
-						fileName = genFile.FileName;
+						fileName = saveFileDialogCsv.FileName;
 					}
 					//Console.WriteLine(fileName);
 
-					GeneratesFileName = fileName;
+					FileName = fileName;
 				}
 			}
 			catch
@@ -153,7 +147,7 @@ namespace CommandGenerator
 			try
 			{
 				// 出力用のファイルを開く
-				using (var sw = new StreamWriter(@GeneratesFileName, false, Encoding.UTF8))
+				using (var sw = new StreamWriter(FileName, false, Encoding.UTF8))
 				{
 					sw.WriteLine("{0}, {1}", "Name", CommandList.Name);
 					sw.WriteLine("{0}, {1}", "Version", CommandList.Version);
@@ -189,13 +183,13 @@ namespace CommandGenerator
 
 		private void saveToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			generator();
+			save();
 		}
 
 		private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			GeneratesFileName = "";
-			generator();
+			FileName = "";
+			save();
 		}
 		#endregion
 
@@ -231,7 +225,7 @@ namespace CommandGenerator
 		#region Button
 		private void buttonGenerates_Click(object sender, EventArgs e)
 		{
-			generator();
+			save();
 		}
 		#endregion
 	}

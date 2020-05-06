@@ -38,14 +38,14 @@ namespace CommandGenerator.Class.Display
 			}
 		}
 
-		private int GetTextWidth(Font font)
+		private Size GetOneCharacterSize(Font font)
 		{
 			Label label    = new Label();
 			label.AutoSize = true;
 			label.Font     = font;
 			label.Name     = " ";
 			label.Text     = " ";
-			return label.PreferredWidth - 5;
+			return new Size(label.PreferredWidth - 5, label.PreferredHeight);
 		}
 
 		private Label GetLabelObj(CommandJsonStorage.Parameter item, Font font, Point point)
@@ -157,7 +157,7 @@ namespace CommandGenerator.Class.Display
 
 		private List<InputScreenStorage.Input> GetDetailObj(CommandJsonStorage.Detail target)
 		{
-			Font FONT                                   = new Font("MS UI Gothic", 16F, FontStyle.Regular, GraphicsUnit.Point, 128); ;
+			Font FONT                                   = new Font("MS UI Gothic", 16F, FontStyle.Regular, GraphicsUnit.Point, 128);
 			int X                                       = 5;
 			int Y                                       = 15;
 			List<InputScreenStorage.Input> inputObjList = new List<InputScreenStorage.Input>();
@@ -171,7 +171,7 @@ namespace CommandGenerator.Class.Display
 				inputObj.InputBox = GetInputBoxObj(parameter,
 												   FONT,
 												   new Point(X + inputObj.Label.PreferredWidth, Y),
-												   new Size(GetTextWidth(FONT), inputObj.Label.PreferredHeight));
+												   new Size(GetOneCharacterSize(FONT).Width, inputObj.Label.PreferredHeight));
 				X = inputObj.InputBox.Location.X + inputObj.InputBox.Size.Width + 5;
 
 				inputObjList.Add(inputObj);

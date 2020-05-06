@@ -39,8 +39,11 @@
 			this.saveAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
 			this.endToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.CommandListBox = new System.Windows.Forms.ListBox();
+			this.listToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.editFileOpenToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.CommandListBox = new System.Windows.Forms.ListBox();
+			this.openFileDialogJson = new System.Windows.Forms.OpenFileDialog();
+			this.saveFileDialogJson = new System.Windows.Forms.SaveFileDialog();
 			this.MenuStripMain.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -49,6 +52,7 @@
 			this.MenuStripMain.BackColor = System.Drawing.SystemColors.ControlDark;
 			this.MenuStripMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem,
+            this.listToolStripMenuItem,
             this.editFileOpenToolStripMenuItem});
 			this.MenuStripMain.Location = new System.Drawing.Point(0, 0);
 			this.MenuStripMain.Name = "MenuStripMain";
@@ -129,6 +133,21 @@
 			this.endToolStripMenuItem.Text = "End";
 			this.endToolStripMenuItem.Click += new System.EventHandler(this.endToolStripMenuItem_Click);
 			// 
+			// listToolStripMenuItem
+			// 
+			this.listToolStripMenuItem.Name = "listToolStripMenuItem";
+			this.listToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
+			this.listToolStripMenuItem.Text = "List";
+			this.listToolStripMenuItem.Click += new System.EventHandler(this.listToolStripMenuItem_Click);
+			// 
+			// editFileOpenToolStripMenuItem
+			// 
+			this.editFileOpenToolStripMenuItem.Enabled = false;
+			this.editFileOpenToolStripMenuItem.Name = "editFileOpenToolStripMenuItem";
+			this.editFileOpenToolStripMenuItem.Size = new System.Drawing.Size(86, 20);
+			this.editFileOpenToolStripMenuItem.Text = "EditFileOpen";
+			this.editFileOpenToolStripMenuItem.Click += new System.EventHandler(this.editFileOpenToolStripMenuItem_Click);
+			// 
 			// CommandListBox
 			// 
 			this.CommandListBox.BackColor = System.Drawing.SystemColors.WindowText;
@@ -144,13 +163,19 @@
 			this.CommandListBox.TabIndex = 2;
 			this.CommandListBox.DoubleClick += new System.EventHandler(this.CommandListBox_DoubleClick);
 			// 
-			// editFileOpenToolStripMenuItem
+			// openFileDialogJson
 			// 
-			this.editFileOpenToolStripMenuItem.Enabled = false;
-			this.editFileOpenToolStripMenuItem.Name = "editFileOpenToolStripMenuItem";
-			this.editFileOpenToolStripMenuItem.Size = new System.Drawing.Size(86, 20);
-			this.editFileOpenToolStripMenuItem.Text = "EditFileOpen";
-			this.editFileOpenToolStripMenuItem.Click += new System.EventHandler(this.editFileOpenToolStripMenuItem_Click);
+			this.openFileDialogJson.FileName = "default.json";
+			this.openFileDialogJson.Filter = "JSONファイル(*.json)|*.json";
+			this.openFileDialogJson.RestoreDirectory = true;
+			this.openFileDialogJson.Title = "開くコマンドファイルを選択してください";
+			// 
+			// saveFileDialogJson
+			// 
+			this.saveFileDialogJson.FileName = "default.json";
+			this.saveFileDialogJson.Filter = "JSONファイル(*.json)|*.json";
+			this.saveFileDialogJson.RestoreDirectory = true;
+			this.saveFileDialogJson.Title = "保存先を指定してください";
 			// 
 			// FormList
 			// 
@@ -187,5 +212,8 @@
 		private System.Windows.Forms.ToolStripMenuItem endToolStripMenuItem;
 		private System.Windows.Forms.ListBox CommandListBox;
 		private System.Windows.Forms.ToolStripMenuItem editFileOpenToolStripMenuItem;
+		private System.Windows.Forms.OpenFileDialog openFileDialogJson;
+		private System.Windows.Forms.SaveFileDialog saveFileDialogJson;
+		private System.Windows.Forms.ToolStripMenuItem listToolStripMenuItem;
 	}
 }

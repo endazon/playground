@@ -5,7 +5,8 @@ VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample", "Sample", "{C494F12A-C9B5-44FF-B038-351CF5307D6F}"
 	ProjectSection(SolutionItems) = preProject
-		Sample\Command.json = Sample\Command.json
+		Sample\default.csv = Sample\default.csv
+		Sample\default.json = Sample\default.json
 	EndProjectSection
 	ProjectSection(FolderGlobals) = preProject
 		C_5_402_3SourceCode_4C#_4CommandCreator_4SourceCode_4CommandCreator_4Sample_4Command_1json__JsonSchema = http://json.schemastore.org/bowerrc

@@ -1,4 +1,4 @@
-﻿namespace CommandCreator
+﻿namespace CommandGenerator
 {
 	partial class FormInputBox
 	{

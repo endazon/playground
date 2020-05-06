@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace CommandCreator
+namespace CommandGenerator
 {
 	public partial class FormInputBox : Form
 	{

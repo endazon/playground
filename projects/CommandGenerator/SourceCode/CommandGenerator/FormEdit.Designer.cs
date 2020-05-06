@@ -37,6 +37,7 @@
 			this.SplitContainer = new System.Windows.Forms.SplitContainer();
 			this.buttonGenerates = new System.Windows.Forms.Button();
 			this.CommandListBox = new System.Windows.Forms.ListBox();
+			this.saveFileDialogCsv = new System.Windows.Forms.SaveFileDialog();
 			this.MenuStripMain.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.SplitContainer)).BeginInit();
 			this.SplitContainer.Panel1.SuspendLayout();
@@ -146,6 +147,13 @@
 			this.CommandListBox.SelectedIndexChanged += new System.EventHandler(this.CommandListBox_SelectedIndexChanged);
 			this.CommandListBox.DoubleClick += new System.EventHandler(this.CommandListBox_DoubleClick);
 			// 
+			// saveFileDialogCsv
+			// 
+			this.saveFileDialogCsv.FileName = "default.csv";
+			this.saveFileDialogCsv.Filter = "CSVファイル(*.csv)|*.csv";
+			this.saveFileDialogCsv.RestoreDirectory = true;
+			this.saveFileDialogCsv.Title = "保存先を指定してください";
+			// 
 			// FormEdit
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -180,6 +188,7 @@
 		private System.Windows.Forms.ToolStripMenuItem saveAsToolStripMenuItem;
 		private System.Windows.Forms.ListBox CommandListBox;
 		private System.Windows.Forms.Button buttonGenerates;
+		private System.Windows.Forms.SaveFileDialog saveFileDialogCsv;
 	}
 }
 

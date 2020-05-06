@@ -9,6 +9,15 @@ namespace CommandGenerator.Class.Storage
 		{
 			public Label Label { get; set; } = new Label();
 			public Control InputBox { get; set; } = new TextBox();
+
+			public Control[] ToArray()
+			{
+				List<Control> result = new List<Control>();
+				result.Add(Label);
+				result.Add(InputBox);
+
+				return result.ToArray();
+			}
 		}
 
 		public class InputGroup

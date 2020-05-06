@@ -36,4 +36,5 @@ C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\Comma
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.csproj.CopyComplete
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandCreator.exe
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandCreator.pdb
-C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandCreator.FormInputBox.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormInputBox.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormListEditor.resources
