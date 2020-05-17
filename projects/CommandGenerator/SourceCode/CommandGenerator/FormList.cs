@@ -6,12 +6,13 @@ using System.IO;
 using Newtonsoft.Json;
 using CommandGenerator.Class.Storage;
 using System.Drawing;
+using CommandGenerator.Properties;
 
 namespace CommandGenerator
 {
 	public partial class FormList : Form
 	{
-		private string FileName { get; set; } = "";
+		private Settings settings { get; set; } = new Settings();
 		internal CommandJsonStorage.CommandJsonObject CommandObj { get; set; } = new CommandJsonStorage.CommandJsonObject();
 
 		private FormEdit FormEdit { get; set; }
@@ -22,6 +23,7 @@ namespace CommandGenerator
 			InitializeComponent();
 			FormEdit       = new FormEdit(this);
 			FormListEditor = new FormListEditor(this);
+			settings       = Settings.Default;
 		}
 
 		private void FormListShow()
@@ -32,7 +34,6 @@ namespace CommandGenerator
 
 		private void clear()
 		{
-			FileName = "";
 			editFileOpenToolStripMenuItem.Enabled = false;
 			CommandObj = new CommandJsonStorage.CommandJsonObject();
 			CommandListBox.Items.Clear();
@@ -40,67 +41,42 @@ namespace CommandGenerator
 			FormEdit.Hide();
 		}
 
-		private void open()
+		private bool selectJsonFile()
 		{
-			#region 前処理
-			{
-				clear();
-			}
-			#endregion
-
-			#region JSONファイル選択
+			bool result = false;
 			try
 			{
-				string fileName = "";
-
 				//ダイアログを表示する
 				if (openFileDialogJson.ShowDialog() == DialogResult.OK)
 				{
 					//ファイル名取得(パス込み)
-					fileName = openFileDialogJson.FileName;
+					settings.JsonFilePath = openFileDialogJson.FileName;
+					result = true;
 				}
 				//Console.WriteLine(fileName);
-
-				FileName = fileName;
 			}
 			catch
 			{
 				clear();
 			}
-			#endregion
 
-			#region JSONファイル読み込み
+			return result;
+		}
+
+		private void readJsonFile()
+		{
 			try
 			{
-				CommandJsonStorage.CommandJsonObject obj = null;
-
-				if (!string.IsNullOrWhiteSpace(FileName))
+				//ファイルを UTF-8 で開く
+				using (var sr = new StreamReader(@settings.JsonFilePath, Encoding.UTF8))
 				{
-					//ファイルを UTF-8 で開く
-					using (var sr = new StreamReader(@FileName, Encoding.UTF8))
-					{
-						// 変数 jsonText にファイルの内容を代入 
-						var jsonText = sr.ReadToEnd();
+					// 変数 jsonText にファイルの内容を代入 
+					var jsonText = sr.ReadToEnd();
 
-						// インスタンス CommandtStorage にデシリアライズ
-						obj = JsonConvert.DeserializeObject<CommandJsonStorage.CommandJsonObject>(jsonText);
-					}
-				}
-				//Console.WriteLine(JsonConvert.SerializeObject(obj));
+					// インスタンス CommandtStorage にデシリアライズ
+					CommandObj = JsonConvert.DeserializeObject<CommandJsonStorage.CommandJsonObject>(jsonText);
 
-				CommandObj = obj;
-			}
-			catch
-			{
-				clear();
-			}
-			#endregion
-
-			#region 後処理
-			try
-			{
-				if (CommandObj != null)
-				{
+					// コマンド編集画面初期化
 					CommandListBox.Items.Clear();
 					foreach (var item in CommandObj.Items)
 					{
@@ -116,51 +92,20 @@ namespace CommandGenerator
 						editFileOpenToolStripMenuItem.Enabled = true;
 					}
 				}
+				//Console.WriteLine(JsonConvert.SerializeObject(obj));
 			}
 			catch
 			{
 				clear();
 			}
-			#endregion
 		}
 
-		private void save()
+		private void writeJsonFile()
 		{
-			#region 前処理
-			{
-
-			}
-			#endregion
-
-			#region 保存先ファイル選択
-			try
-			{
-				if (FileName == "")
-				{
-					string fileName = "";
-
-					//ダイアログを表示する
-					if (saveFileDialogJson.ShowDialog() == DialogResult.OK)
-					{
-						//ファイル名取得(パス込み)
-						fileName = saveFileDialogJson.FileName;
-					}
-					//Console.WriteLine(fileName);
-
-					FileName = fileName;
-				}
-			}
-			catch
-			{
-				return;
-			}
-			#endregion
-
-			#region JSONファイル書き込み
 			try
 			{
 				// 出力用のファイルを開く
-				using (var sw = new StreamWriter(FileName, false, Encoding.UTF8))
+				using (var sw = new StreamWriter(@settings.JsonFilePath, false, Encoding.UTF8))
 				{
 					// 変数 jsonText に CommandObj にシリアライズした内容を代入 
 					var jsonText = JsonConvert.SerializeObject(CommandObj);
@@ -176,13 +121,6 @@ namespace CommandGenerator
 				Console.WriteLine(e.Message);
 				return;
 			}
-			#endregion
-
-			#region 後処理
-			{
-
-			}
-			#endregion
 		}
 
 		#region Menu
@@ -194,7 +132,11 @@ namespace CommandGenerator
 
 		private void openToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			open();
+			if (selectJsonFile())
+			{
+				clear();
+				readJsonFile();
+			}
 		}
 
 		private void closeToolStripMenuItem_Click(object sender, EventArgs e)
@@ -204,13 +146,15 @@ namespace CommandGenerator
 
 		private void saveToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			save();
+			writeJsonFile();
 		}
 
 		private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			FileName = "";
-			save();
+			if (selectJsonFile())
+			{
+				writeJsonFile();
+			}
 		}
 
 		private void endToolStripMenuItem_Click(object sender, EventArgs e)
@@ -218,8 +162,8 @@ namespace CommandGenerator
 			clear();
 			Close();
 		}
-		
-		private void listToolStripMenuItem_Click(object sender, EventArgs e)
+
+		private void commandListToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			FormListEditor.ShowDialog();
 		}
@@ -244,6 +188,16 @@ namespace CommandGenerator
 		#endregion
 
 		#region Window
+		private void FormList_Load(object sender, EventArgs e)
+		{
+			readJsonFile();
+		}
+
+		private void FormList_FormClosed(object sender, FormClosedEventArgs e)
+		{
+			settings.Save();
+		}
+
 		private void FormList_LocationChanged(object sender, EventArgs e)
 		{
 			Form obj = (Form)sender;

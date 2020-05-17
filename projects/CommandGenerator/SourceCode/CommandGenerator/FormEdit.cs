@@ -80,9 +80,12 @@ namespace CommandGenerator
 			ScreenObj.clear();
 		}
 
-		internal void add(CommandJsonStorage.Item item)
+		public void add(object obj)
 		{
-			string displayName = new FormInputBox("表示名を入力して下さい。",
+			if (obj.GetType().Name != "Item") { return; }
+
+			CommandJsonStorage.Item item = (CommandJsonStorage.Item)obj;
+			string displayName = new FormInputTextBox("表示名を入力して下さい。",
 									"表示名の入力",
 									  item.Name
 									  ).GetInputText();

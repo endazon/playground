@@ -1,4 +1,5 @@
-﻿using CommandGenerator.Class.Storage;
+﻿using CommandCreator;
+using CommandGenerator.Class.Storage;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -34,18 +35,25 @@ namespace CommandGenerator
 			label.Text = " ";
 			return new Size(label.PreferredWidth - 5, label.PreferredHeight);
 		}
-
 		public void update()
 		{
+			update(Owner.CommandObj);
+		}
+
+		public void update(object obj)
+		{
+			if (obj.GetType().Name != "CommandJsonObject") { return; }
+
 			Font FONT = new Font("MS UI Gothic", 16F, FontStyle.Regular, GraphicsUnit.Point, 128);
 			int X     = 5;
 			int Y     = 15;
 
 			treeView.Nodes.Clear();
 
-			textBoxName.Text    = Owner.CommandObj.Name;
-			textBoxVersion.Text = Owner.CommandObj.Version;
-			foreach (var item in Owner.CommandObj.Items)
+			CommandJsonStorage.CommandJsonObject cmdObj = (CommandJsonStorage.CommandJsonObject)obj;
+			textBoxName.Text    = cmdObj.Name;
+			textBoxVersion.Text = cmdObj.Version;
+			foreach (var item in cmdObj.Items)
 			{
 				List<InputScreenStorage.Input> objTop = new List<InputScreenStorage.Input>();
 
@@ -65,7 +73,7 @@ namespace CommandGenerator
 					textbox.BackColor   = SystemColors.WindowText;
 					textbox.BorderStyle = BorderStyle.FixedSingle;
 					textbox.Font        = FONT;
-					textbox.ForeColor   = SystemColors.GrayText;
+					textbox.ForeColor   = SystemColors.Window;
 					textbox.Name        = "NameBox";
 					textbox.Text        = item.Name;
 					textbox.Location    = new Point(X + label.PreferredWidth, Y);
@@ -90,7 +98,7 @@ namespace CommandGenerator
 					numericupdown.BackColor     = SystemColors.WindowText;
 					numericupdown.BorderStyle   = BorderStyle.FixedSingle;
 					numericupdown.Font          = FONT;
-					numericupdown.ForeColor     = SystemColors.GrayText;
+					numericupdown.ForeColor     = SystemColors.Window;
 					numericupdown.Minimum       = 0;
 					numericupdown.Maximum       = (int)Math.Pow(2, (8 * 4)) - 1;//4Byte
 					numericupdown.Name          = "LengthBox";
@@ -129,7 +137,7 @@ namespace CommandGenerator
 						textbox.BackColor   = SystemColors.WindowText;
 						textbox.BorderStyle = BorderStyle.FixedSingle;
 						textbox.Font        = FONT;
-						textbox.ForeColor   = SystemColors.GrayText;
+						textbox.ForeColor   = SystemColors.Window;
 						textbox.Name        = "NameBox";
 						textbox.Text        = detail.Name;
 						textbox.Location    = new Point(X + label.PreferredWidth, Y);
@@ -154,7 +162,7 @@ namespace CommandGenerator
 						numericupdown.BackColor     = SystemColors.WindowText;
 						numericupdown.BorderStyle   = BorderStyle.FixedSingle;
 						numericupdown.Font          = FONT;
-						numericupdown.ForeColor     = SystemColors.GrayText;
+						numericupdown.ForeColor     = SystemColors.Window;
 						numericupdown.Minimum       = 0;
 						numericupdown.Maximum       = (int)Math.Pow(2, (8 * 4)) - 1;//4Byte
 						numericupdown.Name          = "OffsetBox";
@@ -182,7 +190,7 @@ namespace CommandGenerator
 						numericupdown.BackColor     = SystemColors.WindowText;
 						numericupdown.BorderStyle   = BorderStyle.FixedSingle;
 						numericupdown.Font          = FONT;
-						numericupdown.ForeColor     = SystemColors.GrayText;
+						numericupdown.ForeColor     = SystemColors.Window;
 						numericupdown.Minimum       = 0;
 						numericupdown.Maximum       = (int)Math.Pow(2, (8 * 4)) - 1;//4Byte
 						numericupdown.Name          = "SizeBox";
@@ -221,7 +229,7 @@ namespace CommandGenerator
 							textbox.BackColor   = SystemColors.WindowText;
 							textbox.BorderStyle = BorderStyle.FixedSingle;
 							textbox.Font        = FONT;
-							textbox.ForeColor   = SystemColors.GrayText;
+							textbox.ForeColor   = SystemColors.Window;
 							textbox.Name        = "NameBox";
 							textbox.Text        = parameter.Name;
 							textbox.Location    = new Point(X + label.PreferredWidth, Y);
@@ -246,7 +254,7 @@ namespace CommandGenerator
 							numericupdown.BackColor     = SystemColors.WindowText;
 							numericupdown.BorderStyle   = BorderStyle.FixedSingle;
 							numericupdown.Font          = FONT;
-							numericupdown.ForeColor     = SystemColors.GrayText;
+							numericupdown.ForeColor     = SystemColors.Window;
 							numericupdown.Minimum       = 0;
 							numericupdown.Maximum       = (int)Math.Pow(2, (8 * 4)) - 1;//4Byte
 							numericupdown.Name          = "OffsetBox";
@@ -274,7 +282,7 @@ namespace CommandGenerator
 							numericupdown.BackColor     = SystemColors.WindowText;
 							numericupdown.BorderStyle   = BorderStyle.FixedSingle;
 							numericupdown.Font          = FONT;
-							numericupdown.ForeColor     = SystemColors.GrayText;
+							numericupdown.ForeColor     = SystemColors.Window;
 							numericupdown.Minimum       = 0;
 							numericupdown.Maximum       = (int)Math.Pow(2, (8 * 4)) - 1;//4Byte
 							numericupdown.Name          = "SizeBox";
@@ -303,7 +311,7 @@ namespace CommandGenerator
 							textbox.BackColor   = SystemColors.WindowText;
 							textbox.BorderStyle = BorderStyle.FixedSingle;
 							textbox.Font        = FONT;
-							textbox.ForeColor   = SystemColors.GrayText;
+							textbox.ForeColor   = SystemColors.Window;
 							textbox.Name        = "TypeBox";
 							textbox.Text        = parameter.Type;
 							textbox.Location    = new Point(X + label.PreferredWidth, Y + (GetOneCharacterSize(FONT).Height + 10) * 3);
@@ -328,7 +336,7 @@ namespace CommandGenerator
 							textbox.BackColor   = SystemColors.WindowText;
 							textbox.BorderStyle = BorderStyle.FixedSingle;
 							textbox.Font        = FONT;
-							textbox.ForeColor   = SystemColors.GrayText;
+							textbox.ForeColor   = SystemColors.Window;
 							textbox.Name        = "ValueBox";
 							textbox.Text        = parameter.Value;
 							textbox.Location    = new Point(X + label.PreferredWidth, Y + (GetOneCharacterSize(FONT).Height + 10) * 4);
@@ -353,7 +361,7 @@ namespace CommandGenerator
 							combobox.BackColor   = SystemColors.WindowText;
 							combobox.FlatStyle   = FlatStyle.Flat;
 							combobox.Font        = FONT;
-							combobox.ForeColor   = SystemColors.GrayText;
+							combobox.ForeColor   = SystemColors.Window;
 							combobox.Items.Add("True");
 							combobox.Items.Add("False");
 							combobox.Name        = "FixedBox";
@@ -416,6 +424,65 @@ namespace CommandGenerator
 			Owner.CommandObj = obj.Clone();
 		}
 
+		public void addCommand()
+		{
+			addCommand(treeView.Nodes.Count);
+		}
+		public void addCommand(int insertPos)
+		{
+			string commandName = new FormInputTextBox("コマンド名を入力して下さい。",
+													  "コマンド名の入力",
+													  "Command"
+													  ).GetInputText();
+			if (commandName != "")
+			{
+				try
+				{
+					if (treeView.Nodes.Find(commandName, false).Length != 0) { throw new Exception(); }
+
+					CommandJsonStorage.Parameter parameter = new CommandJsonStorage.Parameter();
+					parameter.Name = "DefaultParameter";
+					parameter.Offset = 0;
+					parameter.Size = 1;
+					parameter.Type = "HEX";
+					parameter.Value = "0x00";
+					parameter.Fixed = false;
+
+					CommandJsonStorage.Detail detail = new CommandJsonStorage.Detail();
+					detail.Name = "DefaultDetail";
+					detail.Offset = 0;
+					detail.Size = 1;
+
+					CommandJsonStorage.Item item = new CommandJsonStorage.Item();
+					item.Name = commandName;
+					item.Length = 1;
+
+					detail.Parameter.Add(parameter);
+					item.Detail.Add(detail);
+					//Todo
+
+					update();
+				}
+				catch
+				{
+					MessageBox.Show("名前が重複しています。\nコマンド作成を中断します。",
+									"エラー",
+									MessageBoxButtons.OK,
+									MessageBoxIcon.Error);
+				}
+			}
+		}
+
+		public void addDetail(int insertPos)
+		{
+
+		}
+
+		public void addParameter(int insertPos)
+		{
+
+		}
+
 		#region TreeView
 		private void treeView_AfterSelect(object sender, TreeViewEventArgs e)
 		{
@@ -429,22 +496,49 @@ namespace CommandGenerator
 		}
 		#endregion
 
+		#region Button
+		private void button_Click(object sender, EventArgs e)
+		{
+			addCommand();
+		}
+		#endregion
+
 		#region ContextMenuStrip
 		private void addToolStripMenuItem_Click(object sender, EventArgs e)
 		{
+			int level         = treeView.SelectedNode.Level;
+			int index         = treeView.SelectedNode.Index;
+			TreeNode parent   = treeView.SelectedNode.Parent;
 
+			switch (level)
+			{
+				case 0:
+					addCommand(index);
+					break;
+				case 1:
+					break;
+				case 2:
+					break;
+				default:
+					break;
+			}
 		}
 
 		private void removeToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			if(treeView.SelectedNode != null)
+			TreeNode selected = treeView.SelectedNode;
+			int level         = treeView.SelectedNode.Level;
+			TreeNode parent   = treeView.SelectedNode.Parent;
+
+			if ((level > 0)&&(parent.Nodes.Count <= 1))
 			{
-				treeView.Nodes.Remove(treeView.SelectedNode);
+				MessageBox.Show("これ以上削除できません。",
+								"エラー",
+								MessageBoxButtons.OK,
+								MessageBoxIcon.Error);
+				return;
 			}
-			else
-			{
-				treeView.Nodes.Clear();
-			}
+			treeView.Nodes.Remove(selected);
 		}
 		#endregion
 

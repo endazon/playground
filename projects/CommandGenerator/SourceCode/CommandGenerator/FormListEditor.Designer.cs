@@ -30,20 +30,21 @@
 		{
 			this.components = new System.ComponentModel.Container();
 			this.splitContainer = new System.Windows.Forms.SplitContainer();
+			this.button = new System.Windows.Forms.Button();
 			this.treeView = new System.Windows.Forms.TreeView();
+			this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
+			this.addToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.removeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.textBoxVersion = new System.Windows.Forms.TextBox();
 			this.textBoxName = new System.Windows.Forms.TextBox();
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.panel2 = new System.Windows.Forms.Panel();
-			this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.addToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.removeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			((System.ComponentModel.ISupportInitialize)(this.splitContainer)).BeginInit();
 			this.splitContainer.Panel1.SuspendLayout();
 			this.splitContainer.SuspendLayout();
+			this.contextMenuStrip.SuspendLayout();
 			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
-			this.contextMenuStrip.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// splitContainer
@@ -58,6 +59,7 @@
 			// splitContainer.Panel1
 			// 
 			this.splitContainer.Panel1.BackColor = System.Drawing.SystemColors.ControlDarkDark;
+			this.splitContainer.Panel1.Controls.Add(this.button);
 			this.splitContainer.Panel1.Controls.Add(this.treeView);
 			// 
 			// splitContainer.Panel2
@@ -68,26 +70,62 @@
 			this.splitContainer.SplitterDistance = 210;
 			this.splitContainer.TabIndex = 3;
 			// 
+			// button
+			// 
+			this.button.Dock = System.Windows.Forms.DockStyle.Bottom;
+			this.button.ForeColor = System.Drawing.SystemColors.InfoText;
+			this.button.Location = new System.Drawing.Point(0, 371);
+			this.button.Name = "button";
+			this.button.Size = new System.Drawing.Size(206, 23);
+			this.button.TabIndex = 3;
+			this.button.Text = "Create";
+			this.button.UseVisualStyleBackColor = true;
+			this.button.Click += new System.EventHandler(this.button_Click);
+			// 
 			// treeView
 			// 
+			this.treeView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
 			this.treeView.BackColor = System.Drawing.SystemColors.WindowText;
 			this.treeView.ContextMenuStrip = this.contextMenuStrip;
-			this.treeView.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.treeView.Font = new System.Drawing.Font("MS UI Gothic", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(128)));
 			this.treeView.ForeColor = System.Drawing.SystemColors.Window;
 			this.treeView.LabelEdit = true;
 			this.treeView.Location = new System.Drawing.Point(0, 0);
 			this.treeView.Name = "treeView";
-			this.treeView.Size = new System.Drawing.Size(206, 394);
+			this.treeView.Size = new System.Drawing.Size(206, 370);
 			this.treeView.TabIndex = 2;
 			this.treeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeView_AfterSelect);
+			// 
+			// contextMenuStrip
+			// 
+			this.contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.addToolStripMenuItem,
+            this.removeToolStripMenuItem});
+			this.contextMenuStrip.Name = "contextMenuStrip";
+			this.contextMenuStrip.Size = new System.Drawing.Size(117, 48);
+			// 
+			// addToolStripMenuItem
+			// 
+			this.addToolStripMenuItem.Name = "addToolStripMenuItem";
+			this.addToolStripMenuItem.Size = new System.Drawing.Size(116, 22);
+			this.addToolStripMenuItem.Text = "Add";
+			this.addToolStripMenuItem.Click += new System.EventHandler(this.addToolStripMenuItem_Click);
+			// 
+			// removeToolStripMenuItem
+			// 
+			this.removeToolStripMenuItem.Name = "removeToolStripMenuItem";
+			this.removeToolStripMenuItem.Size = new System.Drawing.Size(116, 22);
+			this.removeToolStripMenuItem.Text = "Remove";
+			this.removeToolStripMenuItem.Click += new System.EventHandler(this.removeToolStripMenuItem_Click);
 			// 
 			// textBoxVersion
 			// 
 			this.textBoxVersion.BackColor = System.Drawing.SystemColors.WindowText;
 			this.textBoxVersion.Dock = System.Windows.Forms.DockStyle.Top;
 			this.textBoxVersion.Font = new System.Drawing.Font("MS UI Gothic", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(128)));
-			this.textBoxVersion.ForeColor = System.Drawing.SystemColors.GrayText;
+			this.textBoxVersion.ForeColor = System.Drawing.SystemColors.Window;
 			this.textBoxVersion.Location = new System.Drawing.Point(0, 29);
 			this.textBoxVersion.Name = "textBoxVersion";
 			this.textBoxVersion.Size = new System.Drawing.Size(630, 29);
@@ -98,7 +136,7 @@
 			this.textBoxName.BackColor = System.Drawing.SystemColors.WindowText;
 			this.textBoxName.Dock = System.Windows.Forms.DockStyle.Top;
 			this.textBoxName.Font = new System.Drawing.Font("MS UI Gothic", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(128)));
-			this.textBoxName.ForeColor = System.Drawing.SystemColors.GrayText;
+			this.textBoxName.ForeColor = System.Drawing.SystemColors.Window;
 			this.textBoxName.Location = new System.Drawing.Point(0, 0);
 			this.textBoxName.Name = "textBoxName";
 			this.textBoxName.Size = new System.Drawing.Size(630, 29);
@@ -124,28 +162,6 @@
 			this.panel2.Size = new System.Drawing.Size(634, 398);
 			this.panel2.TabIndex = 0;
 			// 
-			// contextMenuStrip
-			// 
-			this.contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.addToolStripMenuItem,
-            this.removeToolStripMenuItem});
-			this.contextMenuStrip.Name = "contextMenuStrip";
-			this.contextMenuStrip.Size = new System.Drawing.Size(117, 48);
-			// 
-			// addToolStripMenuItem
-			// 
-			this.addToolStripMenuItem.Name = "addToolStripMenuItem";
-			this.addToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-			this.addToolStripMenuItem.Text = "Add";
-			this.addToolStripMenuItem.Click += new System.EventHandler(this.addToolStripMenuItem_Click);
-			// 
-			// removeToolStripMenuItem
-			// 
-			this.removeToolStripMenuItem.Name = "removeToolStripMenuItem";
-			this.removeToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-			this.removeToolStripMenuItem.Text = "Remove";
-			this.removeToolStripMenuItem.Click += new System.EventHandler(this.removeToolStripMenuItem_Click);
-			// 
 			// FormListEditor
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -163,10 +179,10 @@
 			this.splitContainer.Panel1.ResumeLayout(false);
 			((System.ComponentModel.ISupportInitialize)(this.splitContainer)).EndInit();
 			this.splitContainer.ResumeLayout(false);
+			this.contextMenuStrip.ResumeLayout(false);
 			this.panel1.ResumeLayout(false);
 			this.panel1.PerformLayout();
 			this.panel2.ResumeLayout(false);
-			this.contextMenuStrip.ResumeLayout(false);
 			this.ResumeLayout(false);
 
 		}
@@ -182,5 +198,6 @@
 		private System.Windows.Forms.ContextMenuStrip contextMenuStrip;
 		private System.Windows.Forms.ToolStripMenuItem addToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem removeToolStripMenuItem;
+		private System.Windows.Forms.Button button;
 	}
 }

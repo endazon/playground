@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{98A1A2EF-8258-4484-84EB-2901568125C3}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>CommandCreator</RootNamespace>
-    <AssemblyName>CommandCreator</AssemblyName>
+    <RootNamespace>CommandGenerator</RootNamespace>
+    <AssemblyName>CommandGenerator</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -53,11 +53,11 @@
     <Compile Include="Class\Storage\CommandCsvStorage.cs" />
     <Compile Include="Class\Storage\CommandJsonStorage.cs" />
     <Compile Include="Class\Storage\InputScreenStorage.cs" />
-    <Compile Include="FormInputBox.cs">
+    <Compile Include="FormInputTextBox.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FormInputBox.Designer.cs">
-      <DependentUpon>FormInputBox.cs</DependentUpon>
+    <Compile Include="FormInputTextBox.Designer.cs">
+      <DependentUpon>FormInputTextBox.cs</DependentUpon>
     </Compile>
     <Compile Include="FormList.cs">
       <SubType>Form</SubType>
@@ -79,8 +79,9 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <EmbeddedResource Include="FormInputBox.resx">
-      <DependentUpon>FormInputBox.cs</DependentUpon>
+    <Compile Include="Settings.cs" />
+    <EmbeddedResource Include="FormInputTextBox.resx">
+      <DependentUpon>FormInputTextBox.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="FormList.resx">
       <DependentUpon>FormList.cs</DependentUpon>
@@ -99,10 +100,11 @@
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
     </Compile>
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
-      <Generator>SettingsSingleFileGenerator</Generator>
+      <Generator>PublicSettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
     <Compile Include="Properties\Settings.Designer.cs">

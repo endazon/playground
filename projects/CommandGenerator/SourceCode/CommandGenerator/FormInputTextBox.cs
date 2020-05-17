@@ -11,35 +11,35 @@ using System.Windows.Forms;
 
 namespace CommandGenerator
 {
-	public partial class FormInputBox : Form
+	public partial class FormInputTextBox : Form
 	{
 		private string _GetInputText { get; set; } = "";
-		public FormInputBox()
+		public FormInputTextBox()
 		{
 			InitializeComponent();
 			_GetInputText = "";
 		}
-		public FormInputBox(string display)
+		public FormInputTextBox(string display)
 			: this()
 		{
 			label.Text   = display;
 		}
-		public FormInputBox(string display, string title)
+		public FormInputTextBox(string display, string title)
 			: this(display)
 		{
 			Text         = title;
 		}
-		public FormInputBox(string display, string title, string _default)
+		public FormInputTextBox(string display, string title, string _default)
 			: this(display, title)
 		{
 			textBox.Text = _default;
 		}
-		public FormInputBox(string display, string title, string _default, Point point)
+		public FormInputTextBox(string display, string title, string _default, Point point)
 			:this(display, title, _default)
 		{
 			Location     = point;
 		}
-		public FormInputBox(string display, string title, string _default, int x, int y)
+		public FormInputTextBox(string display, string title, string _default, int x, int y)
 			: this(display, title, _default)
 		{
 			Location     = new Point(x, y);

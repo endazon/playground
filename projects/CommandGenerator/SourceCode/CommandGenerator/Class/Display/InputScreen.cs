@@ -67,7 +67,7 @@ namespace CommandGenerator.Class.Display
 			textbox.BackColor   = SystemColors.WindowText;
 			textbox.BorderStyle = BorderStyle.FixedSingle;
 			textbox.Font        = font;
-			textbox.ForeColor   = SystemColors.GrayText;
+			textbox.ForeColor   = SystemColors.Window;
 			textbox.MaxLength   = 2 + (2 * item.Size);
 			textbox.Name        = item.Value;
 			textbox.Text        = item.Value;
@@ -113,7 +113,7 @@ namespace CommandGenerator.Class.Display
 			numericupdown.BackColor     = SystemColors.WindowText;
 			numericupdown.BorderStyle   = BorderStyle.FixedSingle;
 			numericupdown.Font          = font;
-			numericupdown.ForeColor     = SystemColors.GrayText;
+			numericupdown.ForeColor     = SystemColors.Window;
 			numericupdown.Minimum       = 0;
 			numericupdown.Maximum       = (int)Math.Pow(2, (8 * item.Size)) - 1;
 			numericupdown.Name          = item.Value;

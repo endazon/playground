@@ -39,7 +39,8 @@
 			this.saveAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
 			this.endToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.listToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.setingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.commandListToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.editFileOpenToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.CommandListBox = new System.Windows.Forms.ListBox();
 			this.openFileDialogJson = new System.Windows.Forms.OpenFileDialog();
@@ -52,7 +53,7 @@
 			this.MenuStripMain.BackColor = System.Drawing.SystemColors.ControlDark;
 			this.MenuStripMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem,
-            this.listToolStripMenuItem,
+            this.setingToolStripMenuItem,
             this.editFileOpenToolStripMenuItem});
 			this.MenuStripMain.Location = new System.Drawing.Point(0, 0);
 			this.MenuStripMain.Name = "MenuStripMain";
@@ -133,12 +134,20 @@
 			this.endToolStripMenuItem.Text = "End";
 			this.endToolStripMenuItem.Click += new System.EventHandler(this.endToolStripMenuItem_Click);
 			// 
-			// listToolStripMenuItem
+			// setingToolStripMenuItem
 			// 
-			this.listToolStripMenuItem.Name = "listToolStripMenuItem";
-			this.listToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
-			this.listToolStripMenuItem.Text = "List";
-			this.listToolStripMenuItem.Click += new System.EventHandler(this.listToolStripMenuItem_Click);
+			this.setingToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.commandListToolStripMenuItem});
+			this.setingToolStripMenuItem.Name = "setingToolStripMenuItem";
+			this.setingToolStripMenuItem.Size = new System.Drawing.Size(52, 20);
+			this.setingToolStripMenuItem.Text = "Seting";
+			// 
+			// commandListToolStripMenuItem
+			// 
+			this.commandListToolStripMenuItem.Name = "commandListToolStripMenuItem";
+			this.commandListToolStripMenuItem.Size = new System.Drawing.Size(146, 22);
+			this.commandListToolStripMenuItem.Text = "CommandList";
+			this.commandListToolStripMenuItem.Click += new System.EventHandler(this.commandListToolStripMenuItem_Click);
 			// 
 			// editFileOpenToolStripMenuItem
 			// 
@@ -188,6 +197,8 @@
 			this.MinimumSize = new System.Drawing.Size(300, 200);
 			this.Name = "FormList";
 			this.Text = "CommandList";
+			this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.FormList_FormClosed);
+			this.Load += new System.EventHandler(this.FormList_Load);
 			this.LocationChanged += new System.EventHandler(this.FormList_LocationChanged);
 			this.SizeChanged += new System.EventHandler(this.FormList_SizeChanged);
 			this.MenuStripMain.ResumeLayout(false);
@@ -214,6 +225,7 @@
 		private System.Windows.Forms.ToolStripMenuItem editFileOpenToolStripMenuItem;
 		private System.Windows.Forms.OpenFileDialog openFileDialogJson;
 		private System.Windows.Forms.SaveFileDialog saveFileDialogJson;
-		private System.Windows.Forms.ToolStripMenuItem listToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem setingToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem commandListToolStripMenuItem;
 	}
 }

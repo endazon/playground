@@ -1,6 +1,6 @@
 ﻿namespace CommandGenerator
 {
-	partial class FormInputBox
+	partial class FormInputTextBox
 	{
 		/// <summary>
 		/// Required designer variable.
@@ -51,7 +51,7 @@
 			this.textBox.BackColor = System.Drawing.SystemColors.MenuText;
 			this.textBox.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.textBox.Font = new System.Drawing.Font("MS UI Gothic", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(128)));
-			this.textBox.ForeColor = System.Drawing.SystemColors.GrayText;
+			this.textBox.ForeColor = System.Drawing.SystemColors.Window;
 			this.textBox.Location = new System.Drawing.Point(0, 22);
 			this.textBox.Name = "textBox";
 			this.textBox.Size = new System.Drawing.Size(444, 29);
@@ -59,7 +59,8 @@
 			// 
 			// buttonCancel
 			// 
-			this.buttonCancel.Dock = System.Windows.Forms.DockStyle.Bottom;
+			this.buttonCancel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
 			this.buttonCancel.Location = new System.Drawing.Point(0, 73);
 			this.buttonCancel.Name = "buttonCancel";
 			this.buttonCancel.Size = new System.Drawing.Size(444, 23);
@@ -70,7 +71,8 @@
 			// 
 			// buttonOK
 			// 
-			this.buttonOK.Dock = System.Windows.Forms.DockStyle.Bottom;
+			this.buttonOK.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
 			this.buttonOK.Location = new System.Drawing.Point(0, 50);
 			this.buttonOK.Name = "buttonOK";
 			this.buttonOK.Size = new System.Drawing.Size(444, 23);
@@ -79,7 +81,7 @@
 			this.buttonOK.UseVisualStyleBackColor = true;
 			this.buttonOK.Click += new System.EventHandler(this.buttonOK_Click);
 			// 
-			// FormInputBox
+			// FormInputTextBox
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -90,8 +92,8 @@
 			this.Controls.Add(this.textBox);
 			this.Controls.Add(this.label);
 			this.MinimumSize = new System.Drawing.Size(460, 135);
-			this.Name = "FormInputBox";
-			this.Text = "FormInput";
+			this.Name = "FormInputTextBox";
+			this.Text = "InputTextBox";
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
