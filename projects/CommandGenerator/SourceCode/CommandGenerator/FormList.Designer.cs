@@ -43,8 +43,6 @@
 			this.commandListToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.editFileOpenToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.CommandListBox = new System.Windows.Forms.ListBox();
-			this.openFileDialogJson = new System.Windows.Forms.OpenFileDialog();
-			this.saveFileDialogJson = new System.Windows.Forms.SaveFileDialog();
 			this.MenuStripMain.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -171,20 +169,7 @@
 			this.CommandListBox.Size = new System.Drawing.Size(284, 387);
 			this.CommandListBox.TabIndex = 2;
 			this.CommandListBox.DoubleClick += new System.EventHandler(this.CommandListBox_DoubleClick);
-			// 
-			// openFileDialogJson
-			// 
-			this.openFileDialogJson.FileName = "default.json";
-			this.openFileDialogJson.Filter = "JSONファイル(*.json)|*.json";
-			this.openFileDialogJson.RestoreDirectory = true;
-			this.openFileDialogJson.Title = "開くコマンドファイルを選択してください";
-			// 
-			// saveFileDialogJson
-			// 
-			this.saveFileDialogJson.FileName = "default.json";
-			this.saveFileDialogJson.Filter = "JSONファイル(*.json)|*.json";
-			this.saveFileDialogJson.RestoreDirectory = true;
-			this.saveFileDialogJson.Title = "保存先を指定してください";
+			this.CommandListBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.CommandListBox_KeyDown);
 			// 
 			// FormList
 			// 
@@ -223,8 +208,6 @@
 		private System.Windows.Forms.ToolStripMenuItem endToolStripMenuItem;
 		private System.Windows.Forms.ListBox CommandListBox;
 		private System.Windows.Forms.ToolStripMenuItem editFileOpenToolStripMenuItem;
-		private System.Windows.Forms.OpenFileDialog openFileDialogJson;
-		private System.Windows.Forms.SaveFileDialog saveFileDialogJson;
 		private System.Windows.Forms.ToolStripMenuItem setingToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem commandListToolStripMenuItem;
 	}

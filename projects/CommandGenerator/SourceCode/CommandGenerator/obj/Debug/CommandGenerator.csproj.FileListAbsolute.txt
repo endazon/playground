@@ -25,7 +25,6 @@ C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\CommandGenerato
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\CommandGenerator\obj\Debug\CommandGenerator.csprojAssemblyReference.cache
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\Newtonsoft.Json.dll
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\Newtonsoft.Json.xml
-C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.csprojAssemblyReference.cache
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormList.resources
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormEdit.resources
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.csproj.GenerateResource.cache

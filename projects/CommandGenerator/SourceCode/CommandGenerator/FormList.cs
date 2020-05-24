@@ -7,23 +7,22 @@ using Newtonsoft.Json;
 using CommandGenerator.Class.Storage;
 using System.Drawing;
 using CommandGenerator.Properties;
+using CommandGenerator.Class.FileOperation;
 
 namespace CommandGenerator
 {
 	public partial class FormList : Form
 	{
-		private Settings settings { get; set; } = new Settings();
 		internal CommandJsonStorage.CommandJsonObject CommandObj { get; set; } = new CommandJsonStorage.CommandJsonObject();
-
 		private FormEdit FormEdit { get; set; }
 		private FormListEditor FormListEditor { get; set; }
 
 		public FormList()
 		{
 			InitializeComponent();
+
 			FormEdit       = new FormEdit(this);
 			FormListEditor = new FormListEditor(this);
-			settings       = Settings.Default;
 		}
 
 		private void FormListShow()
@@ -32,134 +31,90 @@ namespace CommandGenerator
 			FormEdit.Show();
 		}
 
-		private void clear()
+		private void Clear()
 		{
 			editFileOpenToolStripMenuItem.Enabled = false;
-			CommandObj = new CommandJsonStorage.CommandJsonObject();
-			CommandListBox.Items.Clear();
-			FormEdit.clear();
+			FormEdit.Clear();
 			FormEdit.Hide();
+			CommandListBox.Items.Clear();
 		}
 
-		private bool selectJsonFile()
+		private void Init()
 		{
-			bool result = false;
-			try
-			{
-				//ダイアログを表示する
-				if (openFileDialogJson.ShowDialog() == DialogResult.OK)
-				{
-					//ファイル名取得(パス込み)
-					settings.JsonFilePath = openFileDialogJson.FileName;
-					result = true;
-				}
-				//Console.WriteLine(fileName);
-			}
-			catch
-			{
-				clear();
-			}
-
-			return result;
+			Clear();
+			CommandObj = new CommandJsonStorage.CommandJsonObject();
+			Settings.Default.JsonFilePath = "";
 		}
 
-		private void readJsonFile()
+		private void DisplayUpdate()
 		{
-			try
+			// 設定を初期化
+			Clear();
+
+			foreach (var item in CommandObj.Items)
 			{
-				//ファイルを UTF-8 で開く
-				using (var sr = new StreamReader(@settings.JsonFilePath, Encoding.UTF8))
-				{
-					// 変数 jsonText にファイルの内容を代入 
-					var jsonText = sr.ReadToEnd();
+				string displayName = item.Name;
+				// リストボックスにアイテム追加 
+				//for (int i = 0; i < 100; i++)
+				CommandListBox.Items.Add(displayName);
 
-					// インスタンス CommandtStorage にデシリアライズ
-					CommandObj = JsonConvert.DeserializeObject<CommandJsonStorage.CommandJsonObject>(jsonText);
+				// リストボックスの一番上を選択
+				CommandListBox.SetSelected(0, true);
 
-					// コマンド編集画面初期化
-					CommandListBox.Items.Clear();
-					foreach (var item in CommandObj.Items)
-					{
-						string displayName = item.Name;
-						// リストボックスにアイテム追加 
-						//for (int i = 0; i < 100; i++)
-						CommandListBox.Items.Add(displayName);
-
-						// リストボックスの一番上を選択
-						CommandListBox.SetSelected(0, true);
-
-						FormListShow();
-						editFileOpenToolStripMenuItem.Enabled = true;
-					}
-				}
-				//Console.WriteLine(JsonConvert.SerializeObject(obj));
-			}
-			catch
-			{
-				clear();
-			}
-		}
-
-		private void writeJsonFile()
-		{
-			try
-			{
-				// 出力用のファイルを開く
-				using (var sw = new StreamWriter(@settings.JsonFilePath, false, Encoding.UTF8))
-				{
-					// 変数 jsonText に CommandObj にシリアライズした内容を代入 
-					var jsonText = JsonConvert.SerializeObject(CommandObj);
-
-					// 変数 jsonText の内容をファイルに書き込む
-					sw.Write(jsonText);
-					sw.Flush();
-				}
-			}
-			catch (Exception e)
-			{
-				// ファイルを開くのに失敗したときエラーメッセージを表示
-				Console.WriteLine(e.Message);
-				return;
+				FormListShow();
+				editFileOpenToolStripMenuItem.Enabled = true;
 			}
 		}
 
 		#region Menu
 		private void newToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			clear();
+			Init();
 			FormListEditor.ShowDialog();
 		}
 
 		private void openToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			if (selectJsonFile())
+			var JsonFile = new JsonFile<CommandJsonStorage.CommandJsonObject>(Settings.Default.JsonFilePath);
+			if (JsonFile.Open())
 			{
-				clear();
-				readJsonFile();
+				Settings.Default.JsonFilePath = JsonFile.FileName;
+				CommandObj                    = JsonFile.Object;
+				Clear();
+				DisplayUpdate();
 			}
 		}
 
 		private void closeToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			clear();
+			Init();
 		}
 
 		private void saveToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			writeJsonFile();
+			var JsonFile = new JsonFile<CommandJsonStorage.CommandJsonObject>(Settings.Default.JsonFilePath, CommandObj);
+			if (JsonFile.FileName != "")
+			{
+				JsonFile.Write();
+			}
+			else
+			{
+				JsonFile.Save();
+			}
+			Settings.Default.JsonFilePath = JsonFile.FileName;
 		}
 
 		private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			if (selectJsonFile())
+			var JsonFile = new JsonFile<CommandJsonStorage.CommandJsonObject>(Settings.Default.JsonFilePath, CommandObj);
+			if (JsonFile.Save())
 			{
-				writeJsonFile();
+				Settings.Default.JsonFilePath = JsonFile.FileName;
 			}
 		}
 
 		private void endToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			clear();
 			Close();
 		}
 
@@ -175,7 +130,7 @@ namespace CommandGenerator
 		#endregion
 
 		#region ListBox
-		private void CommandListBox_DoubleClick(object sender, EventArgs e)
+		private void CommandListBox_Select(object sender, EventArgs e)
 		{
 			int index = ((ListBox)sender).SelectedIndex;
 
@@ -185,19 +140,35 @@ namespace CommandGenerator
 
 			FormEdit.add(item);
 		}
+		private void CommandListBox_DoubleClick(object sender, EventArgs e)
+		{
+			CommandListBox_Select(sender, e);
+		}
+		private void CommandListBox_KeyDown(object sender, KeyEventArgs e)
+		{
+			if (e.KeyCode == Keys.Enter)
+			{
+				CommandListBox_Select(sender, e);
+			}
+		}
 		#endregion
 
 		#region Window
 		private void FormList_Load(object sender, EventArgs e)
 		{
-			readJsonFile();
-		}
+			var JsonFile = new JsonFile<CommandJsonStorage.CommandJsonObject>(Settings.Default.JsonFilePath);
+			JsonFile.Read();
+			if (JsonFile.Object != null) {
+				CommandObj = JsonFile.Object;
+			}
 
+			DisplayUpdate();
+		}
 		private void FormList_FormClosed(object sender, FormClosedEventArgs e)
 		{
-			settings.Save();
+			Clear();
+			Settings.Default.Save();
 		}
-
 		private void FormList_LocationChanged(object sender, EventArgs e)
 		{
 			Form obj = (Form)sender;
@@ -209,30 +180,9 @@ namespace CommandGenerator
 			FormEdit.LocationUpdate(obj.Location.X + obj.Size.Width, obj.Location.Y);
 			FormEdit.SizeUpdate(-1, obj.Size.Height);
 		}
-
 		public void FormListEditor_FormClosed(object sender, FormClosedEventArgs e)
 		{
-			CommandListBox.Items.Clear();
-			FormEdit.clear();
-			FormEdit.Hide();
-
-			if (CommandObj != null)
-			{
-				CommandListBox.Items.Clear();
-				foreach (var item in CommandObj.Items)
-				{
-					string displayName = item.Name;
-					// リストボックスにアイテム追加 
-					//for (int i = 0; i < 100; i++)
-					CommandListBox.Items.Add(displayName);
-
-					// リストボックスの一番上を選択
-					CommandListBox.SetSelected(0, true);
-
-					FormListShow();
-					editFileOpenToolStripMenuItem.Enabled = true;
-				}
-			}
+			DisplayUpdate();
 		}
 		#endregion
 	}

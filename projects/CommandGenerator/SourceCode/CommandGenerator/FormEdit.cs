@@ -69,7 +69,7 @@ namespace CommandGenerator
 			Size = new Size(buff_width, buff_height);
 		}
 
-		public void clear()
+		public void Clear()
 		{
 			CommandList.Name = "";
 			CommandList.Version = "";
@@ -77,7 +77,7 @@ namespace CommandGenerator
 			CommandItems.Clear();
 			FileName = "";
 			CommandListBox.Items.Clear();
-			ScreenObj.clear();
+			ScreenObj.Clear();
 		}
 
 		public void add(object obj)
@@ -105,7 +105,7 @@ namespace CommandGenerator
 			#region 前処理
 			try
 			{
-				ScreenObj.save(CommandItems[CommandListBox.SelectedIndex].Detail);
+				ScreenObj.Save(CommandItems[CommandListBox.SelectedIndex].Detail);
 
 				foreach (var item in CommandItems)
 				{
@@ -166,7 +166,7 @@ namespace CommandGenerator
 			catch (Exception e)
 			{
 				// ファイルを開くのに失敗したときエラーメッセージを表示
-				Console.WriteLine(e.Message);
+				//Console.WriteLine(e.Message);
 				return;
 			}
 			#endregion
@@ -181,7 +181,7 @@ namespace CommandGenerator
 		#region Menu
 		private void newToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			clear();
+			Clear();
 		}
 
 		private void saveToolStripMenuItem_Click(object sender, EventArgs e)
@@ -205,7 +205,7 @@ namespace CommandGenerator
 
 			CommandItems.RemoveAt(index);
 			CommandListBox.Items.RemoveAt(index);
-			ScreenObj.clear();
+			ScreenObj.Clear();
 		}
 
 		private List<CommandJsonStorage.Detail> z1Items = null;
@@ -217,8 +217,8 @@ namespace CommandGenerator
 
 			List<CommandJsonStorage.Detail> items = CommandItems[index].Detail;
 
-			ScreenObj.save(z1Items);
-			ScreenObj.update(items);
+			ScreenObj.Save(z1Items);
+			ScreenObj.Update(items);
 
 			z1Items = items;
 		}
