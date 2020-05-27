@@ -119,8 +119,7 @@
 			// 
 			this.buttonGenerates.BackColor = System.Drawing.SystemColors.Control;
 			this.buttonGenerates.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.buttonGenerates.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-			this.buttonGenerates.ForeColor = System.Drawing.SystemColors.WindowText;
+			this.buttonGenerates.ForeColor = System.Drawing.SystemColors.ControlText;
 			this.buttonGenerates.Location = new System.Drawing.Point(0, 360);
 			this.buttonGenerates.Name = "buttonGenerates";
 			this.buttonGenerates.Size = new System.Drawing.Size(211, 23);

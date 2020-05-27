@@ -72,14 +72,15 @@
 			// 
 			// button
 			// 
+			this.button.BackColor = System.Drawing.SystemColors.Control;
 			this.button.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.button.ForeColor = System.Drawing.SystemColors.InfoText;
+			this.button.ForeColor = System.Drawing.SystemColors.ControlText;
 			this.button.Location = new System.Drawing.Point(0, 371);
 			this.button.Name = "button";
 			this.button.Size = new System.Drawing.Size(206, 23);
 			this.button.TabIndex = 3;
 			this.button.Text = "Create";
-			this.button.UseVisualStyleBackColor = true;
+			this.button.UseVisualStyleBackColor = false;
 			this.button.Click += new System.EventHandler(this.button_Click);
 			// 
 			// treeView

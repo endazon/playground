@@ -17,7 +17,6 @@ namespace CommandGenerator
 		public FormInputTextBox()
 		{
 			InitializeComponent();
-			_GetInputText = "";
 		}
 		public FormInputTextBox(string display)
 			: this()

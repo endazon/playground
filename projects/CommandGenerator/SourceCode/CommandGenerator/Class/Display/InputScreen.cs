@@ -36,22 +36,6 @@ namespace CommandGenerator.Class.Display
 				}
 			}
 		}
-		private Type ConvertParameterType2InputType(string target)
-		{
-			Type result = null;
-			switch (target)
-			{
-				case "DEC":
-					result = new NumericUpDown().GetType();
-					break;
-				case "HEX":
-				default:
-					result = new TextBox().GetType();
-					break;
-			}
-
-			return result;
-		}
 
 		private List<InputScreenStorage.Input> ConvertDetail2InputList(CommandJsonStorage.Detail target)
 		{
@@ -65,7 +49,7 @@ namespace CommandGenerator.Class.Display
 					parameter.Name,
 					new Font("MS UI Gothic", 16F, FontStyle.Regular, GraphicsUnit.Point, 128),
 					new Point(X, Y),
-					ConvertParameterType2InputType(parameter.Type),
+					parameter.Type,
 					parameter.Size,
 					parameter.Value
 					);

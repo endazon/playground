@@ -24,10 +24,11 @@ namespace CommandGenerator.Class.Storage
 			{
 				Label = CreateLabel(text, font, point);
 			}
-			public Input(string text, Font font, Point point, Type type, int size, string value)
+			public Input(string text, Font font, Point point, string type, int size, string value)
 				: this(text, font, point)
 			{
 				InputBox = CreateInputBox(type)(text, size, value, font, point);
+				InputBox.Tag = type;
 			}
 			#endregion
 
@@ -41,24 +42,36 @@ namespace CommandGenerator.Class.Storage
 				label.Text = " ";
 				return new Size(label.PreferredWidth - 5, label.PreferredHeight);
 			}
-			private Func<string, int, string, Font, Point, Control> CreateInputBox(Type type)
+			private Func<string, int, string, Font, Point, Control> CreateInputBox(string type)
 			{
 				Func<string, int, string, Font, Point, Control> result_func = null;
-				switch (type.Name)
+				switch (type)
 				{
-					case "ComboBox":
+					case "FILE_SELECT":
+						result_func = (string text, int size, string value, Font font, Point point) =>
+						{
+							return CreateFileSelectBox(text, size, value, font, point);
+						};
+						break;
+					case "SELECT":
 						result_func = (string text, int size, string value, Font font, Point point) =>
 						{
 							return CreateComboBox(text, size, value, font, point);
 						};
 						break;
-					case "NumericUpDown":
+					case "DEC":
 						result_func = (string text, int size, string value, Font font, Point point) =>
 						{
 							return CreateNumericUpDown(text, size, value, font, point);
 						};
 						break;
-					case "TextBox":
+					case "HEX":
+						result_func = (string text, int size, string value, Font font, Point point) =>
+						{
+							return CreateTextBox(text, size * 2, value, font, point);
+						};
+						break;
+					case "ASCII":
 						result_func = (string text, int size, string value, Font font, Point point) =>
 						{
 							return CreateTextBox(text, size, value, font, point);
@@ -94,7 +107,7 @@ namespace CommandGenerator.Class.Storage
 				textbox.BorderStyle = BorderStyle.FixedSingle;
 				textbox.Font        = font;
 				textbox.ForeColor   = SystemColors.Window;
-				textbox.MaxLength   = 2 + (2 * size);
+				textbox.MaxLength   = 2 + size;
 				textbox.Name        = text + textbox.GetType().Name;
 				textbox.Text        = value;
 				Label label         = CreateLabel(text, font, point);
@@ -139,35 +152,78 @@ namespace CommandGenerator.Class.Storage
 
 				return combobox;
 			}
+			private Panel CreateFileSelectBox(string text, int size, string value, Font font, Point point)
+			{
+				Panel fileselect     = new Panel();
+				fileselect.BackColor = SystemColors.ControlDarkDark;
+				fileselect.Name      = text + fileselect.GetType().Name;
+				Label label          = CreateLabel(text, font, point);
+				fileselect.Location  = new Point(point.X + label.PreferredWidth, point.Y);
+				fileselect.SuspendLayout();
+
+				TextBox file     = new TextBox();
+				file.AutoEllipsis = true;
+				file.BackColor   = SystemColors.WindowText;
+				file.BorderStyle = BorderStyle.FixedSingle;
+				file.Font        = font;
+				file.ForeColor   = SystemColors.Window;
+				file.MaxLength   = 20;
+				file.Name        = text + file.GetType().Name;
+				file.Text        = value;
+				file.Location    = new Point(0, 0);
+				file.Size        = new Size(GetOneCharacterSize(font).Width * file.MaxLength, label.PreferredHeight);
+
+				Button select    = new Button();
+				select.BackColor = SystemColors.Control;
+				select.FlatStyle = FlatStyle.Flat;
+				select.ForeColor = SystemColors.ControlText;
+				select.Name      = text + select.GetType().Name;
+				select.Text      = "...";
+				select.TextAlign = ContentAlignment.MiddleCenter;
+				select.Location  = new Point(file.Location.X + file.Size.Width, file.Location.Y);
+				select.Size      = new Size(GetOneCharacterSize(font).Width * select.Text.Length, label.PreferredHeight);
+				select.Click    += new EventHandler(button_Click);
+
+				fileselect.Size = new Size(file.Size.Width + select.Size.Width, label.PreferredHeight);
+				fileselect.Controls.Add(file);
+				fileselect.Controls.Add(select);
+				fileselect.ResumeLayout(false);
+				fileselect.PerformLayout();
+
+				return fileselect;
+			}
 			#endregion
 
 			#region Event
 			private void textBox_TextChanged(object sender, EventArgs e)
 			{
 				TextBox target = (TextBox)sender;
-				string text = (string)target.Text.Clone();
-				int length = text.Length;
+				if ((string)target.Tag == "HEX")
+				{
+					string text = (string)target.Text.Clone();
+					int length = text.Length;
 
-				if ((length < 2)
-					|| text.Substring(0, 1) != "0"
-					|| text.Substring(1, 1) != "x")
-				{
-					target.Text = "0x";
-					target.SelectionStart = target.TextLength;
-					System.Media.SystemSounds.Asterisk.Play();
-				}
-				else if (length == 2) { return; }
-				else
-				{
-					int char_pos = 2;
-					foreach (var c in text.Substring(char_pos, length - char_pos))
+					if ((length < 2)
+						|| text.Substring(0, 1) != "0"
+						|| text.Substring(1, 1) != "x")
 					{
-						if (!Uri.IsHexDigit(c))
+						target.Text = "0x";
+						target.SelectionStart = target.TextLength;
+						System.Media.SystemSounds.Asterisk.Play();
+					}
+					else if (length == 2) { return; }
+					else
+					{
+						int char_pos = 2;
+						foreach (var c in text.Substring(char_pos, length - char_pos))
 						{
-							target.Text = text.Remove(char_pos, 1);
-							System.Media.SystemSounds.Asterisk.Play();
+							if (!Uri.IsHexDigit(c))
+							{
+								target.Text = text.Remove(char_pos, 1);
+								System.Media.SystemSounds.Asterisk.Play();
+							}
+							char_pos++;
 						}
-						char_pos++;
 					}
 				}
 			}
@@ -180,6 +236,25 @@ namespace CommandGenerator.Class.Storage
 				if (maximum < value)
 				{
 					target.Value = maximum;
+				}
+			}
+			private void button_Click(object sender, EventArgs e)
+			{
+				Button target   = (Button)sender;
+				Panel panel     = (Panel)target.Parent.Controls.Owner;
+				Control[] array = new Control[2];
+				panel.Controls.CopyTo(array, 0);
+				TextBox textBox   = (TextBox)array[0];
+
+				if ((string)panel.Tag == "FILE_SELECT")
+				{
+					//ダイアログを表示する
+					var OpenDialog = new OpenFileDialog();
+					if (OpenDialog.ShowDialog() == DialogResult.OK)
+					{
+						//ファイル名取得(パス込み)
+						textBox.Text = OpenDialog.FileName;
+					}
 				}
 			}
 			#endregion
@@ -228,14 +303,14 @@ namespace CommandGenerator.Class.Storage
 			#region Helper
 			private GroupBox CreateGroupBox(string text, Size size, Font font, Point point)
 			{
-				GroupBox groupbox = new GroupBox();
+				GroupBox groupbox   = new GroupBox();
 				//groupbox.AutoSize = true;
-				groupbox.Font = font;
-				groupbox.ForeColor = SystemColors.HighlightText;
-				groupbox.Name = text + "GroupBox";
-				groupbox.Text = text;
-				groupbox.Location = point;
-				groupbox.Size = size;
+				groupbox.Font       = font;
+				groupbox.ForeColor  = SystemColors.HighlightText;
+				groupbox.Name       = text + groupbox.GetType().Name;
+				groupbox.Text       = text;
+				groupbox.Location   = point;
+				groupbox.Size       = size;
 
 				return groupbox;
 			}

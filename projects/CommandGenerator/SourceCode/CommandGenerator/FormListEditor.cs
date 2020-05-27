@@ -1,14 +1,8 @@
-﻿using CommandCreator;
-using CommandGenerator.Class.Storage;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
+﻿using System;
 using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using CommandGenerator.Class.Storage;
 
 namespace CommandGenerator
 {
@@ -19,33 +13,32 @@ namespace CommandGenerator
 		readonly int X        = 5;
 		readonly int Y        = 15;
 
-		private new FormList Owner { get; set; }
+		public object CommandObj { get; set; } = new CommandJsonStorage.CommandJsonObject();
 
 		public FormListEditor()
 		{
 			InitializeComponent();
 		}
-		public FormListEditor(FormList owner)
+		public FormListEditor(object obj)
 			: this()
 		{
-			Owner = owner;
+			CommandObj = (CommandJsonStorage.CommandJsonObject)obj;
 		}
 
 		private void DisplayUpdate()
 		{
-			DisplayUpdate(Owner.CommandObj);
+			DisplayUpdate((CommandJsonStorage.CommandJsonObject)CommandObj);
 		}
 
-		private void DisplayUpdate(object obj)
+		private void DisplayUpdate(CommandJsonStorage.CommandJsonObject obj)
 		{
 			if (obj.GetType().Name != "CommandJsonObject") { return; }
 
 			treeView.Nodes.Clear();
 
-			CommandJsonStorage.CommandJsonObject cmdObj = (CommandJsonStorage.CommandJsonObject)obj;
-			textBoxName.Text    = cmdObj.Name;
-			textBoxVersion.Text = cmdObj.Version;
-			foreach (var item in cmdObj.Items)
+			textBoxName.Text    = obj.Name;
+			textBoxVersion.Text = obj.Version;
+			foreach (var item in obj.Items)
 			{
 				InputScreenStorage.InputGroup objItem = new InputScreenStorage.InputGroup();
 				{
@@ -53,7 +46,7 @@ namespace CommandGenerator
 						"Name",
 						FONT,
 						new Point(X, Y),
-						new TextBox().GetType(),
+						"ASCII",
 						MAX_TEXT,
 						item.Name
 						);
@@ -64,7 +57,7 @@ namespace CommandGenerator
 						"Length",
 						FONT,
 						new Point(X, Y + (objItem.Input.Last().Label.Height + 10) * objItem.Input.Count),
-						new NumericUpDown().GetType(),
+						"DEC",
 						4,
 						item.Length.ToString()
 						);
@@ -86,7 +79,7 @@ namespace CommandGenerator
 						"Name",
 						FONT,
 						new Point(X, Y),
-						new TextBox().GetType(),
+						"ASCII",
 						MAX_TEXT,
 						detail.Name
 						);
@@ -97,7 +90,7 @@ namespace CommandGenerator
 						"Offset",
 						FONT,
 						new Point(X, Y + (objDetail.Input.Last().Label.Height + 10) * objDetail.Input.Count),
-						new NumericUpDown().GetType(),
+						"DEC",
 						4,
 						detail.Offset.ToString()
 						);
@@ -108,7 +101,7 @@ namespace CommandGenerator
 						"Size",
 						FONT,
 						new Point(X, Y + (objDetail.Input.Last().Label.Height + 10) * objDetail.Input.Count),
-						new NumericUpDown().GetType(),
+						"DEC",
 						4,
 						detail.Offset.ToString()
 						);
@@ -130,7 +123,7 @@ namespace CommandGenerator
 							"Name",
 							FONT,
 							new Point(X, Y),
-							new TextBox().GetType(),
+							"ASCII",
 							MAX_TEXT,
 							parameter.Name
 							);
@@ -141,7 +134,7 @@ namespace CommandGenerator
 							"Offset",
 							FONT,
 							new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-							new NumericUpDown().GetType(),
+							"DEC",
 							4,
 							parameter.Offset.ToString()
 							);
@@ -152,7 +145,7 @@ namespace CommandGenerator
 							"Size",
 							FONT,
 							new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-							new NumericUpDown().GetType(),
+							"DEC",
 							4,
 							parameter.Size.ToString()
 							);
@@ -163,10 +156,14 @@ namespace CommandGenerator
 							"Type",
 							FONT,
 							new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-							new TextBox().GetType(),
+							"SELECT",
 							4,
 							parameter.Type
 							);
+							((ComboBox)input.InputBox).Items.Add("HEX");
+							((ComboBox)input.InputBox).Items.Add("DEC");
+							((ComboBox)input.InputBox).Items.Add("ASCII");
+							((ComboBox)input.InputBox).Items.Add("FILE_SELECT");
 							objParameter.Input.Add(input);
 						}
 						{
@@ -174,7 +171,7 @@ namespace CommandGenerator
 							"Value",
 							FONT,
 							new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-							new TextBox().GetType(),
+							"ASCII",
 							4,
 							parameter.Value
 							);
@@ -185,13 +182,12 @@ namespace CommandGenerator
 							"Fixed",
 							FONT,
 							new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-							new ComboBox().GetType(),
+							"SELECT",
 							MAX_TEXT,
 							parameter.Fixed == true ? "True" : "False"
 							);
 							((ComboBox)input.InputBox).Items.Add("True");
 							((ComboBox)input.InputBox).Items.Add("False");
-
 							objParameter.Input.Add(input);
 						}
 						objParameter.LineUp();
@@ -244,7 +240,7 @@ namespace CommandGenerator
 				obj.Items.Add(items);
 			}
 
-			Owner.CommandObj = obj.Clone();
+			CommandObj = obj.Clone();
 		}
 
 		private void AddCommand()
@@ -291,7 +287,7 @@ namespace CommandGenerator
 					"Name",
 					FONT,
 					new Point(X, Y),
-					new TextBox().GetType(),
+					"ASCII",
 					MAX_TEXT,
 					item.Name
 					);
@@ -302,7 +298,7 @@ namespace CommandGenerator
 					"Length",
 					FONT,
 					new Point(X, Y + (objItem.Input.Last().Label.Height + 10) * objItem.Input.Count),
-					new NumericUpDown().GetType(),
+					"DEC",
 					4,
 					item.Length.ToString()
 					);
@@ -341,7 +337,7 @@ namespace CommandGenerator
 				"Name",
 				FONT,
 				new Point(X, Y),
-				new TextBox().GetType(),
+				"ASCII",
 				MAX_TEXT,
 				detail.Name
 				);
@@ -352,7 +348,7 @@ namespace CommandGenerator
 				"Offset",
 				FONT,
 				new Point(X, Y + (objDetail.Input.Last().Label.Height + 10) * objDetail.Input.Count),
-				new NumericUpDown().GetType(),
+				"DEC",
 				4,
 				detail.Offset.ToString()
 				);
@@ -363,7 +359,7 @@ namespace CommandGenerator
 				"Size",
 				FONT,
 				new Point(X, Y + (objDetail.Input.Last().Label.Height + 10) * objDetail.Input.Count),
-				new NumericUpDown().GetType(),
+				"DEC",
 				4,
 				detail.Offset.ToString()
 				);
@@ -405,7 +401,7 @@ namespace CommandGenerator
 				"Name",
 				FONT,
 				new Point(X, Y),
-				new TextBox().GetType(),
+				"ASCII",
 				MAX_TEXT,
 				parameter.Name
 				);
@@ -416,7 +412,7 @@ namespace CommandGenerator
 				"Offset",
 				FONT,
 				new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-				new NumericUpDown().GetType(),
+				"DEC",
 				4,
 				parameter.Offset.ToString()
 				);
@@ -427,7 +423,7 @@ namespace CommandGenerator
 				"Size",
 				FONT,
 				new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-				new NumericUpDown().GetType(),
+				"DEC",
 				4,
 				parameter.Size.ToString()
 				);
@@ -438,10 +434,14 @@ namespace CommandGenerator
 				"Type",
 				FONT,
 				new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-				new TextBox().GetType(),
+				"SELECT",
 				4,
 				parameter.Type
 				);
+				((ComboBox)input.InputBox).Items.Add("HEX");
+				((ComboBox)input.InputBox).Items.Add("DEC");
+				((ComboBox)input.InputBox).Items.Add("ASCII");
+				((ComboBox)input.InputBox).Items.Add("FILE_SELECT");
 				objParameter.Input.Add(input);
 			}
 			{
@@ -449,7 +449,7 @@ namespace CommandGenerator
 				"Value",
 				FONT,
 				new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-				new TextBox().GetType(),
+				"ASCII",
 				4,
 				parameter.Value
 				);
@@ -460,7 +460,7 @@ namespace CommandGenerator
 				"Fixed",
 				FONT,
 				new Point(X, Y + (objParameter.Input.Last().Label.Height + 10) * objParameter.Input.Count),
-				new ComboBox().GetType(),
+				"SELECT",
 				MAX_TEXT,
 				parameter.Fixed == true ? "True" : "False"
 				);
@@ -550,7 +550,6 @@ namespace CommandGenerator
 		private void FormListEditor_FormClosed(object sender, FormClosedEventArgs e)
 		{
 			Save();
-			Owner.FormListEditor_FormClosed(sender, e);
 		}
 		#endregion
 	}

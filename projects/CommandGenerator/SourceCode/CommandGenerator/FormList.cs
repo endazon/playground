@@ -13,22 +13,28 @@ namespace CommandGenerator
 {
 	public partial class FormList : Form
 	{
-		internal CommandJsonStorage.CommandJsonObject CommandObj { get; set; } = new CommandJsonStorage.CommandJsonObject();
-		private FormEdit FormEdit { get; set; }
-		private FormListEditor FormListEditor { get; set; }
+		private CommandJsonStorage.CommandJsonObject CommandObj { get; set; } = new CommandJsonStorage.CommandJsonObject();
+		private FormEdit FormEdit { get; set; } = new FormEdit();
 
 		public FormList()
 		{
 			InitializeComponent();
 
-			FormEdit       = new FormEdit(this);
-			FormListEditor = new FormListEditor(this);
+			FormEdit = new FormEdit(CommandObj.Name, CommandObj.Version);
 		}
 
 		private void FormListShow()
 		{
+			//FormEdit = new FormEdit(CommandObj.Name, CommandObj.Version);
 			FormEdit.LocationUpdate(Location.X + Size.Width, Location.Y);
 			FormEdit.Show();
+		}
+
+		private void FormListEditorShowDialog()
+		{
+			var FormListEditor = new FormListEditor(CommandObj);
+			FormListEditor.ShowDialog();
+			CommandObj = (CommandJsonStorage.CommandJsonObject)FormListEditor.CommandObj;
 		}
 
 		private void Clear()
@@ -70,7 +76,8 @@ namespace CommandGenerator
 		private void newToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			Init();
-			FormListEditor.ShowDialog();
+			FormListEditorShowDialog();
+			DisplayUpdate();
 		}
 
 		private void openToolStripMenuItem_Click(object sender, EventArgs e)
@@ -120,12 +127,15 @@ namespace CommandGenerator
 
 		private void commandListToolStripMenuItem_Click(object sender, EventArgs e)
 		{
+			var FormListEditor = new FormListEditor(CommandObj);
 			FormListEditor.ShowDialog();
+			CommandObj = (CommandJsonStorage.CommandJsonObject)FormListEditor.CommandObj;
+			DisplayUpdate();
 		}
 
 		private void editFileOpenToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-
+			FormListEditorShowDialog();
 		}
 		#endregion
 
@@ -179,10 +189,6 @@ namespace CommandGenerator
 			Form obj = (Form)sender;
 			FormEdit.LocationUpdate(obj.Location.X + obj.Size.Width, obj.Location.Y);
 			FormEdit.SizeUpdate(-1, obj.Size.Height);
-		}
-		public void FormListEditor_FormClosed(object sender, FormClosedEventArgs e)
-		{
-			DisplayUpdate();
 		}
 		#endregion
 	}

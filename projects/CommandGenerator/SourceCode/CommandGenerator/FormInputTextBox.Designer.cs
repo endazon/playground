@@ -61,24 +61,26 @@
 			// 
 			this.buttonCancel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.buttonCancel.BackColor = System.Drawing.SystemColors.Control;
 			this.buttonCancel.Location = new System.Drawing.Point(0, 73);
 			this.buttonCancel.Name = "buttonCancel";
 			this.buttonCancel.Size = new System.Drawing.Size(444, 23);
 			this.buttonCancel.TabIndex = 2;
 			this.buttonCancel.Text = "Cancel";
-			this.buttonCancel.UseVisualStyleBackColor = true;
+			this.buttonCancel.UseVisualStyleBackColor = false;
 			this.buttonCancel.Click += new System.EventHandler(this.buttonCancel_Click);
 			// 
 			// buttonOK
 			// 
 			this.buttonOK.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.buttonOK.BackColor = System.Drawing.SystemColors.Control;
 			this.buttonOK.Location = new System.Drawing.Point(0, 50);
 			this.buttonOK.Name = "buttonOK";
 			this.buttonOK.Size = new System.Drawing.Size(444, 23);
 			this.buttonOK.TabIndex = 3;
 			this.buttonOK.Text = "OK";
-			this.buttonOK.UseVisualStyleBackColor = true;
+			this.buttonOK.UseVisualStyleBackColor = false;
 			this.buttonOK.Click += new System.EventHandler(this.buttonOK_Click);
 			// 
 			// FormInputTextBox

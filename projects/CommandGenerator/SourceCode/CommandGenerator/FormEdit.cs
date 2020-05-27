@@ -15,7 +15,6 @@ namespace CommandGenerator
 {
 	public partial class FormEdit : Form
 	{
-		private new FormList Owner { get; set; }
 		private CommandCsvStorage.CommandCsvObject CommandList { get; set; } = new CommandCsvStorage.CommandCsvObject();
 		private List<CommandJsonStorage.Item> CommandItems { get; set; } = new List<CommandJsonStorage.Item>();
 		private string FileName { get; set; } = "";
@@ -24,16 +23,15 @@ namespace CommandGenerator
 		public FormEdit() 
 		{
 			InitializeComponent();
-			CommandItems = new List<CommandJsonStorage.Item>();
+
 			ScreenObj = new InputScreen(SplitContainer.Panel2);
 		}
 
-		public FormEdit(FormList owner)
+		public FormEdit(string name, string version)
 			: this()
 		{
-			Owner = owner;
-			CommandList.Name    = Owner.CommandObj.Name;
-			CommandList.Version = Owner.CommandObj.Version;
+			CommandList.Name    = name;
+			CommandList.Version = version;
 		}
 
 
