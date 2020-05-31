@@ -14,35 +14,41 @@ namespace CommandGenerator
 	public partial class FormList : Form
 	{
 		private CommandJsonStorage.CommandJsonObject CommandObj { get; set; } = new CommandJsonStorage.CommandJsonObject();
-		private FormEdit FormEdit { get; set; } = new FormEdit();
+		private FormEdit FormEdit { get; set; } = null;
 
 		public FormList()
 		{
 			InitializeComponent();
-
-			FormEdit = new FormEdit(CommandObj.Name, CommandObj.Version);
 		}
 
 		private void FormListShow()
 		{
-			//FormEdit = new FormEdit(CommandObj.Name, CommandObj.Version);
+			if (FormEdit != null) return;
+
+			FormEdit = new FormEdit(CommandObj.Name, CommandObj.Version);
+			FormEdit.Show(this);
 			FormEdit.LocationUpdate(Location.X + Size.Width, Location.Y);
-			FormEdit.Show();
+		}
+		private void FormListClose()
+		{
+			if (FormEdit == null) return;
+
+			FormEdit.Close();
+			FormEdit = null;
 		}
 
 		private void FormListEditorShowDialog()
 		{
 			var FormListEditor = new FormListEditor(CommandObj);
-			FormListEditor.ShowDialog();
+			FormListEditor.ShowDialog(this);
 			CommandObj = (CommandJsonStorage.CommandJsonObject)FormListEditor.CommandObj;
 		}
 
 		private void Clear()
 		{
 			editFileOpenToolStripMenuItem.Enabled = false;
-			FormEdit.Clear();
-			FormEdit.Hide();
 			CommandListBox.Items.Clear();
+			FormListClose();
 		}
 
 		private void Init()
@@ -59,16 +65,25 @@ namespace CommandGenerator
 
 			foreach (var item in CommandObj.Items)
 			{
-				string displayName = item.Name;
-				// リストボックスにアイテム追加 
-				//for (int i = 0; i < 100; i++)
-				CommandListBox.Items.Add(displayName);
+				if (item.Verification()) {
+					string displayName = item.Name;
+					// リストボックスにアイテム追加 
+					//for (int i = 0; i < 100; i++)
+					CommandListBox.Items.Add(displayName);
 
-				// リストボックスの一番上を選択
-				CommandListBox.SetSelected(0, true);
+					// リストボックスの一番上を選択
+					CommandListBox.SetSelected(0, true);
 
-				FormListShow();
-				editFileOpenToolStripMenuItem.Enabled = true;
+					FormListShow();
+					editFileOpenToolStripMenuItem.Enabled = true;
+				}
+				else
+				{
+					MessageBox.Show(item.Name+"の登録に失敗しました。\n設定を確認してください、",
+									"エラー",
+									MessageBoxButtons.OK,
+									MessageBoxIcon.Error);
+				}
 			}
 		}
 
@@ -127,21 +142,21 @@ namespace CommandGenerator
 
 		private void commandListToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			var FormListEditor = new FormListEditor(CommandObj);
-			FormListEditor.ShowDialog();
-			CommandObj = (CommandJsonStorage.CommandJsonObject)FormListEditor.CommandObj;
+			FormListEditorShowDialog();
 			DisplayUpdate();
 		}
 
 		private void editFileOpenToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			FormListEditorShowDialog();
+
 		}
 		#endregion
 
 		#region ListBox
 		private void CommandListBox_Select(object sender, EventArgs e)
 		{
+			if (FormEdit == null) return;
+
 			int index = ((ListBox)sender).SelectedIndex;
 
 			if (index < 0) { return; }
@@ -181,12 +196,18 @@ namespace CommandGenerator
 		}
 		private void FormList_LocationChanged(object sender, EventArgs e)
 		{
+			if (FormEdit == null) return;
+
 			Form obj = (Form)sender;
 			FormEdit.LocationUpdate(obj.Location.X + obj.Size.Width, obj.Location.Y);
 		}
 		private void FormList_SizeChanged(object sender, EventArgs e)
 		{
+			if (FormEdit == null) return;
+
 			Form obj = (Form)sender;
+
+			FormEdit.WindowState = obj.WindowState;
 			FormEdit.LocationUpdate(obj.Location.X + obj.Size.Width, obj.Location.Y);
 			FormEdit.SizeUpdate(-1, obj.Size.Height);
 		}

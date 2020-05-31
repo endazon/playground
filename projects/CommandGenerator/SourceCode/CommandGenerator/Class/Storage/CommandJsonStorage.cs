@@ -1,5 +1,9 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
 
 namespace CommandGenerator.Class.Storage
 {
@@ -13,41 +17,72 @@ namespace CommandGenerator.Class.Storage
 			public string Type { get; set; } = "";
 			public string Value { get; set; } = "";
 			public bool Fixed { get; set; } = false;
+			
 
-
-			/// <summary>
-			/// 詳細コピーメソッド
-			/// </summary>
-			/// <returns>コピーデータ</returns>
-			public Parameter Clone()
+			private List<string> convertFileData2CmdArray()
 			{
-				// 簡易コピー
-				Parameter cloned = (Parameter)MemberwiseClone();
-
-				return cloned;
+				return convertFileData2CmdArray(Value);
 			}
-
-			private List<string> convertDec2HexArray(string type, List<string> value)
+			private List<string> convertFileData2CmdArray(string value)
 			{
-				List<string> result = new List<string>(value.Count);
-				for (int index = 0; index < value.Count; index++)
+				List<string> result = new List<string>();
+
+				var buffer = new byte[Size];
+
+				try
 				{
-					switch (type)
+					using (var reader = new BinaryReader(new FileStream(@value, FileMode.Open)))
 					{
-						case "DEC":
-							result.Add(Convert.ToInt32(value[index], 16).ToString("X2"));
-							break;
-						case "HEX":
-						default:
-							result.Add(value[index]);
-							break;
+						reader.ReadByte(); //Todo
+						reader.ReadByte(); //Todo
+						reader.ReadByte(); //Todo
+						reader.Read(buffer, 0, Size);
 					}
+				}
+				catch (Exception e)
+				{
+					// ファイルを開くのに失敗したときエラーメッセージを表示
+					Console.WriteLine(e.Message);
+				}
+
+				foreach (var item in buffer)
+				{
+					result.Add(item.ToString("X2"));
 				}
 
 				return result;
 			}
 
-			private List<string> convertValue2CmdArray(string value)
+			private List<string> convertAscii2CmdArray()
+			{
+				return convertAscii2CmdArray(Value);
+			}
+			private List<string> convertAscii2CmdArray(string value)
+			{
+				var list = new List<string>();
+
+				foreach (var item in Encoding.ASCII.GetBytes(value))
+				{
+					list.Add(item.ToString("X2"));
+				}
+
+				return list;
+			}
+
+			private List<string> convertDec2CmdArray()
+			{
+				return convertDec2CmdArray(Value);
+			}
+			private List<string> convertDec2CmdArray(string value)
+			{
+				return convertHex2CmdArray(Convert.ToInt64(value).ToString("X" + (Size * 2).ToString()));
+			}
+
+			private List<string> convertHex2CmdArray()
+			{
+				return convertHex2CmdArray(Value);
+			}
+			private List<string> convertHex2CmdArray(string value)
 			{
 				const int count = 2;
 				string traget = value.Replace("0x", "");
@@ -74,13 +109,58 @@ namespace CommandGenerator.Class.Storage
 				return list;
 			}
 
+
+			/// <summary>
+			/// 詳細コピーメソッド
+			/// </summary>
+			/// <returns>コピーデータ</returns>
+			public Parameter Clone()
+			{
+				// 簡易コピー
+				Parameter cloned = (Parameter)MemberwiseClone();
+
+				return cloned;
+			}
+
+			/// <summary>
+			/// 電文正常判定
+			/// </summary>
+			/// <returns>結果</returns>
+			public bool Verification(int baseSize)
+			{
+				if (Size < 0)                 { return false; }
+				if (Offset + Size > baseSize) { return false; }
+				return true;
+			}
+
 			/// <summary>
 			/// 電文生成
 			/// </summary>
 			/// <returns>電文</returns>
 			public List<string> Parser()
 			{
-				return convertDec2HexArray(Type, convertValue2CmdArray(Value));
+				switch (Type)
+				{
+					case "FILE_SELECT":
+						return convertFileData2CmdArray();
+					case "ASCII":
+						return convertAscii2CmdArray();
+					case "DEC":
+						return convertDec2CmdArray();
+					case "HEX":
+						return convertHex2CmdArray();
+					default:
+						throw new Exception();
+				}
+			}
+
+			/// <summary>
+			/// 文字列化
+			/// </summary>
+			/// <returns>Name</returns>
+			public override string ToString()
+			{
+				return Name;
 			}
 		}
 
@@ -120,6 +200,22 @@ namespace CommandGenerator.Class.Storage
 			}
 
 			/// <summary>
+			/// 電文正常判定
+			/// </summary>
+			/// <returns>結果</returns>
+			public bool Verification(int baseSize)
+			{
+				if (Size < 0)                 { return false; }
+				if (Offset + Size > baseSize) { return false; }
+
+				foreach (var v in Parameter)
+				{
+					if (!v.Verification(Size)) { return false; }
+				}
+				return true;
+			}
+
+			/// <summary>
 			/// 電文生成
 			/// </summary>
 			/// <returns>電文</returns>
@@ -133,10 +229,21 @@ namespace CommandGenerator.Class.Storage
 
 				foreach (var p in Parameter)
 				{
-					buff.InsertRange(p.Offset, p.Parser());
+					var list = p.Parser();
+					buff.RemoveRange(p.Offset, list.Count);
+					buff.InsertRange(p.Offset, list);
 				}
 
 				return buff;
+			}
+
+			/// <summary>
+			/// 文字列化
+			/// </summary>
+			/// <returns>Name</returns>
+			public override string ToString()
+			{
+				return Name;
 			}
 		}
 
@@ -174,6 +281,21 @@ namespace CommandGenerator.Class.Storage
 			}
 
 			/// <summary>
+			/// 電文正常判定
+			/// </summary>
+			/// <returns>結果</returns>
+			public bool Verification()
+			{
+				if (Length < 0)                 { return false; }
+
+				foreach (var v in Detail)
+				{
+					if (!v.Verification(Length)) { return false; }
+				}
+				return true;
+			}
+
+			/// <summary>
 			/// 電文生成
 			/// </summary>
 			/// <returns>電文</returns>
@@ -187,10 +309,21 @@ namespace CommandGenerator.Class.Storage
 
 				foreach (var p in Detail)
 				{
-					buff.InsertRange(p.Offset, p.Parser());
+					var list = p.Parser();
+					buff.RemoveRange(p.Offset, list.Count);
+					buff.InsertRange(p.Offset, list);
 				}
 
 				return buff;
+			}
+
+			/// <summary>
+			/// 文字列化
+			/// </summary>
+			/// <returns>Name</returns>
+			public override string ToString()
+			{
+				return Name;
 			}
 		}
 
@@ -225,6 +358,64 @@ namespace CommandGenerator.Class.Storage
 				}
 
 				return cloned;
+			}
+
+			/// <summary>
+			/// シリアライズ
+			/// </summary>
+			/// <returns>t文字列</returns>
+			public string Serialize()
+			{
+				return JsonConvert.SerializeObject(this);
+			}
+
+			/// <summary>
+			/// デシリアライズ
+			/// </summary>
+			public void Deserialize(string target)
+			{
+				var obj = JsonConvert.DeserializeObject<CommandJsonObject>(target);
+				Name    = obj.Name;
+				Version = obj.Version;
+				Items   = obj.Items;
+			}
+
+			/// <summary>
+			/// 電文リスト生成
+			/// </summary>
+			/// <returns>電文</returns>
+			public List<List<string>> Parser()
+			{
+				var list = new List<List<string>>(Items.Count);
+
+				foreach (var p in Items)
+				{
+					list.Add(p.Parser());
+				}
+
+				return list;
+			}
+
+			/// <summary>
+			/// 文字列化
+			/// </summary>
+			/// <returns>Name</returns>
+			public override string ToString()
+			{
+				return Name;
+			}
+
+			/// <summary>
+			/// 電文正常判定
+			/// </summary>
+			/// <returns>結果</returns>
+			public bool Verification()
+			{
+				foreach (var v in Items)
+				{
+					if (!v.Verification()) { return false; }
+				}
+				return true;
 			}
 		}
 	}

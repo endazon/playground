@@ -1,28 +1,29 @@
-﻿using CommandGenerator.Class.Storage;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CommandCreator.Class.Storage
+namespace CommandGenerator.Class.Storage
 {
 	class CommandCsvStorage
 	{
-		public class Detail
+		public class Item
 		{
-			public string DisplayName { get; set; } = "";
 			public string Name { get; set; } = "";
 			public string Command { get; set; } = "";
+			public ulong Length { get; set; } = 0;
+			public string Type { get; set; } = "";
+			public object Tag { get; set; } = null;
 
 			/// <summary>
 			/// 詳細コピーメソッド
 			/// </summary>
 			/// <returns>コピーデータ</returns>
-			public Detail Clone()
+			public Item Clone()
 			{
 				// 簡易コピー
-				Detail cloned = (Detail)MemberwiseClone();
+				Item cloned = (Item)MemberwiseClone();
 
 				return cloned;
 			}
@@ -38,6 +39,15 @@ namespace CommandCreator.Class.Storage
 
 				return null;
 			}
+
+			/// <summary>
+			/// 文字列化
+			/// </summary>
+			/// <returns>Name</returns>
+			public override string ToString()
+			{
+				return Name;
+			}
 		}
 
 		public class CommandCsvObject
@@ -45,7 +55,7 @@ namespace CommandCreator.Class.Storage
 			public string Name { get; set; } = "";
 			public string Version { get; set; } = "";
 
-			public List<Detail> Items { get; set; } = new List<Detail>();
+			public List<Item> Items { get; set; } = new List<Item>();
 
 			/// <summary>
 			/// 詳細コピーメソッド
@@ -59,7 +69,7 @@ namespace CommandCreator.Class.Storage
 				// 参照型フィールドの複製を作成する(簡易コピーを行う)
 				if (Items != null)
 				{
-					List<Detail> ItemList = new List<Detail>();
+					List<Item> ItemList = new List<Item>();
 
 					foreach (var i in Items)
 					{
@@ -72,6 +82,49 @@ namespace CommandCreator.Class.Storage
 				}
 
 				return cloned;
+			}
+
+			/// <summary>
+			/// シリアライズ
+			/// </summary>
+			/// <returns>t文字列</returns>
+			public string Serialize()
+			{
+				var result = "";
+				result +="Name,"     + Name    + "\n";
+				result += "Version," + Version + "\n";
+				result += ",\n";
+				result += "No., Name, Command, Length, Type\n";
+				foreach (var list in Items)
+				{
+					result += (Items.IndexOf(list) + 1).ToString() + ","
+								+ list.Name		+ ","
+								+ list.Command	+ ","
+								+ list.Length	+ ","
+								+ list.Type
+								+ "\n";
+				}
+				return result;
+			}
+
+			/// <summary>
+			/// デシリアライズ
+			/// </summary>
+			public void Deserialize(string target)
+			{
+				//var obj = JsonConvert.DeserializeObject<CommandJsonObject>(target);
+				//Name = obj.Name;
+				//Version = obj.Version;
+				//Items = obj.Items;
+			}
+
+			/// <summary>
+			/// 文字列化
+			/// </summary>
+			/// <returns>Name</returns>
+			public override string ToString()
+			{
+				return Name;
 			}
 		}
 	}

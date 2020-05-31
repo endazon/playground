@@ -94,6 +94,7 @@
 			this.Controls.Add(this.buttonCancel);
 			this.Controls.Add(this.textBox);
 			this.Controls.Add(this.label);
+			this.MaximizeBox = false;
 			this.MinimumSize = new System.Drawing.Size(460, 135);
 			this.Name = "FormInputTextBox";
 			this.Text = "InputTextBox";

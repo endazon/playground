@@ -50,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Class\Display\InputScreen.cs" />
+    <Compile Include="Class\FileOperation\CsvFile.cs" />
     <Compile Include="Class\FileOperation\JsonFile.cs" />
     <Compile Include="Class\Storage\CommandCsvStorage.cs" />
     <Compile Include="Class\Storage\CommandJsonStorage.cs" />

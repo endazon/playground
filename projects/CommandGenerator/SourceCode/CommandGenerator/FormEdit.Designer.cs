@@ -163,6 +163,7 @@
 			this.Controls.Add(this.MenuStripMain);
 			this.ForeColor = System.Drawing.SystemColors.ControlLight;
 			this.MainMenuStrip = this.MenuStripMain;
+			this.MaximizeBox = false;
 			this.MinimumSize = new System.Drawing.Size(400, 200);
 			this.Name = "FormEdit";
 			this.Text = "CommandEdit";

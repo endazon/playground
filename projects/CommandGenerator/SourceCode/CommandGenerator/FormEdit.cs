@@ -7,16 +7,13 @@ using System.IO;
 using CommandGenerator.Class.Storage;
 using CommandGenerator.Class.Display;
 using System.Security.Permissions;
-using CommandCreator.Class.Storage;
 using System.Drawing;
-using CommandCreator;
 
 namespace CommandGenerator
 {
 	public partial class FormEdit : Form
 	{
 		private CommandCsvStorage.CommandCsvObject CommandList { get; set; } = new CommandCsvStorage.CommandCsvObject();
-		private List<CommandJsonStorage.Item> CommandItems { get; set; } = new List<CommandJsonStorage.Item>();
 		private string FileName { get; set; } = "";
 		private InputScreen ScreenObj { get; set; } = new InputScreen(null);
 
@@ -51,6 +48,18 @@ namespace CommandGenerator
 			}
 		}
 
+		private CommandCsvStorage.Item ConvertJsonItemToCsvItem(CommandJsonStorage.Item src)
+		{
+			var dst = new CommandCsvStorage.Item();
+
+			dst.Command = string.Join("", src.Parser().ToArray());
+			dst.Length  = (ulong)src.Length;
+			dst.Type    = src.Name;
+			dst.Tag     = src;
+
+			return dst;
+		}
+
 		public void LocationUpdate(int x, int y)
 		{
 			int buff_x = x >= 0 ? x : Location.X;
@@ -72,7 +81,6 @@ namespace CommandGenerator
 			CommandList.Name = "";
 			CommandList.Version = "";
 			CommandList.Items.Clear();
-			CommandItems.Clear();
 			FileName = "";
 			CommandListBox.Items.Clear();
 			ScreenObj.Clear();
@@ -83,15 +91,15 @@ namespace CommandGenerator
 			if (obj.GetType().Name != "Item") { return; }
 
 			CommandJsonStorage.Item item = (CommandJsonStorage.Item)obj;
-			string displayName = new FormInputTextBox("表示名を入力して下さい。",
-									"表示名の入力",
-									  item.Name
-									  ).GetInputText();
-			if (displayName != "") {
-				CommandItems.Add(item.Clone());
+			var csvObj                   = ConvertJsonItemToCsvItem(item);
+			csvObj.Name                  = new FormInputTextBox("表示名を入力して下さい。",
+															    "表示名の入力",
+																item.Name
+															   ).GetInputText();
 
+			if (csvObj.Name != "") {
 				//for (int i = 0; i < 100; i++)
-				CommandListBox.Items.Add(displayName);
+				CommandListBox.Items.Add(csvObj.Clone());
 
 				// リストボックスの一番上を選択
 				CommandListBox.SetSelected(CommandListBox.Items.Count - 1, true);
@@ -103,15 +111,14 @@ namespace CommandGenerator
 			#region 前処理
 			try
 			{
-				ScreenObj.Save(CommandItems[CommandListBox.SelectedIndex].Detail);
+				ScreenObj.Save(((CommandJsonStorage.Item)((CommandCsvStorage.Item)CommandListBox.SelectedItem).Tag).Detail);
 
-				foreach (var item in CommandItems)
+				foreach (var item in CommandListBox.Items)
 				{
-					CommandCsvStorage.Detail item_obj = new CommandCsvStorage.Detail();
-					item_obj.Name = item.Name;					
-					item_obj.Command = string.Join("", item.Parser().ToArray());
+					CommandCsvStorage.Item csvObj  = (CommandCsvStorage.Item)item;
+					csvObj.Command = string.Join("", ((CommandJsonStorage.Item)csvObj.Tag).Parser().ToArray());
 
-					CommandList.Items.Add(item_obj);
+					CommandList.Items.Add(csvObj);
 				}
 			}
 			catch
@@ -150,15 +157,7 @@ namespace CommandGenerator
 				// 出力用のファイルを開く
 				using (var sw = new StreamWriter(FileName, false, Encoding.UTF8))
 				{
-					sw.WriteLine("{0}, {1}", "Name", CommandList.Name);
-					sw.WriteLine("{0}, {1}", "Version", CommandList.Version);
-					sw.WriteLine(",");
-					sw.WriteLine("No., Name, Command");
-					foreach (var list in CommandList.Items)
-					{
-						sw.WriteLine("{0}, {1}, {2},", (CommandList.Items.IndexOf(list) + 1), list.Name, list.Command);
-						//Console.WriteLine(list.Name + "：" + list.Command);
-					}
+					sw.WriteLine(CommandList.Serialize());
 				}
 			}
 			catch (Exception e)
@@ -201,7 +200,6 @@ namespace CommandGenerator
 
 			if (index < 0) { return; }
 
-			CommandItems.RemoveAt(index);
 			CommandListBox.Items.RemoveAt(index);
 			ScreenObj.Clear();
 		}
@@ -209,11 +207,12 @@ namespace CommandGenerator
 		private List<CommandJsonStorage.Detail> z1Items = null;
 		private void CommandListBox_SelectedIndexChanged(object sender, EventArgs e)
 		{
-			int index = ((ListBox)sender).SelectedIndex;
+			var target = ((ListBox)sender).SelectedItem;
+			if (target == null) { return; }
 
-			if(index < 0) { return; }
+			var items = ((CommandJsonStorage.Item)((CommandCsvStorage.Item)target).Tag).Detail;
 
-			List<CommandJsonStorage.Detail> items = CommandItems[index].Detail;
+			if (items == null) { return; }
 
 			ScreenObj.Save(z1Items);
 			ScreenObj.Update(items);

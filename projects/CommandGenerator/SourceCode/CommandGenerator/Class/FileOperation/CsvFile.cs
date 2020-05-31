@@ -10,24 +10,24 @@ using System.Windows.Forms;
 
 namespace CommandGenerator.Class.FileOperation
 {
-	class JsonFile<Type>
+	class CsvFile
 	{
 		private OpenFileDialog OpenDialog { get; } = new OpenFileDialog();
 		private SaveFileDialog SaveDialog { get; } = new SaveFileDialog();
 		public string FileName { get; set; } = "";
-		public Type Object { get; set; } = default;
+		public CommandCsvStorage.CommandCsvObject Object { get; set; } = default;
 
-		public JsonFile()
+		public CsvFile()
 		{
 			InitializeComponent();
 		}
-		public JsonFile(string fn) : this()
+		public CsvFile(string fn) : this()
 		{
 			FileName = fn;
 		}
-		public JsonFile(string fn, object obj) : this(fn)
+		public CsvFile(string fn, object obj) : this(fn)
 		{
-			Object = (Type)obj;
+			Object = (CommandCsvStorage.CommandCsvObject)obj;
 		}
 
 		private void InitializeComponent()
@@ -35,15 +35,15 @@ namespace CommandGenerator.Class.FileOperation
 			// 
 			// openFileDialogJson
 			// 
-			OpenDialog.FileName         = "default.json";
-			OpenDialog.Filter           = "JSONファイル(*.json)|*.json";
+			OpenDialog.FileName         = "default.csv";
+			OpenDialog.Filter           = "CSVファイル(*.csv)|*.csv";
 			OpenDialog.RestoreDirectory = true;
 			OpenDialog.Title            = "開くコマンドファイルを選択してください";
 			// 
 			// saveFileDialogJson
 			// 
-			SaveDialog.FileName         = "default.json";
-			SaveDialog.Filter           = "JSONファイル(*.json)|*.json";
+			SaveDialog.FileName         = "default.csv";
+			SaveDialog.Filter           = "CSVファイル(*.csv)|*.csv";
 			SaveDialog.RestoreDirectory = true;
 			SaveDialog.Title            = "保存先を指定してください";
 		}
@@ -51,7 +51,7 @@ namespace CommandGenerator.Class.FileOperation
 		public void Clear()
 		{
 			FileName = null;
-			Object   = default;
+			Object = default;
 		}
 
 		public bool Open()
@@ -110,10 +110,10 @@ namespace CommandGenerator.Class.FileOperation
 				using (var sr = new StreamReader(@FileName, Encoding.UTF8))
 				{
 					// 変数 jsonText にファイルの内容を代入 
-					var jsonText = sr.ReadToEnd();
+					var csvText = sr.ReadToEnd();
 
 					// インスタンス CommandtStorage にデシリアライズ
-					Object = JsonConvert.DeserializeObject<Type>(jsonText);
+					Object.Deserialize(csvText);
 				}
 				//Console.WriteLine(JsonConvert.SerializeObject(obj));
 			}
@@ -132,10 +132,10 @@ namespace CommandGenerator.Class.FileOperation
 				using (var sw = new StreamWriter(@FileName, false, Encoding.UTF8))
 				{
 					// 変数 jsonText に CommandObj にシリアライズした内容を代入 
-					var jsonText = JsonConvert.SerializeObject(Object);
+					var csvText = Object.Serialize();
 
 					// 変数 jsonText の内容をファイルに書き込む
-					sw.Write(jsonText);
+					sw.Write(csvText);
 					sw.Flush();
 				}
 			}

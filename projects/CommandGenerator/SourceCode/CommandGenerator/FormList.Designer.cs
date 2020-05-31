@@ -179,6 +179,7 @@
 			this.ClientSize = new System.Drawing.Size(284, 411);
 			this.Controls.Add(this.CommandListBox);
 			this.Controls.Add(this.MenuStripMain);
+			this.MaximizeBox = false;
 			this.MinimumSize = new System.Drawing.Size(300, 200);
 			this.Name = "FormList";
 			this.Text = "CommandList";

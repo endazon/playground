@@ -157,21 +157,21 @@ namespace CommandGenerator.Class.Storage
 				Panel fileselect     = new Panel();
 				fileselect.BackColor = SystemColors.ControlDarkDark;
 				fileselect.Name      = text + fileselect.GetType().Name;
+				fileselect.Text      = value;
 				Label label          = CreateLabel(text, font, point);
 				fileselect.Location  = new Point(point.X + label.PreferredWidth, point.Y);
 				fileselect.SuspendLayout();
 
 				TextBox file     = new TextBox();
-				file.AutoEllipsis = true;
 				file.BackColor   = SystemColors.WindowText;
 				file.BorderStyle = BorderStyle.FixedSingle;
 				file.Font        = font;
 				file.ForeColor   = SystemColors.Window;
-				file.MaxLength   = 20;
+				file.MaxLength   = 65535;
 				file.Name        = text + file.GetType().Name;
 				file.Text        = value;
 				file.Location    = new Point(0, 0);
-				file.Size        = new Size(GetOneCharacterSize(font).Width * file.MaxLength, label.PreferredHeight);
+				file.Size        = new Size(GetOneCharacterSize(font).Width * 20, label.PreferredHeight);
 
 				Button select    = new Button();
 				select.BackColor = SystemColors.Control;
@@ -254,6 +254,7 @@ namespace CommandGenerator.Class.Storage
 					{
 						//ファイル名取得(パス込み)
 						textBox.Text = OpenDialog.FileName;
+						panel.Text   = OpenDialog.FileName;
 					}
 				}
 			}

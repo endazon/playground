@@ -103,7 +103,7 @@ namespace CommandGenerator
 						new Point(X, Y + (objDetail.Input.Last().Label.Height + 10) * objDetail.Input.Count),
 						"DEC",
 						4,
-						detail.Offset.ToString()
+						detail.Size.ToString()
 						);
 						objDetail.Input.Add(input);
 					}
@@ -361,7 +361,7 @@ namespace CommandGenerator
 				new Point(X, Y + (objDetail.Input.Last().Label.Height + 10) * objDetail.Input.Count),
 				"DEC",
 				4,
-				detail.Offset.ToString()
+				detail.Size.ToString()
 				);
 				objDetail.Input.Add(input);
 			}
