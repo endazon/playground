@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Text;
 using System.Windows.Forms;
-
-using System.IO;
-using Newtonsoft.Json;
-using CommandGenerator.Class.Storage;
 using System.Drawing;
+
+using CommandGenerator.Class.Storage;
 using CommandGenerator.Properties;
 using CommandGenerator.Class.FileOperation;
 
@@ -148,7 +145,13 @@ namespace CommandGenerator
 
 		private void editFileOpenToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-
+			var csvFile = new CsvFile();
+			if (csvFile.Open())
+			{
+				FormListClose();
+				FormListShow();
+				FormEdit.Update(CommandObj.Parser(csvFile.Object));
+			}
 		}
 		#endregion
 
@@ -163,7 +166,7 @@ namespace CommandGenerator
 
 			CommandJsonStorage.Item item = CommandObj.Items[index];
 
-			FormEdit.add(item);
+			FormEdit.Add(item);
 		}
 		private void CommandListBox_DoubleClick(object sender, EventArgs e)
 		{

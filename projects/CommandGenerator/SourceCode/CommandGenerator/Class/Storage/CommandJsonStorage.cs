@@ -9,6 +9,32 @@ namespace CommandGenerator.Class.Storage
 {
 	class CommandJsonStorage
 	{
+		static List<string> NumStringSplit(string value, int count = 2)
+		{
+			string traget = value.Replace("0x", "");
+			var list = new List<string>();
+			int length = (int)Math.Ceiling((double)traget.Length / count);
+
+			for (int i = 0; i < length; i++)
+			{
+				int start = count * i;
+				if (traget.Length <= start)
+				{
+					break;
+				}
+				if (traget.Length < start + count)
+				{
+					list.Add(traget.Substring(start));
+				}
+				else
+				{
+					list.Add(traget.Substring(start, count));
+				}
+			}
+
+			return list;
+		}
+
 		public class Parameter
 		{
 			public string Name { get; set; } = "";
@@ -31,11 +57,8 @@ namespace CommandGenerator.Class.Storage
 
 				try
 				{
-					using (var reader = new BinaryReader(new FileStream(@value, FileMode.Open)))
+					using (var reader = new BinaryReader(new FileStream(@value, FileMode.Open), Encoding.UTF8))
 					{
-						reader.ReadByte(); //Todo
-						reader.ReadByte(); //Todo
-						reader.ReadByte(); //Todo
 						reader.Read(buffer, 0, Size);
 					}
 				}
@@ -84,31 +107,65 @@ namespace CommandGenerator.Class.Storage
 			}
 			private List<string> convertHex2CmdArray(string value)
 			{
-				const int count = 2;
-				string traget = value.Replace("0x", "");
-				var list = new List<string>();
-				int length = (int)Math.Ceiling((double)traget.Length / count);
-
-				for (int i = 0; i < length; i++)
-				{
-					int start = count * i;
-					if (traget.Length <= start)
-					{
-						break;
-					}
-					if (traget.Length < start + count)
-					{
-						list.Add(traget.Substring(start));
-					}
-					else
-					{
-						list.Add(traget.Substring(start, count));
-					}
-				}
-
-				return list;
+				return NumStringSplit(value);
 			}
 
+			private string convertCmdArray2String(List<string> cmdArray)
+			{
+				return string.Join("", cmdArray.ToArray());
+			}
+			private string convertCmdArray2FileData(List<string> cmdArray)
+			{
+				var write_path = Environment.CurrentDirectory;
+				var buffer = new List<byte>();
+
+				var count = 0;
+				foreach(var file in Directory.GetFiles(write_path))
+				{
+					count += Path.GetFileName(file).Contains(Name) == true ? 1 : 0;
+				}
+				write_path += "\\FileData_" + Name + count.ToString() + ".bin";
+
+				foreach (var item in cmdArray)
+				{
+					buffer.Add(Convert.ToByte(item, 16));
+				}
+
+				try
+				{
+					using (var reader = new BinaryWriter(new FileStream(@write_path, FileMode.Create), Encoding.UTF8))
+					{
+						reader.Write(buffer.ToArray(), 0, Size);
+					}
+				}
+				catch (Exception e)
+				{
+					// ファイルを開くのに失敗したときエラーメッセージを表示
+					Console.WriteLine(e.Message);
+				}
+
+				return write_path;
+			}
+			private string convertCmdArray2Ascii(List<string> cmdArray)
+			{
+				var list = new List<byte>();
+
+				foreach (var item in cmdArray)
+				{
+					list.Add(Convert.ToByte(item, 16));
+				}
+				list.RemoveAll(b => b == 0x00);
+
+				return Encoding.ASCII.GetString(list.ToArray());
+			}
+			private string convertCmdArray2Dec(List<string> cmdArray)
+			{
+				return Convert.ToInt64(convertCmdArray2String(cmdArray), 16).ToString();
+			}
+			private string convertCmdArray2Hex(List<string> cmdArray)
+			{
+				return "0x" + convertCmdArray2String(cmdArray);
+			}
 
 			/// <summary>
 			/// 詳細コピーメソッド
@@ -137,7 +194,7 @@ namespace CommandGenerator.Class.Storage
 			/// 電文生成
 			/// </summary>
 			/// <returns>電文</returns>
-			public List<string> Parser()
+			public List<string> MessageGeneration()
 			{
 				switch (Type)
 				{
@@ -149,6 +206,33 @@ namespace CommandGenerator.Class.Storage
 						return convertDec2CmdArray();
 					case "HEX":
 						return convertHex2CmdArray();
+					default:
+						throw new Exception();
+				}
+			}
+
+			/// <summary>
+			/// 電文解析
+			/// </summary>
+			/// <returns>電文</returns>
+			public void Parser(List<string> target)
+			{
+				var data = target.GetRange(Offset, Size);
+
+				switch (Type)
+				{
+					case "FILE_SELECT":
+						Value = convertCmdArray2FileData(data);
+						break;
+					case "ASCII":
+						Value = convertCmdArray2Ascii(data);
+						break;
+					case "DEC":
+						Value = convertCmdArray2Dec(data);
+						break;
+					case "HEX":
+						Value = convertCmdArray2Hex(data);
+						break;
 					default:
 						throw new Exception();
 				}
@@ -219,7 +303,7 @@ namespace CommandGenerator.Class.Storage
 			/// 電文生成
 			/// </summary>
 			/// <returns>電文</returns>
-			public List<string> Parser()
+			public List<string> MessageGeneration()
 			{
 				List<string> buff = new List<string>(Size);
 				for (int index = 0; index < buff.Capacity; index++)
@@ -229,12 +313,26 @@ namespace CommandGenerator.Class.Storage
 
 				foreach (var p in Parameter)
 				{
-					var list = p.Parser();
+					var list = p.MessageGeneration();
 					buff.RemoveRange(p.Offset, list.Count);
 					buff.InsertRange(p.Offset, list);
 				}
 
 				return buff;
+			}
+
+			/// <summary>
+			/// 電文解析
+			/// </summary>
+			/// <returns>電文</returns>
+			public void Parser(List<string> target)
+			{
+				var data = target.GetRange(Offset, Size);
+
+				foreach (var p in Parameter)
+				{
+					p.Parser(data);
+				}
 			}
 
 			/// <summary>
@@ -299,7 +397,7 @@ namespace CommandGenerator.Class.Storage
 			/// 電文生成
 			/// </summary>
 			/// <returns>電文</returns>
-			public List<string> Parser()
+			public List<string> MessageGeneration()
 			{
 				List<string> buff = new List<string>(Length);
 				for (int index = 0; index < buff.Capacity; index++)
@@ -309,12 +407,26 @@ namespace CommandGenerator.Class.Storage
 
 				foreach (var p in Detail)
 				{
-					var list = p.Parser();
+					var list = p.MessageGeneration();
 					buff.RemoveRange(p.Offset, list.Count);
 					buff.InsertRange(p.Offset, list);
 				}
 
 				return buff;
+			}
+
+			/// <summary>
+			/// 電文解析
+			/// </summary>
+			/// <returns>電文</returns>
+			public void Parser(List<string> target)
+			{
+				if (target.Count != Length) { throw new Exception(); }
+
+				foreach (var d in Detail)
+				{
+					d.Parser(target);
+				}
 			}
 
 			/// <summary>
@@ -384,16 +496,45 @@ namespace CommandGenerator.Class.Storage
 			/// 電文リスト生成
 			/// </summary>
 			/// <returns>電文</returns>
-			public List<List<string>> Parser()
+			public List<List<string>> MessageGeneration()
 			{
 				var list = new List<List<string>>(Items.Count);
 
 				foreach (var p in Items)
 				{
-					list.Add(p.Parser());
+					list.Add(p.MessageGeneration());
 				}
 
 				return list;
+			}
+
+			/// <summary>
+			/// 電文解析
+			/// </summary>
+			/// <returns>電文</returns>
+			public CommandCsvStorage.CommandCsvObject Parser(object target)
+			{
+				var obj = Clone();
+				var data = (CommandCsvStorage.CommandCsvObject)target;
+				var ret_data = data.Clone();
+				if (data.Name    != Name)    { throw new Exception(); }
+				if (data.Version != Version) { throw new Exception(); }
+
+				ret_data.Items.Clear();
+				foreach (var dst_item in data.Items)
+				{
+					foreach (var src_item in obj.Items)
+					{
+						if (src_item.Name != dst_item.Type) { continue; }
+						src_item.Parser(NumStringSplit(dst_item.Command));
+						dst_item.Tag = src_item;
+						ret_data.Items.Add(dst_item);
+						break;
+					}
+
+				}
+
+				return ret_data;
 			}
 
 			/// <summary>

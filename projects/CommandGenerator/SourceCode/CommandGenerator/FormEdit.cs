@@ -8,6 +8,7 @@ using CommandGenerator.Class.Storage;
 using CommandGenerator.Class.Display;
 using System.Security.Permissions;
 using System.Drawing;
+using System.Linq;
 
 namespace CommandGenerator
 {
@@ -23,7 +24,6 @@ namespace CommandGenerator
 
 			ScreenObj = new InputScreen(SplitContainer.Panel2);
 		}
-
 		public FormEdit(string name, string version)
 			: this()
 		{
@@ -52,7 +52,7 @@ namespace CommandGenerator
 		{
 			var dst = new CommandCsvStorage.Item();
 
-			dst.Command = string.Join("", src.Parser().ToArray());
+			dst.Command = string.Join("", src.MessageGeneration().ToArray());
 			dst.Length  = (ulong)src.Length;
 			dst.Type    = src.Name;
 			dst.Tag     = src;
@@ -78,15 +78,13 @@ namespace CommandGenerator
 
 		public void Clear()
 		{
-			CommandList.Name = "";
-			CommandList.Version = "";
 			CommandList.Items.Clear();
 			FileName = "";
 			CommandListBox.Items.Clear();
 			ScreenObj.Clear();
 		}
 
-		public void add(object obj)
+		public void Add(object obj)
 		{
 			if (obj.GetType().Name != "Item") { return; }
 
@@ -104,6 +102,17 @@ namespace CommandGenerator
 				// リストボックスの一番上を選択
 				CommandListBox.SetSelected(CommandListBox.Items.Count - 1, true);
 			}
+		} 
+
+		public void Update(object obj)
+		{
+			if (obj.GetType().Name != "CommandCsvObject") { return; }
+
+			foreach (var item in ((CommandCsvStorage.CommandCsvObject)obj).Items)
+			{
+				CommandListBox.Items.Add(item.Clone());
+			}
+			CommandListBox.SetSelected(CommandListBox.Items.Count - 1, true);
 		}
 
 		private void save()
@@ -115,9 +124,9 @@ namespace CommandGenerator
 
 				foreach (var item in CommandListBox.Items)
 				{
-					CommandCsvStorage.Item csvObj  = (CommandCsvStorage.Item)item;
-					csvObj.Command = string.Join("", ((CommandJsonStorage.Item)csvObj.Tag).Parser().ToArray());
-
+					var jsonObj  = (CommandJsonStorage.Item)((CommandCsvStorage.Item)item).Tag;
+					var csvObj   = ConvertJsonItemToCsvItem(jsonObj);
+					csvObj.Name  = item.ToString();
 					CommandList.Items.Add(csvObj);
 				}
 			}
@@ -163,7 +172,7 @@ namespace CommandGenerator
 			catch (Exception e)
 			{
 				// ファイルを開くのに失敗したときエラーメッセージを表示
-				//Console.WriteLine(e.Message);
+				Console.WriteLine(e.Message);
 				return;
 			}
 			#endregion
@@ -226,6 +235,21 @@ namespace CommandGenerator
 		private void buttonGenerates_Click(object sender, EventArgs e)
 		{
 			save();
+		}
+		#endregion
+
+		#region Window
+		private void FormEdit_FormClosed(object sender, FormClosedEventArgs e)
+		{
+			var delete_path = Environment.CurrentDirectory;
+
+			foreach (var file in Directory.GetFiles(delete_path))
+			{
+				if (Path.GetFileName(file).Contains("FileData"))
+				{
+					File.Delete(@file);
+				}
+			}
 		}
 		#endregion
 	}

@@ -15,7 +15,7 @@ namespace CommandGenerator.Class.FileOperation
 		private OpenFileDialog OpenDialog { get; } = new OpenFileDialog();
 		private SaveFileDialog SaveDialog { get; } = new SaveFileDialog();
 		public string FileName { get; set; } = "";
-		public CommandCsvStorage.CommandCsvObject Object { get; set; } = default;
+		public CommandCsvStorage.CommandCsvObject Object { get; set; } = new CommandCsvStorage.CommandCsvObject();
 
 		public CsvFile()
 		{
@@ -51,7 +51,7 @@ namespace CommandGenerator.Class.FileOperation
 		public void Clear()
 		{
 			FileName = null;
-			Object = default;
+			Object = new CommandCsvStorage.CommandCsvObject();
 		}
 
 		public bool Open()

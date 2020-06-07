@@ -167,6 +167,7 @@
 			this.MinimumSize = new System.Drawing.Size(400, 200);
 			this.Name = "FormEdit";
 			this.Text = "CommandEdit";
+			this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.FormEdit_FormClosed);
 			this.MenuStripMain.ResumeLayout(false);
 			this.MenuStripMain.PerformLayout();
 			this.SplitContainer.Panel1.ResumeLayout(false);

@@ -57,6 +57,22 @@ namespace CommandGenerator.Class.Storage
 
 			public List<Item> Items { get; set; } = new List<Item>();
 
+			private List<string> SplitLineBreak(string target)
+			{
+				if (target.Contains('\n'))
+				{
+					return target.Replace("\r", "").Split('\n').ToList();
+				}
+				else if (target.Contains('\r'))
+				{
+					return target.Replace("\n", "").Split('\r').ToList();
+				}
+				else
+				{
+					throw new Exception();
+				}
+			}
+
 			/// <summary>
 			/// 詳細コピーメソッド
 			/// </summary>
@@ -112,10 +128,24 @@ namespace CommandGenerator.Class.Storage
 			/// </summary>
 			public void Deserialize(string target)
 			{
-				//var obj = JsonConvert.DeserializeObject<CommandJsonObject>(target);
-				//Name = obj.Name;
-				//Version = obj.Version;
-				//Items = obj.Items;
+				var list = SplitLineBreak(target);
+
+				Name    = list.First().Split(',')[1]; list.RemoveAt(0);
+				Version = list.First().Split(',')[1]; list.RemoveAt(0);
+				list.RemoveAt(0);
+				list.RemoveAt(0);
+
+				foreach (var list_item in list)
+				{
+					if (list_item == "") { continue; }
+					var item     = new Item();
+					item.Name    = list_item.Split(',')[1];
+					item.Command = list_item.Split(',')[2];
+					item.Length  = Convert.ToUInt64(list_item.Split(',')[3]);
+					item.Type    = list_item.Split(',')[4];
+
+					Items.Add(item);
+				}
 			}
 
 			/// <summary>
