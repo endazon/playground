@@ -18,11 +18,26 @@ namespace CommandGenerator
 			InitializeComponent();
 		}
 
+		private FormEdit FormListCreateInstance()
+		{
+			if (generateToolStripMenuItem.Checked)
+			{
+				return new FormGenerate(CommandObj.Name, CommandObj.Version);
+			}
+			else if (communicationToolStripMenuItem.Checked)
+			{
+				return new FormCommunication();
+			}
+			else
+			{
+				throw new Exception();
+			}
+		}
 		private void FormListShow()
 		{
 			if (FormEdit != null) return;
 
-			FormEdit = new FormEdit(CommandObj.Name, CommandObj.Version);
+			FormEdit = FormListCreateInstance();
 			FormEdit.Show(this);
 			FormEdit.LocationUpdate(Location.X + Size.Width, Location.Y);
 		}
@@ -152,6 +167,25 @@ namespace CommandGenerator
 				FormListShow();
 				FormEdit.Update(CommandObj.Parser(csvFile.Object));
 			}
+		}
+
+		private void modeToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			ToolStripMenuItem toolStripMenuItem = (ToolStripMenuItem)sender;
+
+			toolStripMenuItem.Checked = true;
+			toolStripMenuItem.CheckState = CheckState.Indeterminate;
+			foreach (var release in (ToolStripMenuItem[])toolStripMenuItem.Tag)
+			{
+				release.Checked = false;
+				release.CheckState = CheckState.Unchecked;
+			}
+		}
+		
+		private void modeToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+		{
+			FormListClose();
+			FormListShow();
 		}
 		#endregion
 

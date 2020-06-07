@@ -37,4 +37,5 @@ C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\Comma
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.Properties.Resources.resources
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.exe
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.pdb
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormGenerate.resources
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.csprojAssemblyReference.cache

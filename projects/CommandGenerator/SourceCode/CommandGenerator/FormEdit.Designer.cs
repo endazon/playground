@@ -51,7 +51,7 @@
             this.fileToolStripMenuItem});
 			this.MenuStripMain.Location = new System.Drawing.Point(0, 0);
 			this.MenuStripMain.Name = "MenuStripMain";
-			this.MenuStripMain.Size = new System.Drawing.Size(901, 24);
+			this.MenuStripMain.Size = new System.Drawing.Size(884, 24);
 			this.MenuStripMain.TabIndex = 0;
 			this.MenuStripMain.Text = "MenuStripMain";
 			// 
@@ -111,7 +111,7 @@
 			// 
 			this.SplitContainer.Panel2.AutoScroll = true;
 			this.SplitContainer.Panel2.BackColor = System.Drawing.SystemColors.ControlDarkDark;
-			this.SplitContainer.Size = new System.Drawing.Size(901, 387);
+			this.SplitContainer.Size = new System.Drawing.Size(884, 387);
 			this.SplitContainer.SplitterDistance = 215;
 			this.SplitContainer.TabIndex = 1;
 			// 
@@ -158,16 +158,17 @@
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.BackColor = System.Drawing.SystemColors.ControlDarkDark;
-			this.ClientSize = new System.Drawing.Size(901, 411);
+			this.ClientSize = new System.Drawing.Size(884, 411);
 			this.Controls.Add(this.SplitContainer);
 			this.Controls.Add(this.MenuStripMain);
 			this.ForeColor = System.Drawing.SystemColors.ControlLight;
 			this.MainMenuStrip = this.MenuStripMain;
 			this.MaximizeBox = false;
-			this.MinimumSize = new System.Drawing.Size(400, 200);
+			this.MinimumSize = new System.Drawing.Size(300, 450);
 			this.Name = "FormEdit";
 			this.Text = "CommandEdit";
 			this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.FormEdit_FormClosed);
+			this.Load += new System.EventHandler(this.FormEdit_Load);
 			this.MenuStripMain.ResumeLayout(false);
 			this.MenuStripMain.PerformLayout();
 			this.SplitContainer.Panel1.ResumeLayout(false);

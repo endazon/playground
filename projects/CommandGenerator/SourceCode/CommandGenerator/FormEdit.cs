@@ -31,8 +31,6 @@ namespace CommandGenerator
 			CommandList.Version = version;
 		}
 
-
-
 		//ウィンドウを閉じるボタン・ショートカットを無効化
 		protected override CreateParams CreateParams
 		{
@@ -115,7 +113,7 @@ namespace CommandGenerator
 			CommandListBox.SetSelected(CommandListBox.Items.Count - 1, true);
 		}
 
-		private void save()
+		public void Save()
 		{
 			#region 前処理
 			try
@@ -184,6 +182,18 @@ namespace CommandGenerator
 			#endregion
 		}
 
+		public object GetSelectItem()
+		{
+			if (CommandListBox.SelectedItem == null) { return null; }
+			var item = CommandListBox.SelectedItem;
+
+			var jsonObj = (CommandJsonStorage.Item)((CommandCsvStorage.Item)item).Tag;
+			var csvObj = ConvertJsonItemToCsvItem(jsonObj);
+			csvObj.Name = item.ToString();
+
+			return csvObj;
+		}
+
 		#region Menu
 		private void newToolStripMenuItem_Click(object sender, EventArgs e)
 		{
@@ -192,13 +202,13 @@ namespace CommandGenerator
 
 		private void saveToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			save();
+			Save();
 		}
 
 		private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			FileName = "";
-			save();
+			Save();
 		}
 		#endregion
 
@@ -232,24 +242,20 @@ namespace CommandGenerator
 		#endregion
 
 		#region Button
-		private void buttonGenerates_Click(object sender, EventArgs e)
+		public virtual void buttonGenerates_Click(object sender, EventArgs e)
 		{
-			save();
+
 		}
 		#endregion
 
 		#region Window
-		private void FormEdit_FormClosed(object sender, FormClosedEventArgs e)
+		public virtual void FormEdit_Load(object sender, EventArgs e)
 		{
-			var delete_path = Environment.CurrentDirectory;
 
-			foreach (var file in Directory.GetFiles(delete_path))
-			{
-				if (Path.GetFileName(file).Contains("FileData"))
-				{
-					File.Delete(@file);
-				}
-			}
+		}
+		public virtual void FormEdit_FormClosed(object sender, FormClosedEventArgs e)
+		{
+
 		}
 		#endregion
 	}
