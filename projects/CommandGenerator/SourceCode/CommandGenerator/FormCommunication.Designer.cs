@@ -29,11 +29,18 @@
 		private void InitializeComponent()
 		{
 			this.SuspendLayout();
+
 			// 
 			// FormCommunication
 			// 
 			this.Name = "FormCommunication";
 			this.Text = "FormCommunication";
+
+			// 
+			// Button
+			// 
+			this.buttonRunning.Text = "Start Sending";
+
 			this.ResumeLayout(false);
 		}
 

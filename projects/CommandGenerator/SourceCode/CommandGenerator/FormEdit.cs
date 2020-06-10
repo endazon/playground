@@ -242,7 +242,7 @@ namespace CommandGenerator
 		#endregion
 
 		#region Button
-		public virtual void buttonGenerates_Click(object sender, EventArgs e)
+		public virtual void buttonRunning_Click(object sender, EventArgs e)
 		{
 
 		}

@@ -29,11 +29,18 @@
 		private void InitializeComponent()
 		{
 			this.SuspendLayout();
+
 			// 
 			// FormGenerate
 			// 
 			this.Name = "FormGenerate";
 			this.Text = "FormGenerate";
+
+			// 
+			// Button
+			// 
+			this.buttonRunning.Text = "Start Generation";
+
 			this.ResumeLayout(false);
 
 		}
