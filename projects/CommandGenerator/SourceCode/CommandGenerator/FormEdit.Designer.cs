@@ -35,7 +35,7 @@
 			this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.saveAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.SplitContainer = new System.Windows.Forms.SplitContainer();
-			this.buttonGenerates = new System.Windows.Forms.Button();
+			this.buttonRunning = new System.Windows.Forms.Button();
 			this.CommandListBox = new System.Windows.Forms.ListBox();
 			this.saveFileDialogCsv = new System.Windows.Forms.SaveFileDialog();
 			this.MenuStripMain.SuspendLayout();
@@ -104,7 +104,7 @@
 			// SplitContainer.Panel1
 			// 
 			this.SplitContainer.Panel1.BackColor = System.Drawing.SystemColors.ControlDarkDark;
-			this.SplitContainer.Panel1.Controls.Add(this.buttonGenerates);
+			this.SplitContainer.Panel1.Controls.Add(this.buttonRunning);
 			this.SplitContainer.Panel1.Controls.Add(this.CommandListBox);
 			// 
 			// SplitContainer.Panel2
@@ -115,18 +115,18 @@
 			this.SplitContainer.SplitterDistance = 215;
 			this.SplitContainer.TabIndex = 1;
 			// 
-			// buttonGenerates
+			// buttonRunning
 			// 
-			this.buttonGenerates.BackColor = System.Drawing.SystemColors.Control;
-			this.buttonGenerates.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.buttonGenerates.ForeColor = System.Drawing.SystemColors.ControlText;
-			this.buttonGenerates.Location = new System.Drawing.Point(0, 360);
-			this.buttonGenerates.Name = "buttonGenerates";
-			this.buttonGenerates.Size = new System.Drawing.Size(211, 23);
-			this.buttonGenerates.TabIndex = 0;
-			this.buttonGenerates.Text = "Generates";
-			this.buttonGenerates.UseVisualStyleBackColor = false;
-			this.buttonGenerates.Click += new System.EventHandler(this.buttonGenerates_Click);
+			this.buttonRunning.BackColor = System.Drawing.SystemColors.Control;
+			this.buttonRunning.Dock = System.Windows.Forms.DockStyle.Bottom;
+			this.buttonRunning.ForeColor = System.Drawing.SystemColors.ControlText;
+			this.buttonRunning.Location = new System.Drawing.Point(0, 360);
+			this.buttonRunning.Name = "buttonRunning";
+			this.buttonRunning.Size = new System.Drawing.Size(211, 23);
+			this.buttonRunning.TabIndex = 0;
+			this.buttonRunning.Text = "Running";
+			this.buttonRunning.UseVisualStyleBackColor = false;
+			this.buttonRunning.Click += new System.EventHandler(this.buttonRunning_Click);
 			// 
 			// CommandListBox
 			// 
@@ -189,8 +189,9 @@
 		private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem saveAsToolStripMenuItem;
 		private System.Windows.Forms.ListBox CommandListBox;
-		private System.Windows.Forms.Button buttonGenerates;
 		private System.Windows.Forms.SaveFileDialog saveFileDialogCsv;
+
+		protected System.Windows.Forms.Button buttonRunning;
 	}
 }
 

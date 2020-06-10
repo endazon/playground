@@ -19,7 +19,7 @@ namespace CommandGenerator
 		}
 
 		#region Button
-		public override void buttonGenerates_Click(object sender, EventArgs e)
+		public override void buttonRunning_Click(object sender, EventArgs e)
 		{
 			Save();
 		}

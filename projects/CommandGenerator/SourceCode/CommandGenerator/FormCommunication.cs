@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 using CommandGenerator.Class.Com;
@@ -11,7 +12,7 @@ namespace CommandGenerator
 	public partial class FormCommunication : FormEdit
 	{
         //Socketクライアント
-        private TcpClient tClient = new TcpClient();
+        private TcpClient tClient = null;
 
         private string host = "";
 
@@ -21,6 +22,15 @@ namespace CommandGenerator
 		{
             Debug.WriteLine("FormCommunication" + " ThreadID:" + Thread.CurrentThread.ManagedThreadId);
             InitializeComponent();
+            InitCommunication();
+        }
+
+        private void InitCommunication()
+        {
+            if (tClient != null) return;
+
+            //Socketクライアント
+            tClient = new TcpClient();
 
             //接続OKイベント
             tClient.OnConnected += new TcpClient.ConnectedEventHandler(tClient_OnConnected);
@@ -36,6 +46,8 @@ namespace CommandGenerator
             Debug.WriteLine("tClient_OnDisconnected" + " ThreadID:" + Thread.CurrentThread.ManagedThreadId);
             if (this.InvokeRequired)
                 this.Invoke(new DisconnectedDelegate(Disconnected), new object[] { sender, e });
+
+            tClient = null;
         }
         private delegate void DisconnectedDelegate(object sender, EventArgs e);
         private void Disconnected(object sender, EventArgs e)
@@ -65,6 +77,10 @@ namespace CommandGenerator
         private void ReceiveData(object sender, string e)
         {
             Debug.WriteLine("ReceiveData:" + e + " ThreadID:" + Thread.CurrentThread.ManagedThreadId);
+
+            Task.Factory.StartNew(() =>
+                MessageBox.Show(e, "レスポンス受信", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            );
         }
 
         //接続処理
@@ -102,6 +118,8 @@ namespace CommandGenerator
                 Debug.WriteLine("Form1_FormClosing" + " ThreadID:" + Thread.CurrentThread.ManagedThreadId);
                 if (!tClient.IsClosed)
                     tClient.Close();
+
+                tClient = null;
             }
             catch (Exception ex)
             {
@@ -110,8 +128,14 @@ namespace CommandGenerator
         }
 
         #region Button
-        public override void buttonGenerates_Click(object sender, EventArgs e)
+        public override void buttonRunning_Click(object sender, EventArgs e)
         {
+            if (tClient == null)
+            {
+                InitCommunication();
+                tConnect();
+            }
+
             try
             {
                 var cmd = (CommandCsvStorage.Item)GetSelectItem();

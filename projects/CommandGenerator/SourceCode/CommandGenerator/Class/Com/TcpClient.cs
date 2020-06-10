@@ -184,12 +184,13 @@ namespace CommandGenerator.Class.Com
             //受信データ保存
             myMs.Write(rcvBuff, 0, len);
 
-            if (myMs.Length >= 2)
-            {
-                //\r\nかチェック
-                myMs.Seek(-2, SeekOrigin.End);
-                if (myMs.ReadByte() == '\r' || myMs.ReadByte() == '\n')
-                {
+            //if (myMs.Length >= 2)
+            //{
+            //    //\r\nかチェック
+            //    myMs.Seek(-2, SeekOrigin.End);
+            //    if (myMs.ReadByte() == '\r' || myMs.ReadByte() == '\n')
+            //    {
+
                     //受信データを文字列に変換
                     string rsvStr = enc.GetString(myMs.ToArray());
                     //受信データ初期化
@@ -199,13 +200,13 @@ namespace CommandGenerator.Class.Com
                     //データ受信イベント発生
                     OnReceiveData(this, rsvStr);
 
-                }
-                else
-                {
-                    //ストリーム位置を戻す
-                    myMs.Seek(0, SeekOrigin.End);
-                }
-            }
+            //    }
+            //    else
+            //    {
+            //        //ストリーム位置を戻す
+            //        myMs.Seek(0, SeekOrigin.End);
+            //    }
+            //}
 
             lock (syncLock)
             {
