@@ -58,7 +58,7 @@ namespace CommandGenerator
 			return dst;
 		}
 
-		public void LocationUpdate(int x, int y)
+		public virtual void LocationUpdate(int x, int y)
 		{
 			int buff_x = x >= 0 ? x : Location.X;
 			int buff_y = y >= 0 ? y : Location.Y;
@@ -66,7 +66,7 @@ namespace CommandGenerator
 			Location = new Point(buff_x - 5, buff_y);
 		}
 
-		public void SizeUpdate(int width, int height)
+		public virtual void SizeUpdate(int width, int height)
 		{
 			int buff_width  = width >= 0  ? width  : Size.Width;
 			int buff_height = height >= 0 ? height : Size.Height;

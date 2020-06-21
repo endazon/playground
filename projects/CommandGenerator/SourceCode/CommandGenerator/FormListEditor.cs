@@ -9,7 +9,7 @@ namespace CommandGenerator
 	public partial class FormListEditor : Form
 	{
 		readonly Font FONT    = new Font("MS UI Gothic", 16F, FontStyle.Regular, GraphicsUnit.Point, 128);
-		readonly int MAX_TEXT = 8;
+		readonly int MAX_TEXT = 20;
 		readonly int X        = 5;
 		readonly int Y        = 15;
 

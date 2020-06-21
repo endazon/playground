@@ -164,7 +164,7 @@
 			this.ForeColor = System.Drawing.SystemColors.ControlLight;
 			this.MainMenuStrip = this.MenuStripMain;
 			this.MaximizeBox = false;
-			this.MinimumSize = new System.Drawing.Size(300, 450);
+			this.MinimumSize = new System.Drawing.Size(300, 100);
 			this.Name = "FormEdit";
 			this.Text = "CommandEdit";
 			this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.FormEdit_FormClosed);

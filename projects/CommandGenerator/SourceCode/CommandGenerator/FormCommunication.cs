@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -11,6 +12,8 @@ namespace CommandGenerator
 {
 	public partial class FormCommunication : FormEdit
 	{
+        private FormCommunicationDsplay FormCommunicationDsplay { get; set; } = null;
+
         //Socketクライアント
         private TcpClient tClient = null;
 
@@ -21,8 +24,22 @@ namespace CommandGenerator
         public FormCommunication()
 		{
             Debug.WriteLine("FormCommunication" + " ThreadID:" + Thread.CurrentThread.ManagedThreadId);
+
+            FormCommunicationDsplay = new FormCommunicationDsplay();
             InitializeComponent();
             InitCommunication();
+        }
+
+        public override void LocationUpdate(int x, int y)
+        {
+            base.LocationUpdate(x, y);
+            FormCommunicationDsplay.LocationUpdate(x, y + Height);
+        }
+
+        public override void SizeUpdate(int width, int height)
+        {
+            base.SizeUpdate(width, height / 2);
+            FormCommunicationDsplay.SizeUpdate(width, height / 2);
         }
 
         private void InitCommunication()
@@ -78,9 +95,7 @@ namespace CommandGenerator
         {
             Debug.WriteLine("ReceiveData:" + e + " ThreadID:" + Thread.CurrentThread.ManagedThreadId);
 
-            Task.Factory.StartNew(() =>
-                MessageBox.Show(e, "レスポンス受信", MessageBoxButtons.OK, MessageBoxIcon.Information)
-            );
+            FormCommunicationDsplay.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")+ "] Rcve <<<<< " + e);
         }
 
         //接続処理
@@ -103,6 +118,7 @@ namespace CommandGenerator
             try
             {
                 tClient.Send(data);
+                FormCommunicationDsplay.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] Send >>>>> " + data);
             }
             catch (Exception ex)
             {
@@ -158,6 +174,7 @@ namespace CommandGenerator
         public override void FormEdit_Load(object sender, EventArgs e)
         {
             Debug.WriteLine("btn_Connect_Click" + " ThreadID:" + Thread.CurrentThread.ManagedThreadId);
+
             //TODO:要変更
             //接続先ホスト名
             host = new FormInputTextBox("ホスト名を入力して下さい。",
@@ -171,11 +188,15 @@ namespace CommandGenerator
                                                         "80"
                                                         ).GetInputText());
             tConnect();
+
+            FormCommunicationDsplay.Show();
         }
         /** 切断処理 **/
         public override void FormEdit_FormClosed(object sender, FormClosedEventArgs e)
 		{
             tClose();
+            FormCommunicationDsplay.Close();
+            FormCommunicationDsplay = null;
         }
 		#endregion
 	}

@@ -20,18 +20,24 @@ namespace CommandGenerator
 
 		private FormEdit FormListCreateInstance()
 		{
+			var form = new FormEdit();
 			if (generateToolStripMenuItem.Checked)
 			{
-				return new FormGenerate(CommandObj.Name, CommandObj.Version);
+				form = new FormGenerate(CommandObj.Name, CommandObj.Version);
 			}
 			else if (communicationToolStripMenuItem.Checked)
 			{
-				return new FormCommunication();
+				form = new FormCommunication();
 			}
 			else
 			{
 				throw new Exception();
 			}
+
+			form.SizeUpdate(-1, Size.Height);
+			form.LocationUpdate(Location.X + Size.Width, Location.Y);
+
+			return form;
 		}
 		private void FormListShow()
 		{
@@ -245,8 +251,8 @@ namespace CommandGenerator
 			Form obj = (Form)sender;
 
 			FormEdit.WindowState = obj.WindowState;
-			FormEdit.LocationUpdate(obj.Location.X + obj.Size.Width, obj.Location.Y);
 			FormEdit.SizeUpdate(-1, obj.Size.Height);
+			FormEdit.LocationUpdate(obj.Location.X + obj.Size.Width, obj.Location.Y);
 		}
 		#endregion
 	}
