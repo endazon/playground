@@ -1,0 +1,12 @@
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\bin\Debug\WinFormsCtrlLibInputScreen.dll
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\bin\Debug\WinFormsCtrlLibInputScreen.pdb
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.dll
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.pdb
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.InputString.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.csproj.GenerateResource.cache
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.InputHexadecimal.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.InputSelection.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.InputFile.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.InputDecimal.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.Base.UserControlInput.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\WinFormsCtrlLibInputScreen\obj\Debug\WinFormsCtrlLibInputScreen.csprojAssemblyReference.cache

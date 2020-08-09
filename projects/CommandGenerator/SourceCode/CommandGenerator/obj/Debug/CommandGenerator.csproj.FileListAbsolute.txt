@@ -25,11 +25,9 @@ C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\CommandGenerato
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\CommandGenerator\obj\Debug\CommandGenerator.csprojAssemblyReference.cache
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\Newtonsoft.Json.dll
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\Newtonsoft.Json.xml
-C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormList.resources
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormEdit.resources
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.csproj.GenerateResource.cache
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.csproj.CopyComplete
-C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormListEditor.resources
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormInputTextBox.resources
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\CommandGenerator.exe.config
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\CommandGenerator.exe
@@ -38,5 +36,9 @@ C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\Comma
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.exe
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.pdb
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormGenerate.resources
-C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.csprojAssemblyReference.cache
 C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormCommunicationDsplay.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.FormMain.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\CommandGenerator.csprojAssemblyReference.cache
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\obj\Debug\ListSettings.FormMain.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\WinFormsCtrlLibInputScreen.dll
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\CommandGenerator\bin\Debug\WinFormsCtrlLibInputScreen.pdb

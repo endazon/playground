@@ -49,75 +49,96 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class\Com\TcpClient.cs" />
-    <Compile Include="Class\Display\InputScreen.cs" />
-    <Compile Include="Class\FileOperation\CsvFile.cs" />
-    <Compile Include="Class\FileOperation\JsonFile.cs" />
-    <Compile Include="Class\Storage\CommandCsvStorage.cs" />
-    <Compile Include="Class\Storage\CommandJsonStorage.cs" />
-    <Compile Include="Class\Storage\InputScreenStorage.cs" />
-    <Compile Include="FormCommunication.cs">
+    <Compile Include="Target\01_Common\Extension\MyExtensionClass.cs" />
+    <Compile Include="Target\01_Common\Range\Range.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\Interface\IInput.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputDecimal.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputFile.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputHexadecimal.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputSelection.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputString.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Facade\Searcher.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Strategy\Interface\ILayout.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Strategy\MyLayoutClass.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Strategy\target\HorizontalityLayout.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Strategy\target\VerticalLayout.cs" />
+    <Compile Include="Target\11_ListSetting\Interface\IListSetting.cs" />
+    <Compile Include="Target\11_ListSetting\Interface\target\ListSetting.cs" />
+    <Compile Include="Target\12_Mode\02_Communication\FormCommunicationDsplay.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FormCommunication.Designer.cs">
-      <DependentUpon>FormCommunication.cs</DependentUpon>
-    </Compile>
-    <Compile Include="FormCommunicationDsplay.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="FormCommunicationDsplay.Designer.cs">
+    <Compile Include="Target\12_Mode\02_Communication\FormCommunicationDsplay.Designer.cs">
       <DependentUpon>FormCommunicationDsplay.cs</DependentUpon>
     </Compile>
-    <Compile Include="FormGenerate.cs">
+    <Compile Include="Target\Class\Com\TcpClient.cs" />
+    <Compile Include="Target\Class\Display\InputScreen.cs" />
+    <Compile Include="Target\Class\FileOperation\CsvFile.cs" />
+    <Compile Include="Target\Class\FileOperation\JsonFile.cs" />
+    <Compile Include="Target\Class\Storage\CommandCsvStorage.cs" />
+    <Compile Include="Target\Class\Storage\CommandJsonStorage.cs" />
+    <Compile Include="Target\Class\Storage\InputScreenStorage.cs" />
+    <Compile Include="Target\12_Mode\02_Communication\FormCommunication.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FormGenerate.Designer.cs">
+    <Compile Include="Target\12_Mode\02_Communication\FormCommunication.Designer.cs">
+      <DependentUpon>FormCommunication.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\12_Mode\02_Communication\_FormCommunicationDsplay.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\12_Mode\02_Communication\_FormCommunicationDsplay.Designer.cs">
+      <DependentUpon>_FormCommunicationDsplay.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\12_Mode\01_Generate\FormGenerate.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\12_Mode\01_Generate\FormGenerate.Designer.cs">
       <DependentUpon>FormGenerate.cs</DependentUpon>
     </Compile>
-    <Compile Include="FormInputTextBox.cs">
+    <Compile Include="Target\02_Utility\FormInputTextBox.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FormInputTextBox.Designer.cs">
+    <Compile Include="Target\02_Utility\FormInputTextBox.Designer.cs">
       <DependentUpon>FormInputTextBox.cs</DependentUpon>
     </Compile>
-    <Compile Include="FormList.cs">
+    <Compile Include="Target\FormMain.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FormList.Designer.cs">
-      <DependentUpon>FormList.cs</DependentUpon>
+    <Compile Include="Target\FormMain.Designer.cs">
+      <DependentUpon>FormMain.cs</DependentUpon>
     </Compile>
-    <Compile Include="FormEdit.cs">
+    <Compile Include="Target\12_Mode\FormEdit.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FormEdit.Designer.cs">
+    <Compile Include="Target\12_Mode\FormEdit.Designer.cs">
       <DependentUpon>FormEdit.cs</DependentUpon>
     </Compile>
-    <Compile Include="FormListEditor.cs">
+    <Compile Include="Target\11_ListSetting\Form\FormMain.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FormListEditor.Designer.cs">
-      <DependentUpon>FormListEditor.cs</DependentUpon>
+    <Compile Include="Target\11_ListSetting\Form\FormMain.Designer.cs">
+      <DependentUpon>FormMain.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Settings.cs" />
-    <EmbeddedResource Include="FormCommunicationDsplay.resx">
-      <DependentUpon>FormCommunicationDsplay.cs</DependentUpon>
+    <EmbeddedResource Include="Target\12_Mode\02_Communication\_FormCommunicationDsplay.resx">
+      <DependentUpon>_FormCommunicationDsplay.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="FormGenerate.resx">
+    <EmbeddedResource Include="Target\12_Mode\01_Generate\FormGenerate.resx">
       <DependentUpon>FormGenerate.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="FormInputTextBox.resx">
+    <EmbeddedResource Include="Target\02_Utility\FormInputTextBox.resx">
       <DependentUpon>FormInputTextBox.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="FormList.resx">
-      <DependentUpon>FormList.cs</DependentUpon>
+    <EmbeddedResource Include="Target\FormMain.resx">
+      <DependentUpon>FormMain.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="FormEdit.resx">
+    <EmbeddedResource Include="Target\12_Mode\FormEdit.resx">
       <DependentUpon>FormEdit.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="FormListEditor.resx">
-      <DependentUpon>FormListEditor.cs</DependentUpon>
+    <EmbeddedResource Include="Target\11_ListSetting\Form\FormMain.resx">
+      <DependentUpon>FormMain.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -142,6 +163,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Target\11_ListSetting\Class\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WinFormsCtrlLibInputScreen\WinFormsCtrlLibInputScreen.csproj">
+      <Project>{677D0BD5-DA1E-4F0D-AAD3-B42B0E6519E7}</Project>
+      <Name>WinFormsCtrlLibInputScreen</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
