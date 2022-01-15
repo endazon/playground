@@ -2,8 +2,9 @@
 #define UNIT_OF_NUMBER_H
 
 #include <stdint.h>
-#include <cassert>
+#include <type_traits>
 #include <cmath>
+#include <cassert>
 
 namespace UnitOfNumber {
 
@@ -14,137 +15,122 @@ namespace UnitOfNumber {
 	template<class __ValueType>
 	class BaseNumeral
 	{
-	public:
-		/// <summary>
-		/// Get演算子
-		/// プリミティブ型の値を返す
-		/// </summary>
-		/// <returns></returns>
-		inline __ValueType operator*()const { return GetValue(); }
-
-		/// <summary>
-		/// Set演算子
-		/// プリミティブ型の値を設定する
-		/// </summary>
-		/// <param name="value"></param>
-		/// <returns></returns>
-		inline BaseNumeral& operator()(const __ValueType value) { return SetValue(value); }
-
-		//代入演算子
-		inline BaseNumeral& operator=(const BaseNumeral& other) { return SetValue(other.GetValue()); }
-
-		//単項演算子
-		inline BaseNumeral& operator+() { return Clone(GetValue()); }
-		inline BaseNumeral& operator-() { return Clone(-GetValue()); }
-
-		//算術演算子
-		inline BaseNumeral& operator+(BaseNumeral& other) { return Clone(GetValue() + other.GetValue()); }
-		inline BaseNumeral& operator-(BaseNumeral& other) { return Clone(GetValue() - other.GetValue()); }
-		inline BaseNumeral& operator*(BaseNumeral& other) { return Clone(GetValue() * other.GetValue()); }
-		inline BaseNumeral& operator/(BaseNumeral& other) { return Clone(GetValue() / other.GetValue()); }
-		inline BaseNumeral& operator%(BaseNumeral& other) { return Clone(GetValue() % other.GetValue()); }
-
-		//科学算術
-		inline BaseNumeral& pow(BaseNumeral& other) { return Clone(std::pow(GetValue(), other.GetValue())); }
-		inline BaseNumeral& log(void) { return Clone(std::log(GetValue())); }
-		inline BaseNumeral& log(BaseNumeral& other) { return (*this / other.log()).log(); }
-		inline BaseNumeral& abs(void) { return Clone(std::abs(GetValue())); }
-
-		//算術代入演算子
-		inline void operator+=(BaseNumeral& other) { SetValue(GetValue() + other.GetValue()); }
-		inline void operator-=(BaseNumeral& other) { SetValue(GetValue() - other.GetValue()); }
-		inline void operator*=(BaseNumeral& other) { SetValue(GetValue() * other.GetValue()); }
-		inline void operator/=(BaseNumeral& other) { SetValue(GetValue() / other.GetValue()); }
-		inline void operator%=(BaseNumeral& other) { SetValue(GetValue() % other.GetValue()); }
-
-		//比較演算子
-		inline bool operator==(BaseNumeral& other) const { return GetValue() == other.GetValue(); }
-		inline bool operator!=(BaseNumeral& other) const { return GetValue() != other.GetValue(); }
-		inline bool operator<=(BaseNumeral& other) const { return GetValue() <= other.GetValue(); }
-		inline bool operator< (BaseNumeral& other) const { return GetValue() <  other.GetValue(); }
-		inline bool operator> (BaseNumeral& other) const { return GetValue() >  other.GetValue(); }
-		inline bool operator>=(BaseNumeral& other) const { return GetValue() >= other.GetValue(); }
-
-	protected:
-		/// <summary>
-		/// Get関数
-		/// プリミティブ型の値を返す
-		/// </summary>
-		/// <returns></returns>
-		virtual inline __ValueType GetValue()const = 0;
-
-		/// <summary>
-		/// Set関数
-		/// プリミティブ型の値を設定する
-		/// </summary>
-		/// <param name="value"></param>
-		/// <returns></returns>
-		virtual inline BaseNumeral<__ValueType>& SetValue(const __ValueType value) = 0;
-
-		/// <summary>
-		/// 複製
-		/// </summary>
-		/// <returns></returns>
-		virtual BaseNumeral<__ValueType>& Clone(__ValueType init = 0) = 0;
-	};
-	namespace {
-		static_assert(sizeof(BaseNumeral<int>) == sizeof(void*) * 1, "BaseNumeral<int> Size Error");
-	}
-
-	/// <summary>
-	/// 数字クラス
-	/// </summary>
-	/// <typeparam name="__ValueType"></typeparam>
-	template<class __ValueType>
-	class NumeralT : public BaseNumeral<__ValueType>
-	{
-	public:
-		NumeralT(__ValueType init = 0) :value(init) {};
-
-	protected:
-		/// <summary>
-		/// Get関数
-		/// プリミティブ型の値を返す
-		/// </summary>
-		/// <returns></returns>
-		inline __ValueType GetValue()const override
+	private:
+		__ValueType _value;
+		inline __ValueType GetValue() const noexcept
 		{
-			return value;
+			return _value;
+		}
+		inline void SetValue(__ValueType v) & noexcept
+		{
+			_value = v;
 		}
 
-		/// <summary>
-		/// Set関数
-		/// プリミティブ型の値を設定する
-		/// </summary>
-		/// <param name="value"></param>
-		/// <returns></returns>
-		inline BaseNumeral<__ValueType>& SetValue(const __ValueType value)override
+	public:
+		constexpr BaseNumeral(const __ValueType& v) noexcept : _value(v)
+		{}
+		constexpr BaseNumeral(const __ValueType&& v = 0) noexcept : BaseNumeral(v)
+		{}
+
+		inline BaseNumeral& Create(const __ValueType&& init = 0) noexcept
 		{
-			this->value = value;
+			return *new BaseNumeral(init);
+		}
+		inline BaseNumeral& Clone() noexcept
+		{
+			return Create(GetValue());
+		}
+
+		template<class T>
+		constexpr __ValueType mod(T lhs, T rhs) noexcept
+		{
+			if constexpr (std::is_integral<T>::value)
+			{
+				return lhs % rhs;
+			}
+			else if constexpr(std::is_floating_point<T>::value)
+			{
+				return std::fmod(lhs, rhs);
+			}
+		}
+
+		//キャスト演算子(Cast)
+		explicit operator __ValueType() const noexcept
+		{
+			return GetValue();
+		}
+
+		//代入演算子(Assignment)
+		template<class T> inline __ValueType operator=(T&& rhs) & noexcept
+		{
+			SetValue(rhs);
+			return GetValue();
+		}
+		template<class T> inline BaseNumeral& operator=(BaseNumeral&& rhs) & noexcept
+		{
+			SetValue(rhs.GetValue());
 			return *this;
 		}
 
-		/// <summary>
-		/// 複製
-		/// </summary>
-		/// <returns></returns>
-		BaseNumeral<__ValueType>& Clone(__ValueType init = 0)override
-		{
-			return *new NumeralT<__ValueType>(init);
-		}
+		//単項マイナス演算子と単項プラス演算子(Unary Negation/Plus)
+		inline __ValueType operator+() const { return  GetValue(); }
+		inline __ValueType operator-() const { return -GetValue(); }
 
-	private:
-		__ValueType value;
+		//算術演算子(Arithmetic)
+		template<class T> inline __ValueType operator+(T&& rhs) { return GetValue() + rhs; }
+		template<class T> inline __ValueType operator-(T&& rhs) { return GetValue() - rhs; }
+		template<class T> inline __ValueType operator*(T&& rhs) { return GetValue() * rhs; }
+		template<class T> inline __ValueType operator/(T&& rhs) { return GetValue() / rhs; }
+		template<class T> inline __ValueType operator%(T&& rhs) { return GetValue() % rhs; }
+		template<>        inline __ValueType operator+(BaseNumeral& rhs) { return GetValue() + rhs.GetValue(); }
+		template<>        inline __ValueType operator-(BaseNumeral& rhs) { return GetValue() - rhs.GetValue(); }
+		template<>        inline __ValueType operator*(BaseNumeral& rhs) { return GetValue() * rhs.GetValue(); }
+		template<>        inline __ValueType operator/(BaseNumeral& rhs) { return GetValue() / rhs.GetValue(); }
+		template<>        inline __ValueType operator%(BaseNumeral& rhs) { return mod(GetValue(), rhs.GetValue()); }
+
+		//複合代入演算子(Compound Assignment)
+		template<class T> inline void operator+=(T&& rhs) { SetValue(GetValue() + rhs); }
+		template<class T> inline void operator-=(T&& rhs) { SetValue(GetValue() - rhs); }
+		template<class T> inline void operator*=(T&& rhs) { SetValue(GetValue() * rhs); }
+		template<class T> inline void operator/=(T&& rhs) { SetValue(GetValue() / rhs); }
+		template<class T> inline void operator%=(T&& rhs) { SetValue(GetValue() % rhs); }
+		template<>        inline void operator+=(BaseNumeral& rhs) { SetValue(GetValue() + rhs.GetValue()); }
+		template<>        inline void operator-=(BaseNumeral& rhs) { SetValue(GetValue() - rhs.GetValue()); }
+		template<>        inline void operator*=(BaseNumeral& rhs) { SetValue(GetValue() * rhs.GetValue()); }
+		template<>        inline void operator/=(BaseNumeral& rhs) { SetValue(GetValue() / rhs.GetValue()); }
+		template<>        inline void operator%=(BaseNumeral& rhs) { SetValue(mod(GetValue(), rhs.GetValue())); }
+
+		//比較演算子(Compare)
+		template<class T> inline bool operator==(T&& rhs) const { return GetValue() == rhs; }
+		template<class T> inline bool operator!=(T&& rhs) const { return GetValue() != rhs; }
+		template<class T> inline bool operator<=(T&& rhs) const { return GetValue() <= rhs; }
+		template<class T> inline bool operator< (T&& rhs) const { return GetValue() <  rhs; }
+		template<class T> inline bool operator> (T&& rhs) const { return GetValue() >  rhs; }
+		template<class T> inline bool operator>=(T&& rhs) const { return GetValue() >= rhs; }
+		template<>        inline bool operator==(BaseNumeral& rhs) const { return GetValue() == rhs.GetValue(); }
+		template<>        inline bool operator!=(BaseNumeral& rhs) const { return GetValue() != rhs.GetValue(); }
+		template<>        inline bool operator<=(BaseNumeral& rhs) const { return GetValue() <= rhs.GetValue(); }
+		template<>        inline bool operator< (BaseNumeral& rhs) const { return GetValue() <  rhs.GetValue(); }
+		template<>        inline bool operator> (BaseNumeral& rhs) const { return GetValue() >  rhs.GetValue(); }
+		template<>        inline bool operator>=(BaseNumeral& rhs) const { return GetValue() >= rhs.GetValue(); }
+
+		//科学算術
+		template<class T> inline auto pow(T&& rhs) { return std::pow(GetValue(), rhs); }
+		template<>        inline auto pow(BaseNumeral& rhs) { return std::pow(GetValue(), rhs.GetValue()); }
+						  inline auto log() { return std::log(GetValue()); }
+		template<class T> inline auto log(T&& rhs) { return std::log(GetValue() / rhs); }
+		template<>        inline auto log(BaseNumeral& rhs) { return std::log(GetValue() / rhs.log()); }
+						  inline auto abs() { return std::abs(GetValue()); }
 	};
-	namespace {
-		//static_assert(sizeof(NumeralT<int>) == sizeof(int) + sizeof(void*) * 1, "NumeralT<int> Size Error");
-	}
 
 	/// <summary>
 	/// 数字クラス
 	/// </summary>
-	using Numeral = NumeralT<long double>;
+	using NumeralValueType = intmax_t;
+	//using NumeralValueType = long double;
+	using Numeral = BaseNumeral<NumeralValueType>;
 
+#if 0
 	/// <summary>
 	/// SI接頭辞テンプレートクラス
 	/// 型を指定できる
@@ -295,6 +281,8 @@ namespace UnitOfNumber {
 	/// SI接頭辞クラス
 	/// </summary>
 	using SIPrefix = SIPrefixT<long double>;
+#endif
+
 }
 
 #endif // UNIT_OF_NUMBER_H
