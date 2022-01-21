@@ -143,7 +143,11 @@ namespace UnitTest
 
 		TEST_METHOD(TestMethod_Arithmetic)
 		{
-			Numeral test, lhs = 2, rhs = 3;
+			Numeral test, lhs = 2, rhs = 3, test2;// = rhs;
+
+			test = lhs;
+			Assert::AreEqual(CAST(2), CAST(test));
+			Assert::AreEqual(CAST(7), CAST(test + 5));
 
 			test = lhs + rhs;
 			Assert::AreEqual(CAST(5), CAST(test));
@@ -334,6 +338,10 @@ namespace UnitTest
 		TEST_METHOD(TestMethod_Arithmetic)
 		{
 			SIPrefix test, lhs = 2, rhs = 3;
+
+			test = lhs;
+			Assert::AreEqual(CAST(2), CAST(test));
+			Assert::AreEqual(CAST(7), CAST(test + 5));
 
 			test = lhs + rhs;
 			Assert::AreEqual(CAST(5), CAST(test));

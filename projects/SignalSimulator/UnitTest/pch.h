@@ -8,5 +8,8 @@
 #define PCH_H
 
 // プリコンパイルするヘッダーをここに追加します
+#include <time.h>
+#include <windows.h>
+#include <chrono>
 
 #endif //PCH_H
