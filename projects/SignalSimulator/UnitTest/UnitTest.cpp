@@ -383,7 +383,11 @@ namespace UnitTest
 				{
 					for (sum = 0; sum < LENGTH; sum++);
 				};
-				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
+				Logger::WriteMessage("【プリミティブ型】\n");
+				Logger::WriteMessage("ループ1000000回実行\n");
+				const auto time = ProcessingTimeMeasurementFunc::measurement(func);
+				Logger::WriteMessage("合計:"); WriteMessageForTime(time);
+				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
 				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
 			}
 			{
@@ -392,7 +396,11 @@ namespace UnitTest
 				{
 					for (sum = 0; sum < LENGTH; sum++);
 				};
-				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
+				Logger::WriteMessage("【Numeral型】\n");
+				Logger::WriteMessage("ループ1000000回実行\n");
+				const auto time = ProcessingTimeMeasurementFunc::measurement(func);
+				Logger::WriteMessage("合計:"); WriteMessageForTime(time);
+				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
 				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
 			}
 		}
@@ -400,12 +408,13 @@ namespace UnitTest
 
 	TEST_CLASS(SIPrefixUnitTest)
 	{
-		using BaseSIPrefixType = intmax_t;
-		using SIPrefix = UnitOfNumber::SIPrefix<BaseSIPrefixType>;
+		//using SIPrefixType = intmax_t;
+		using SIPrefixType = long double;
+		using SIPrefix = UnitOfNumber::SIPrefix<SIPrefixType>;
 
 	private:
 		template<class T>
-		constexpr auto CAST(T&& v) { return static_cast<BaseSIPrefixType>(v); }
+		constexpr auto CAST(T&& v) { return static_cast<SIPrefixType>(v); }
 
 		template<class T>
 		void WriteMessageForTime(T time)
@@ -416,60 +425,264 @@ namespace UnitTest
 			Logger::WriteMessage(out);// デバッグ時のログ(出力欄)に出力
 		}
 
+		const double PARAM = 0.1;
+
 	public:
 		TEST_METHOD(TestMethod_Constructor)
 		{
+			//引数なし
 			{
 				SIPrefix test;
-				Assert::AreEqual(CAST(0), CAST(test));
+				Assert::AreEqual(CAST(0), CAST(test), PARAM);
 			}
 
+			//プリミティブ型参照左辺値
 			{
-				SIPrefix test = 1;
-				Assert::AreEqual(CAST(1), CAST(test));
+				SIPrefixType test1 = 1;
+				SIPrefix test2 = test1;
+				Assert::AreEqual(CAST(1), CAST(test1), PARAM);
+				Assert::AreEqual(CAST(1), CAST(test2), PARAM);
+			}
+
+			//プリミティブ型右辺値
+			{
+				SIPrefix test = SIPrefixType(2);
+				Assert::AreEqual(CAST(2), CAST(test), PARAM);
+			}
+
+			//Numeral型参照左辺値
+			{
+				SIPrefix test1 = 3;
+				SIPrefix test2 = test1;
+				Assert::AreEqual(CAST(3), CAST(test1), PARAM);
+				Assert::AreEqual(CAST(3), CAST(test2), PARAM);
+			}
+
+			//Numeral型右辺値
+			{
+				SIPrefix test = SIPrefix(4);
+				Assert::AreEqual(CAST(4), CAST(test), PARAM);
 			}
 		}
+
 		TEST_METHOD(TestMethod_Assignment)
-		{
-			SIPrefix test;
-			test = 2;
-			Assert::AreEqual(CAST(2), CAST(test));
+		{	
+			//プリミティブ型参照左辺値
+			{
+				SIPrefixType test1 = 1;
+				SIPrefix test2;
+				test2 = test1;
+				Assert::AreEqual(CAST(1), CAST(test1), PARAM);
+				Assert::AreEqual(CAST(1), CAST(test2), PARAM);
+			}
+
+			//プリミティブ型右辺値
+			{
+				SIPrefix test;
+				test = SIPrefixType(2);
+				Assert::AreEqual(CAST(2), CAST(test), PARAM);
+			}
+
+			//Numeral型参照左辺値
+			{
+				SIPrefix test1 = 3;
+				SIPrefix test2;
+				test2 = test1;
+				Assert::AreEqual(CAST(3), CAST(test1), PARAM);
+				Assert::AreEqual(CAST(3), CAST(test2), PARAM);
+			}
+
+			//Numeral型右辺値
+			{
+				SIPrefix test;
+				test = SIPrefix(4);
+				Assert::AreEqual(CAST(4), CAST(test), PARAM);
+			}
 		}
 
 		TEST_METHOD(TestMethod_UnaryNegationPlus)
 		{
-			SIPrefix test = 3;
-			Assert::AreEqual(CAST(+3), CAST(+test));
-			Assert::AreEqual(CAST(-3), CAST(-test));
+			SIPrefix test1 = 3, test2 = +test1, test3 = -test1;
+			Assert::AreEqual(CAST(+3), CAST(+test1), PARAM);
+			Assert::AreEqual(CAST(-3), CAST(-test1), PARAM);
+			Assert::AreEqual(CAST(+3), CAST(+test2), PARAM);
+			Assert::AreEqual(CAST(-3), CAST(-test2), PARAM);
+			Assert::AreEqual(CAST(-3), CAST(+test3), PARAM);
+			Assert::AreEqual(CAST(+3), CAST(-test3), PARAM);
 		}
 
 		TEST_METHOD(TestMethod_Arithmetic)
 		{
-			SIPrefix test, lhs = 2, rhs = 3;
+			SIPrefix lhs = 2;
+			SIPrefix rhs1 = 3;
+			SIPrefixType rhs2 = 5;
 
-			test = lhs;
-			Assert::AreEqual(CAST(2), CAST(test));
-			Assert::AreEqual(CAST(7), CAST(test + 5));
+			Assert::AreEqual(CAST(5 ), CAST(lhs + rhs1), PARAM);
+			Assert::AreEqual(CAST(7 ), CAST(lhs + rhs2), PARAM);
+			Assert::AreEqual(CAST(9 ), CAST(lhs + SIPrefix(7)), PARAM);
+			Assert::AreEqual(CAST(11), CAST(lhs + SIPrefixType(9)), PARAM);
 
-			test = lhs + rhs;
-			Assert::AreEqual(CAST(5), CAST(test));
-			Assert::AreEqual(CAST(10), CAST(test + 5));
+			Assert::AreEqual(CAST(-1), CAST(lhs - rhs1), PARAM);
+			Assert::AreEqual(CAST(-3), CAST(lhs - rhs2), PARAM);
+			Assert::AreEqual(CAST(-5), CAST(lhs - SIPrefix(7)), PARAM);
+			Assert::AreEqual(CAST(-7), CAST(lhs - SIPrefixType(9)), PARAM);
 
-			test = lhs - rhs;
-			Assert::AreEqual(CAST(-1), CAST(test));
-			Assert::AreEqual(CAST(4), CAST(test + 5));
+			Assert::AreEqual(CAST(6 ), CAST(lhs * rhs1), PARAM);
+			Assert::AreEqual(CAST(10), CAST(lhs * rhs2), PARAM);
+			Assert::AreEqual(CAST(14), CAST(lhs * SIPrefix(7)), PARAM);
+			Assert::AreEqual(CAST(18), CAST(lhs * SIPrefixType(9)), PARAM);
 
-			test = lhs * rhs;
-			Assert::AreEqual(CAST(6), CAST(test));
-			Assert::AreEqual(CAST(11), CAST(test + 5));
+			if constexpr (std::is_integral<SIPrefixType>::value)
+			{
+				Assert::AreEqual(CAST(0 ), CAST(lhs / rhs1), PARAM);
+				Assert::AreEqual(CAST(0 ), CAST(lhs / rhs2), PARAM);
+				Assert::AreEqual(CAST(0 ), CAST(lhs / SIPrefix(7)), PARAM);
+				Assert::AreEqual(CAST(0 ), CAST(lhs / SIPrefixType(9)), PARAM);
+			}
+			else if constexpr (std::is_floating_point<SIPrefixType>::value)
+			{
+				Assert::AreEqual(CAST(0.666667), CAST(lhs / rhs1), PARAM);
+				Assert::AreEqual(CAST(0.4     ), CAST(lhs / rhs2), PARAM);
+				Assert::AreEqual(CAST(0.285714), CAST(lhs / SIPrefix(7)), PARAM);
+				Assert::AreEqual(CAST(0.222222), CAST(lhs / SIPrefixType(9)), PARAM);
+			}
 
-			test = lhs / rhs;
-			Assert::AreEqual(CAST(0), CAST(test));
-			Assert::AreEqual(CAST(5), CAST(test + 5));
+			if constexpr (std::is_integral<SIPrefixType>::value)
+			{
+				Assert::AreEqual(CAST(2 ), CAST(lhs % rhs1), PARAM);
+				Assert::AreEqual(CAST(2 ), CAST(lhs % rhs2), PARAM);
+				Assert::AreEqual(CAST(2 ), CAST(lhs % SIPrefix(7)), PARAM);
+				Assert::AreEqual(CAST(2 ), CAST(lhs % SIPrefixType(9)), PARAM);
+			}
+		}
 
-			test = lhs % rhs;
-			Assert::AreEqual(CAST(2), CAST(test));
-			Assert::AreEqual(CAST(7), CAST(test + 5));
+		TEST_METHOD(TestMethod_CompoundAssignment)
+		{
+			SIPrefix lhs = 2;
+			SIPrefix rhs1 = 3;
+			SIPrefixType rhs2 = 5;
+
+			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+			lhs += rhs1;				Assert::AreEqual(CAST(5   ), CAST(lhs), PARAM);
+			lhs += rhs2;				Assert::AreEqual(CAST(10  ), CAST(lhs), PARAM);
+			lhs += SIPrefix(7);			Assert::AreEqual(CAST(17  ), CAST(lhs), PARAM);
+			lhs += SIPrefixType(9);	Assert::AreEqual(CAST(26  ), CAST(lhs), PARAM);
+
+			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+			lhs -= rhs1;				Assert::AreEqual(CAST(-1  ), CAST(lhs), PARAM);
+			lhs -= rhs2;				Assert::AreEqual(CAST(-6  ), CAST(lhs), PARAM);
+			lhs -= SIPrefix(7);			Assert::AreEqual(CAST(-13 ), CAST(lhs), PARAM);
+			lhs -= SIPrefixType(9);	Assert::AreEqual(CAST(-22 ), CAST(lhs), PARAM);
+
+			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+			lhs *= rhs1;				Assert::AreEqual(CAST(6   ), CAST(lhs), PARAM);
+			lhs *= rhs2;				Assert::AreEqual(CAST(30  ), CAST(lhs), PARAM);
+			lhs *= SIPrefix(7);			Assert::AreEqual(CAST(210 ), CAST(lhs), PARAM);
+			lhs *= SIPrefixType(9);	Assert::AreEqual(CAST(1890), CAST(lhs), PARAM);
+
+			if constexpr (std::is_integral<SIPrefixType>::value)
+			{
+				lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs /= rhs1;				Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
+				lhs /= rhs2;				Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
+				lhs /= SIPrefix(7);			Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
+				lhs /= SIPrefixType(9);	Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
+			}
+			else if constexpr (std::is_floating_point<SIPrefixType>::value)
+			{
+				lhs = 2;					Assert::AreEqual(CAST(2       ), CAST(lhs), PARAM);
+				lhs /= rhs1;				Assert::AreEqual(CAST(0.666667), CAST(lhs), PARAM);
+				lhs /= rhs2;				Assert::AreEqual(CAST(0.133333), CAST(lhs), PARAM);
+				lhs /= SIPrefix(7);			Assert::AreEqual(CAST(0       ), CAST(lhs), PARAM);
+				lhs /= SIPrefixType(9);	Assert::AreEqual(CAST(0       ), CAST(lhs), PARAM);
+			}
+
+			if constexpr (std::is_integral<SIPrefixType>::value)
+			{
+				lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs %= rhs1;				Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs %= rhs2;				Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs %= SIPrefix(7);			Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs %= SIPrefixType(9);	Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+			}
+		}
+
+		TEST_METHOD(TestMethod_PostfixIncrementorDecrement)
+		{
+			SIPrefix test = 0;
+			Assert::AreEqual(CAST(0 ), CAST(test++), PARAM);
+			Assert::AreEqual(CAST(1 ), CAST(test--), PARAM);
+			Assert::AreEqual(CAST(0 ), CAST(test--), PARAM);
+			Assert::AreEqual(CAST(-1), CAST(test--), PARAM);
+			Assert::AreEqual(CAST(-2), CAST(test++), PARAM);
+			Assert::AreEqual(CAST(-1), CAST(test++), PARAM);
+			Assert::AreEqual(CAST(0 ), CAST(test++), PARAM);
+			Assert::AreEqual(CAST(1 ), CAST(test++), PARAM);
+		}
+
+		TEST_METHOD(TestMethod_PrefixIncrementorDecrement)
+		{
+			SIPrefix test = 0;
+			Assert::AreEqual(CAST(1 ), CAST(++test), PARAM);
+			Assert::AreEqual(CAST(0 ), CAST(--test), PARAM);
+			Assert::AreEqual(CAST(-1), CAST(--test), PARAM);
+			Assert::AreEqual(CAST(-2), CAST(--test), PARAM);
+			Assert::AreEqual(CAST(-1), CAST(++test), PARAM);
+			Assert::AreEqual(CAST(0 ), CAST(++test), PARAM);
+			Assert::AreEqual(CAST(1 ), CAST(++test), PARAM);
+			Assert::AreEqual(CAST(2 ), CAST(++test), PARAM);
+		}
+
+		TEST_METHOD(TestMethod_LogicalNot)
+		{
+			SIPrefix test;
+			test =  0; Assert::IsTrue(!test);
+			test =  1; Assert::IsFalse(!test);
+			test = -1; Assert::IsFalse(!test);
+		}
+
+		TEST_METHOD(TestMethod_Compare)
+		{
+			SIPrefix lhs = 2;
+			SIPrefix rhs1 = 3;
+			SIPrefixType rhs2 = 5;
+			SIPrefix rhs3 = lhs;
+
+			Assert::IsFalse(lhs == rhs1);
+			Assert::IsFalse(lhs == rhs2);
+			Assert::IsTrue(lhs  == rhs3);
+			Assert::IsFalse(lhs == SIPrefix(7));
+			Assert::IsFalse(lhs == SIPrefixType(9));
+
+			Assert::IsTrue(lhs  != rhs1);
+			Assert::IsTrue(lhs  != rhs2);
+			Assert::IsFalse(lhs != rhs3);
+			Assert::IsTrue(lhs  != SIPrefix(7));
+			Assert::IsTrue(lhs  != SIPrefixType(9));
+
+			Assert::IsTrue(lhs  <= rhs1);
+			Assert::IsTrue(lhs  <= rhs2);
+			Assert::IsTrue(lhs  <= rhs3);
+			Assert::IsTrue(lhs  <= SIPrefix(7));
+			Assert::IsTrue(lhs  <= SIPrefixType(9));
+
+			Assert::IsTrue(lhs  <  rhs1);
+			Assert::IsTrue(lhs  <  rhs2);
+			Assert::IsFalse(lhs <  rhs3);
+			Assert::IsTrue(lhs  < SIPrefix(7));
+			Assert::IsTrue(lhs  < SIPrefixType(9));
+
+			Assert::IsFalse(lhs >= rhs1);
+			Assert::IsFalse(lhs >= rhs2);
+			Assert::IsTrue(lhs  >= rhs3);
+			Assert::IsFalse(lhs >= SIPrefix(7));
+			Assert::IsFalse(lhs >= SIPrefixType(9));
+
+			Assert::IsFalse(lhs >  rhs1);
+			Assert::IsFalse(lhs >  rhs2);
+			Assert::IsFalse(lhs >  rhs3);
+			Assert::IsFalse(lhs > SIPrefix(7));
+			Assert::IsFalse(lhs > SIPrefixType(9));
 		}
 
 		TEST_METHOD(TestMethod_ConvertFromOriginalToSIPrefixUnit)
@@ -477,59 +690,59 @@ namespace UnitTest
 			//{
 			//	SIPrefix test = 1;
 			//
-			//	Assert::AreEqual(CAST(0.000000000000000000000000000001), CAST(test.Q));
-			//	Assert::AreEqual(CAST(0.000000000000000000000000001),	 CAST(test.R));
-			//	Assert::AreEqual(CAST(0.000000000000000000000001),		 CAST(test.Y));
-			//	Assert::AreEqual(CAST(0.000000000000000000001),			 CAST(test.Z));
-			//	Assert::AreEqual(CAST(0.000000000000000001),			 CAST(test.E));
-			//	Assert::AreEqual(CAST(0.000000000000001),				 CAST(test.P));
-			//	Assert::AreEqual(CAST(0.000000000001),					 CAST(test.T));
-			//	Assert::AreEqual(CAST(0.000000001),						 CAST(test.G));
-			//	Assert::AreEqual(CAST(0.000001),						 CAST(test.M));
-			//	Assert::AreEqual(CAST(0.001),							 CAST(test.k));
-			//	Assert::AreEqual(CAST(0.01),							 CAST(test.h));
-			//	Assert::AreEqual(CAST(0.1),								 CAST(test.da));
-			//	Assert::AreEqual(CAST(1),								 CAST(test.base));
-			//	Assert::AreEqual(CAST(10),								 CAST(test.d));
-			//	Assert::AreEqual(CAST(100),								 CAST(test.c));
-			//	Assert::AreEqual(CAST(1000),							 CAST(test.m));
-			//	Assert::AreEqual(CAST(1000000),							 CAST(test.u));
-			//	Assert::AreEqual(CAST(1000000000),						 CAST(test.n));
-			//	Assert::AreEqual(CAST(1000000000000),					 CAST(test.p));
-			//	Assert::AreEqual(CAST(1000000000000000),				 CAST(test.f));
-			//	Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.a));
+			//	Assert::AreEqual(CAST(0.000000000000000000000000000001), CAST(test.Q), PARAM);
+			//	Assert::AreEqual(CAST(0.000000000000000000000000001),	 CAST(test.R), PARAM);
+			//	Assert::AreEqual(CAST(0.000000000000000000000001),		 CAST(test.Y), PARAM);
+			//	Assert::AreEqual(CAST(0.000000000000000000001),			 CAST(test.Z), PARAM);
+			//	Assert::AreEqual(CAST(0.000000000000000001),			 CAST(test.E), PARAM);
+			//	Assert::AreEqual(CAST(0.000000000000001),				 CAST(test.P), PARAM);
+			//	Assert::AreEqual(CAST(0.000000000001),					 CAST(test.T), PARAM);
+			//	Assert::AreEqual(CAST(0.000000001),						 CAST(test.G), PARAM);
+			//	Assert::AreEqual(CAST(0.000001),						 CAST(test.M), PARAM);
+			//	Assert::AreEqual(CAST(0.001),							 CAST(test.k), PARAM);
+			//	Assert::AreEqual(CAST(0.01),							 CAST(test.h), PARAM);
+			//	Assert::AreEqual(CAST(0.1),								 CAST(test.da), PARAM);
+			//	Assert::AreEqual(CAST(1),								 CAST(test.base), PARAM);
+			//	Assert::AreEqual(CAST(10),								 CAST(test.d), PARAM);
+			//	Assert::AreEqual(CAST(100),								 CAST(test.c), PARAM);
+			//	Assert::AreEqual(CAST(1000),							 CAST(test.m), PARAM);
+			//	Assert::AreEqual(CAST(1000000),							 CAST(test.u), PARAM);
+			//	Assert::AreEqual(CAST(1000000000),						 CAST(test.n), PARAM);
+			//	Assert::AreEqual(CAST(1000000000000),					 CAST(test.p), PARAM);
+			//	Assert::AreEqual(CAST(1000000000000000),				 CAST(test.f), PARAM);
+			//	Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.a), PARAM);
 			//	//start このテストはソフト的に不可
-			//	//Assert::AreEqual(CAST(1000000000000000000000),			CAST(test.z));
-			//	//Assert::AreEqual(CAST(1000000000000000000000000),			CAST(test.y));
-			//	//Assert::AreEqual(CAST(1000000000000000000000000000),		CAST(test.r));
-			//	//Assert::AreEqual(CAST(1000000000000000000000000000000),	CAST(test.q));
+			//	//Assert::AreEqual(CAST(1000000000000000000000),			CAST(test.z), PARAM);
+			//	//Assert::AreEqual(CAST(1000000000000000000000000),			CAST(test.y), PARAM);
+			//	//Assert::AreEqual(CAST(1000000000000000000000000000),		CAST(test.r), PARAM);
+			//	//Assert::AreEqual(CAST(1000000000000000000000000000000),	CAST(test.q), PARAM);
 			//	//end
 			//}
 			{
 				SIPrefix test = 1;
 
-				Assert::AreEqual(CAST(1),								 CAST(test.base));
-				Assert::AreEqual(CAST(10),								 CAST(test.d));
-				Assert::AreEqual(CAST(100),								 CAST(test.c));
-				Assert::AreEqual(CAST(1000),							 CAST(test.m));
-				Assert::AreEqual(CAST(1000000),							 CAST(test.u));
-				Assert::AreEqual(CAST(1000000000),						 CAST(test.n));
-				Assert::AreEqual(CAST(1000000000000),					 CAST(test.p));
-				Assert::AreEqual(CAST(1000000000000000),				 CAST(test.f));
-				Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.a));
+				Assert::AreEqual(CAST(1),								 CAST(test.base), PARAM);
+				Assert::AreEqual(CAST(10),								 CAST(test.d), PARAM);
+				Assert::AreEqual(CAST(100),								 CAST(test.c), PARAM);
+				Assert::AreEqual(CAST(1000),							 CAST(test.m), PARAM);
+				Assert::AreEqual(CAST(1000000),							 CAST(test.u), PARAM);
+				Assert::AreEqual(CAST(1000000000),						 CAST(test.n), PARAM);
+				Assert::AreEqual(CAST(1000000000000),					 CAST(test.p), PARAM);
+				Assert::AreEqual(CAST(1000000000000000),				 CAST(test.f), PARAM);
+				Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.a), PARAM);
 			}
 			{
 				SIPrefix test = 1000000000000000000;
 				
-				Assert::AreEqual(CAST(1),								 CAST(test.E));
-				Assert::AreEqual(CAST(1000),							 CAST(test.P));
-				Assert::AreEqual(CAST(1000000),							 CAST(test.T));
-				Assert::AreEqual(CAST(1000000000),						 CAST(test.G));
-				Assert::AreEqual(CAST(1000000000000),					 CAST(test.M));
-				Assert::AreEqual(CAST(1000000000000000),				 CAST(test.k));
-				Assert::AreEqual(CAST(10000000000000000),				 CAST(test.h));
-				Assert::AreEqual(CAST(100000000000000000),				 CAST(test.da));
-				Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.base));
+				Assert::AreEqual(CAST(1),								 CAST(test.E), PARAM);
+				Assert::AreEqual(CAST(1000),							 CAST(test.P), PARAM);
+				Assert::AreEqual(CAST(1000000),							 CAST(test.T), PARAM);
+				Assert::AreEqual(CAST(1000000000),						 CAST(test.G), PARAM);
+				Assert::AreEqual(CAST(1000000000000),					 CAST(test.M), PARAM);
+				Assert::AreEqual(CAST(1000000000000000),				 CAST(test.k), PARAM);
+				Assert::AreEqual(CAST(10000000000000000),				 CAST(test.h), PARAM);
+				Assert::AreEqual(CAST(100000000000000000),				 CAST(test.da), PARAM);
+				Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.base), PARAM);
 			}
 		}
 
@@ -537,28 +750,36 @@ namespace UnitTest
 		{
 			SIPrefix test;
 			test.E = 1;
-			Assert::AreEqual(CAST(1000000000000000000), CAST(test.base));
+			Assert::AreEqual(CAST(1000000000000000000), CAST(test.base), PARAM);
 		}
 
 		TEST_METHOD(TestMethod_ConvertFromSIPrefixUnitToOriginal2)
 		{
 			SIPrefix test;
+
+			test.k = 1;
+			test.k = test.k + test.k;
+			Assert::AreEqual(CAST(2000), CAST(test), PARAM);
 			test.k = 1;
 			test = test.k + test.k;
-			Assert::AreEqual(CAST(2000), CAST(test));
+			Assert::AreEqual(CAST(2), CAST(test), PARAM);
 		}
 
 		TEST_METHOD(TestMethod_ProcessingTimeMeasurement)
 		{
-			constexpr BaseSIPrefixType LENGTH = 1000 * 1000;
+			constexpr SIPrefixType LENGTH = 1000 * 1000;
 			{
-				BaseSIPrefixType sum = 0;
+				SIPrefixType sum = 0;
 				auto func = [&]()
 				{
 					for (sum = 0; sum < LENGTH; sum++);
 				};
-				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum));
+				Logger::WriteMessage("【プリミティブ型】\n");
+				Logger::WriteMessage("ループ1000000回実行\n");
+				const auto time = ProcessingTimeMeasurementFunc::measurement(func);
+				Logger::WriteMessage("合計:"); WriteMessageForTime(time);
+				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
+				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
 			}
 			{
 				SIPrefix sum = 0;
@@ -566,8 +787,12 @@ namespace UnitTest
 				{
 					for (sum = 0; sum < LENGTH; sum++);
 				};
-				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum));
+				Logger::WriteMessage("【Numeral型】\n");
+				Logger::WriteMessage("ループ1000000回実行\n");
+				const auto time = ProcessingTimeMeasurementFunc::measurement(func);
+				Logger::WriteMessage("合計:"); WriteMessageForTime(time);
+				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
+				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
 			}
 		}
 	};

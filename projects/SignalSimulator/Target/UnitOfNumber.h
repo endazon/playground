@@ -10,32 +10,19 @@ namespace UnitOfNumber {
 
 #pragma region Numeral
 	/// <summary>
-	/// 基本数字クラス
+	/// 数字実体クラス
 	/// </summary>
-	/// <typeparam name="___ValueType"></typeparam>
+	/// <typeparam name="__ValueType"></typeparam>
 	template<class __ValueType>
-	class BaseNumeral
+	class NumericEntity
 	{
 	private:
-		using __MySelfType = BaseNumeral;
+		using __MySelfType = NumericEntity;
 		__ValueType _Value;
 
 	protected:
 		template<class T>
 		constexpr auto CAST(T&& v) { return static_cast<__ValueType>(v); }
-
-		template<class T>
-		constexpr T mod(T lhs, T rhs) noexcept
-		{
-			if constexpr (std::is_integral<T>::value)
-			{
-				return lhs % rhs;
-			}
-			else if constexpr (std::is_floating_point<T>::value)
-			{
-				return std::fmod(lhs, rhs);
-			}
-		}
 
 		inline __ValueType GetValue() const noexcept
 		{
@@ -53,18 +40,14 @@ namespace UnitOfNumber {
 	public:
 		//**********************************************************
 		//暗黙的に宣言される
-		//BaseNumeral() noexcept = delete;
-		//BaseNumeral(const __MySelfType&) noexcept = delete;
-		//BaseNumeral(__MySelfType&&) noexcept = delete;
-		constexpr ~BaseNumeral() noexcept = default;
+		NumericEntity() noexcept = delete;
+		//NumericEntity(const __MySelfType&) noexcept = delete;
+		//NumericEntity(__MySelfType&&) noexcept = delete;
+		constexpr ~NumericEntity() noexcept = default;
 		//**********************************************************
-		constexpr BaseNumeral(const __ValueType& init) noexcept : _Value(init)
+		template<class T> constexpr NumericEntity(const T & other) noexcept : _Value(CAST(other))
 		{}
-		constexpr BaseNumeral(const __ValueType&& init = 0) noexcept : __MySelfType(init)
-		{}
-		template<class T> constexpr BaseNumeral(const T& other) noexcept : __MySelfType(CAST(other))
-		{}
-		template<class T> constexpr BaseNumeral(const T&& other) noexcept : __MySelfType(other)
+		template<class T> constexpr NumericEntity(const T && other) noexcept : __MySelfType(other)
 		{}
 
 		//キャスト演算子(Cast)
@@ -72,66 +55,125 @@ namespace UnitOfNumber {
 		{
 			return GetValue();
 		}
+	};
 
+	/// <summary>
+	/// 数字操作クラス
+	/// </summary>
+	/// <typeparam name="__InheritanceType"></typeparam>
+	template<class __InheritanceType, class __ReturnType>
+	class NumeralOperators : public __InheritanceType	{
+		//※以下の関数はこのクラスを使用する際に必須
+		//template<class T> constexpr auto CAST(T&& v);
+		//inline __ValueType GetValue() const noexcept;
+		//inline void SetValue(const __ValueType& v) & noexcept;
+		//inline void SetValue(const __ValueType&& v) & noexcept;
+
+	private:
+		using __MySelfType = NumeralOperators;
+
+	protected:
+		template<class T>
+		constexpr T mod(T lhs, T rhs) noexcept
+		{
+			if constexpr (std::is_integral<T>::value)
+			{
+				return lhs % rhs;
+			}
+			else if constexpr (std::is_floating_point<T>::value)
+			{
+				return std::fmod(lhs, rhs);
+			}
+		}
+
+	public:
 		//代入演算子(Assignment)
 		//**********************************************************
 		//暗黙的に宣言される
-		//BaseNumeral& operator=(const BaseNumeral&) noexcept = delete;
-		//BaseNumeral& operator=(BaseNumeral&&) & noexcept = delete;
+		//NumeralOperators& operator=(const NumeralOperators&) noexcept = delete;
+		//NumeralOperators& operator=(NumeralOperators&&) & noexcept = delete;
 		//**********************************************************
 		template<class T> inline __MySelfType& operator=(T& rhs) noexcept
 		{
-			SetValue(CAST(rhs));
+			this->SetValue(this->CAST(rhs));
 			return *this;
 		}
 		template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
 		{
-			SetValue(CAST(rhs));
+			this->SetValue(this->CAST(rhs));
 			return *this;
 		}
 
 		//単項マイナス演算子と単項プラス演算子(Unary Negation/Plus)
-		inline __MySelfType operator+() const { return __MySelfType(+GetValue()); }
-		inline __MySelfType operator-() const { return __MySelfType(-GetValue()); }
+		inline __ReturnType operator+() const { return __ReturnType(+this->GetValue()); }
+		inline __ReturnType operator-() const { return __ReturnType(-this->GetValue()); }
 
 		//算術演算子(Arithmetic)
-		template<class T> inline __MySelfType operator+(T&& rhs) { return __MySelfType(GetValue() + CAST(rhs)); }
-		template<class T> inline __MySelfType operator-(T&& rhs) { return __MySelfType(GetValue() - CAST(rhs)); }
-		template<class T> inline __MySelfType operator*(T&& rhs) { return __MySelfType(GetValue() * CAST(rhs)); }
-		template<class T> inline __MySelfType operator/(T&& rhs) { return __MySelfType(GetValue() / CAST(rhs)); }
-		template<class T> inline __MySelfType operator%(T&& rhs) { return __MySelfType(mod(GetValue(), CAST(rhs))); }
+		template<class T> inline __ReturnType operator+(T&& rhs) { return __ReturnType(this->GetValue() + this->CAST(rhs)); }
+		template<class T> inline __ReturnType operator-(T&& rhs) { return __ReturnType(this->GetValue() - this->CAST(rhs)); }
+		template<class T> inline __ReturnType operator*(T&& rhs) { return __ReturnType(this->GetValue() * this->CAST(rhs)); }
+		template<class T> inline __ReturnType operator/(T&& rhs) { return __ReturnType(this->GetValue() / this->CAST(rhs)); }
+		template<class T> inline __ReturnType operator%(T&& rhs) { return __ReturnType(mod(this->GetValue(), this->CAST(rhs))); }
 
 		//複合代入演算子(Compound Assignment)
-		template<class T> inline void operator+=(T&& rhs) { SetValue(GetValue() + CAST(rhs)); }
-		template<class T> inline void operator-=(T&& rhs) { SetValue(GetValue() - CAST(rhs)); }
-		template<class T> inline void operator*=(T&& rhs) { SetValue(GetValue() * CAST(rhs)); }
-		template<class T> inline void operator/=(T&& rhs) { SetValue(GetValue() / CAST(rhs)); }
-		template<class T> inline void operator%=(T&& rhs) { SetValue(mod(GetValue(), CAST(rhs))); }
+		template<class T> inline void operator+=(T&& rhs) { this->SetValue(this->GetValue() + this->CAST(rhs)); }
+		template<class T> inline void operator-=(T&& rhs) { this->SetValue(this->GetValue() - this->CAST(rhs)); }
+		template<class T> inline void operator*=(T&& rhs) { this->SetValue(this->GetValue() * this->CAST(rhs)); }
+		template<class T> inline void operator/=(T&& rhs) { this->SetValue(this->GetValue() / this->CAST(rhs)); }
+		template<class T> inline void operator%=(T&& rhs) { this->SetValue(mod(this->GetValue(), this->CAST(rhs))); }
 
 		//後置インクリメント/デクリメント(Postfix Increment/Decrement)
-		inline __MySelfType operator++(int) { auto z1 = GetValue(); SetValue(z1 + 1); return __MySelfType(z1); }
-		inline __MySelfType operator--(int) { auto z1 = GetValue(); SetValue(z1 - 1); return __MySelfType(z1); }
+		inline __ReturnType operator++(int) { auto z1 = this->GetValue(); this->SetValue(z1 + 1); return __ReturnType(z1); }
+		inline __ReturnType operator--(int) { auto z1 = this->GetValue(); this->SetValue(z1 - 1); return __ReturnType(z1); }
 
 		//前置インクリメント/デクリメント(Prefix Increment/Decremrnt)
-		inline __MySelfType& operator++() { SetValue(GetValue() + 1); return *this; }
-		inline __MySelfType& operator--() { SetValue(GetValue() - 1); return *this; }
+		inline __MySelfType& operator++() { this->SetValue(this->GetValue() + 1); return *this; }
+		inline __MySelfType& operator--() { this->SetValue(this->GetValue() - 1); return *this; }
 
 		//論理否定演算子(Logical Not)
-		inline bool operator!() const noexcept { return GetValue() == 0; }
+		inline bool operator!() const noexcept { return  this->GetValue() == 0; }
 
 		//比較演算子(Compare)
-		template<class T> inline bool operator==(T&& rhs) { return GetValue() == CAST(rhs); }
-		template<class T> inline bool operator!=(T&& rhs) { return GetValue() != CAST(rhs); }
-		template<class T> inline bool operator<=(T&& rhs) { return GetValue() <= CAST(rhs); }
-		template<class T> inline bool operator< (T&& rhs) { return GetValue() <  CAST(rhs); }
-		template<class T> inline bool operator>=(T&& rhs) { return GetValue() >= CAST(rhs); }
-		template<class T> inline bool operator> (T&& rhs) { return GetValue() >  CAST(rhs); }
+		template<class T> inline bool operator==(T&& rhs) { return  this->GetValue() ==  this->CAST(rhs); }
+		template<class T> inline bool operator!=(T&& rhs) { return  this->GetValue() !=  this->CAST(rhs); }
+		template<class T> inline bool operator<=(T&& rhs) { return  this->GetValue() <=  this->CAST(rhs); }
+		template<class T> inline bool operator< (T&& rhs) { return  this->GetValue() <   this->CAST(rhs); }
+		template<class T> inline bool operator>=(T&& rhs) { return  this->GetValue() >=  this->CAST(rhs); }
+		template<class T> inline bool operator> (T&& rhs) { return  this->GetValue() >   this->CAST(rhs); }
 
 		//科学算術(Scientific Arithmetic)
-		template<class T> inline __MySelfType pow(T&& rhs)	{ return __MySelfType(std::pow(GetValue(), CAST(rhs))); }
-						  inline __MySelfType log()			{ return __MySelfType(std::log(GetValue())); }
-		template<class T> inline __MySelfType log(T&& rhs)  { return __MySelfType(std::log(GetValue() / CAST(rhs))); }
-						  inline __MySelfType abs()			{ return __MySelfType(std::abs(GetValue())); }
+		template<class T> inline __ReturnType pow(T&& rhs)	{ return __ReturnType(std::pow( this->GetValue(), this->CAST(rhs))); }
+						  inline __ReturnType log()			{ return __ReturnType(std::log( this->GetValue())); }
+		template<class T> inline __ReturnType log(T&& rhs)  { return __ReturnType(std::log( this->GetValue() / this->CAST(rhs))); }
+						  inline __ReturnType abs()			{ return __ReturnType(std::abs( this->GetValue())); }
+	};
+
+	/// <summary>
+	/// 基本数字クラス
+	/// </summary>
+	/// <typeparam name="__ValueType"></typeparam>
+	template<class __ValueType>
+	class BaseNumeral : public NumeralOperators<NumericEntity<__ValueType>, BaseNumeral<__ValueType>>
+	{
+	private:
+		using __MySelfType = BaseNumeral;
+
+	public:
+		//**********************************************************
+		//暗黙的に宣言される
+		//BaseNumeral() noexcept = delete;
+		//BaseNumeral(const __MySelfType&) noexcept = delete;
+		//BaseNumeral(__MySelfType&&) noexcept = delete;
+		constexpr ~BaseNumeral() noexcept = default;
+		//**********************************************************
+		constexpr BaseNumeral(const __ValueType & init) noexcept : NumeralOperators<NumericEntity<__ValueType>, BaseNumeral<__ValueType>>(init)
+		{}
+		constexpr BaseNumeral(const __ValueType && init = 0) noexcept : __MySelfType(init)
+		{}
+		template<class T> constexpr BaseNumeral(const T & other) noexcept : __MySelfType(this->CAST(other))
+		{}
+		template<class T> constexpr BaseNumeral(const T && other) noexcept : __MySelfType(other)
+		{}
 	};
 
 	/// <summary>
@@ -319,172 +361,70 @@ namespace UnitOfNumber {
 #pragma endregion
 */
 
-
 #pragma region SIPrefixUnit
-	
-	//前方宣言
-	template<class __ValueType> class BaseSIPrefix;
-	
-	///// <summary>
-	///// 基本SI接頭辞単位クラス
-	///// </summary>
-	///// <typeparam name="__ValueType"></typeparam>
-	///// <typeparam name="__Exp"></typeparam>
-	template<class __ValueType, int __Exp = 0>
-	class BaseSIPrefixUnit
-	{
-	private:
-		using __MySelfType = BaseSIPrefixUnit;
-		using __AssignmentType = BaseSIPrefix<__ValueType>;
-		__AssignmentType& _Value;
-
-	protected:
-		template<class T>
-		constexpr auto CAST(T&& v) { return static_cast<__ValueType>(v); }
-
-		template<class T>
-		constexpr T mod(T lhs, T rhs) noexcept
-		{
-			if constexpr (std::is_integral<T>::value)
-			{
-				return lhs % rhs;
-			}
-			else if constexpr (std::is_floating_point<T>::value)
-			{
-				return std::fmod(lhs, rhs);
-			}
-		}
-
-		inline __ValueType GetValue() const noexcept
-		{
-			return static_cast<__ValueType>(_Value);
-		}
-		inline void SetValue(const __ValueType& v) & noexcept
-		{
-			_Value = v;
-		}
-		inline void SetValue(const __ValueType&& v) & noexcept
-		{
-			_Value = v;
-		}
-
-		//元の値を指定の単位へ
-		template<class T> inline __ValueType OriginalToSpecific(T&& v) const noexcept
-		{
-			return static_cast<__ValueType>(v * std::pow(10, -__Exp));
-		}
-
-		//指定の値を元の値へ
-		template<class T> inline __ValueType SpecificToOriginal(T&& v) & noexcept
-		{
-			return static_cast<__ValueType>(v * std::pow(10, __Exp));
-		}
-
-	public:
-		//**********************************************************
-		//暗黙的に宣言される
-		//BaseSIPrefixUnit() noexcept = delete;
-		BaseSIPrefixUnit(const __MySelfType&) noexcept = delete;
-		BaseSIPrefixUnit(__MySelfType&&) noexcept = delete;
-		//~BaseSIPrefixUnit() noexcept = default;
-		//**********************************************************
-		constexpr BaseSIPrefixUnit(__AssignmentType& init) noexcept : _Value(init)
-		{}
-		constexpr ~BaseSIPrefixUnit() noexcept
-		{}
-
-		//キャスト演算子(Cast)
-		inline explicit operator __ValueType() const noexcept
-		{
-			return OriginalToSpecific(GetValue());
-		}
-
-		//代入演算子(Assignment)
-		//**********************************************************
-		//暗黙的に宣言される
-		__MySelfType& operator=(const __MySelfType&) noexcept = delete;
-		__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
-		//**********************************************************
-		template<class T> inline __AssignmentType operator=(T& rhs) noexcept
-		{
-			SetValue(SpecificToOriginal(static_cast<__ValueType>(rhs)));
-			return __AssignmentType(GetValue());
-		}
-		template<class T> inline __AssignmentType operator=(T&& rhs) & noexcept
-		{
-			SetValue(SpecificToOriginal(static_cast<__ValueType>(rhs)));
-			return __AssignmentType(GetValue());
-		}
-
-		//単項マイナス演算子と単項プラス演算子(Unary Negation/Plus)
-		inline __AssignmentType operator+() const { return __AssignmentType(+GetValue()); }
-		inline __AssignmentType operator-() const { return __AssignmentType(-GetValue()); }
-
-		//算術演算子(Arithmetic)
-		template<class T> inline __AssignmentType operator+(T&& rhs) { return __AssignmentType(GetValue() + CAST(rhs)); }
-		template<class T> inline __AssignmentType operator-(T&& rhs) { return __AssignmentType(GetValue() - CAST(rhs)); }
-		template<class T> inline __AssignmentType operator*(T&& rhs) { return __AssignmentType(GetValue() * CAST(rhs)); }
-		template<class T> inline __AssignmentType operator/(T&& rhs) { return __AssignmentType(GetValue() / CAST(rhs)); }
-		template<class T> inline __AssignmentType operator%(T&& rhs) { return __AssignmentType(mod(GetValue(), CAST(rhs))); }
-
-		//複合代入演算子(Compound Assignment)
-		template<class T> inline void operator+=(T&& rhs) { SetValue(GetValue() + rhs); }
-		template<class T> inline void operator-=(T&& rhs) { SetValue(GetValue() - rhs); }
-		template<class T> inline void operator*=(T&& rhs) { SetValue(GetValue() * rhs); }
-		template<class T> inline void operator/=(T&& rhs) { SetValue(GetValue() / rhs); }
-		template<class T> inline void operator%=(T&& rhs) { SetValue(GetValue() % rhs); }
-		template<>        inline void operator+=(__AssignmentType& rhs) { SetValue(GetValue() + CAST(rhs)); }
-		template<>        inline void operator-=(__AssignmentType& rhs) { SetValue(GetValue() - CAST(rhs)); }
-		template<>        inline void operator*=(__AssignmentType& rhs) { SetValue(GetValue() * CAST(rhs)); }
-		template<>        inline void operator/=(__AssignmentType& rhs) { SetValue(GetValue() / CAST(rhs)); }
-		template<>        inline void operator%=(__AssignmentType& rhs) { SetValue(mod(GetValue(), CAST(rhs))); }
-
-		//後置インクリメント/デクリメント(Postfix Increment/Decrement)
-		inline __AssignmentType operator++(int) { auto z1 = GetValue(); SetValue(z1 + 1); return __AssignmentType(z1); }
-		inline __AssignmentType operator--(int) { auto z1 = GetValue(); SetValue(z1 - 1); return __AssignmentType(z1); }
-
-		//前置インクリメント/デクリメント(Prefix Increment/Decremrnt)
-		inline __AssignmentType& operator++() { SetValue(GetValue() + 1); return *this; }
-		inline __AssignmentType& operator--() { SetValue(GetValue() - 1); return *this; }
-
-		//論理否定演算子(Logical Not)
-		inline bool operator!() const noexcept { return GetValue() != 0; }
-
-		//比較演算子(Compare)
-		template<class T> inline bool operator==(T&& rhs) const { return GetValue() == rhs; }
-		template<class T> inline bool operator!=(T&& rhs) const { return GetValue() != rhs; }
-		template<class T> inline bool operator<=(T&& rhs) const { return GetValue() <= rhs; }
-		template<class T> inline bool operator< (T&& rhs) const { return GetValue() <  rhs; }
-		template<class T> inline bool operator> (T&& rhs) const { return GetValue() >  rhs; }
-		template<class T> inline bool operator>=(T&& rhs) const { return GetValue() >= rhs; }
-		template<>        inline bool operator==(__AssignmentType& rhs) const { return GetValue() == CAST(rhs); }
-		template<>        inline bool operator!=(__AssignmentType& rhs) const { return GetValue() != CAST(rhs); }
-		template<>        inline bool operator<=(__AssignmentType& rhs) const { return GetValue() <= CAST(rhs); }
-		template<>        inline bool operator< (__AssignmentType& rhs) const { return GetValue() <  CAST(rhs); }
-		template<>        inline bool operator> (__AssignmentType& rhs) const { return GetValue() >  CAST(rhs); }
-		template<>        inline bool operator>=(__AssignmentType& rhs) const { return GetValue() >= CAST(rhs); }
-
-		//科学算術
-		template<class T> inline __AssignmentType pow(T&& rhs) { return __AssignmentType(std::pow(GetValue(), rhs)); }
-		template<>        inline __AssignmentType pow(__AssignmentType& rhs) { return __AssignmentType(std::pow(GetValue(), CAST(rhs))); }
-						  inline __AssignmentType log() { return __AssignmentType(std::log(GetValue())); }
-		template<class T> inline __AssignmentType log(T&& rhs) { return __AssignmentType(std::log(GetValue() / rhs)); }
-		template<>        inline __AssignmentType log(__AssignmentType& rhs) { return __AssignmentType(std::log(GetValue() / rhs.log())); }
-						  inline __AssignmentType abs() { return __AssignmentType(std::abs(GetValue())); }
-
-	};
-
 	/// <summary>
-	/// 基本SI接頭辞テンプレートクラス
+	/// 基本SI接頭辞クラス
 	/// 型を指定できる
 	/// ※小数点のある型が望ましい
 	/// </summary>
 	/// <typeparam name="__ValueType"></typeparam>
 	template<class __ValueType>
-	class BaseSIPrefix : public BaseNumeral<__ValueType>
+	class BaseSIPrefix : public NumeralOperators<NumericEntity<__ValueType>, BaseSIPrefix<__ValueType>>
 	{
 	private:
 		using __MySelfType = BaseSIPrefix;
+
+	protected:
+		///// <summary>
+		///// SI接頭辞単位実体クラス
+		///// </summary>
+		///// <typeparam name="__ValueType"></typeparam>
+		///// <typeparam name="__Exp"></typeparam>
+		template<int __Exp = 0>
+		class SIPrefixUnitEntity
+		{
+		private:
+			using __MySelfType = SIPrefixUnitEntity;
+			BaseSIPrefix<__ValueType>& _Value;
+
+		protected:
+			template<class T>
+			constexpr auto CAST(T&& v) { return static_cast<__ValueType>(v); }
+
+			inline __ValueType GetValue() const noexcept
+			{
+				return static_cast<__ValueType>(_Value * std::pow(10, -__Exp));
+			}
+			inline void SetValue(const __ValueType& v) & noexcept
+			{
+				_Value = v * std::pow(10, __Exp);
+			}
+			inline void SetValue(const __ValueType&& v) & noexcept
+			{
+				SetValue(v);
+			}
+
+		public:
+			//**********************************************************
+			//暗黙的に宣言される
+			SIPrefixUnitEntity() noexcept = delete;
+			//SIPrefixUnitEntity(const __MySelfType&) noexcept = delete;
+			//SIPrefixUnitEntity(__MySelfType&&) noexcept = delete;
+			constexpr ~SIPrefixUnitEntity() noexcept = default;
+			//**********************************************************
+			template<class T> constexpr SIPrefixUnitEntity(T& other) noexcept : _Value(other)
+			{}
+			constexpr SIPrefixUnitEntity(__ValueType& other) noexcept : _Value(other)
+			{}
+
+			//キャスト演算子(Cast)
+			inline explicit operator __ValueType() const noexcept
+			{
+				return GetValue();
+			}
+		};
+		template<int __Exp = 0>
+		using BaseSIPrefixUnit = NumeralOperators<SIPrefixUnitEntity<__Exp>, BaseSIPrefix<__ValueType>>;
 
 	public:
 		//**********************************************************
@@ -494,7 +434,7 @@ namespace UnitOfNumber {
 		//BaseSIPrefix(__MySelfType&&) noexcept = delete;
 		//~BaseSIPrefix() noexcept = default;
 		//**********************************************************
-		constexpr BaseSIPrefix(const __ValueType& init) noexcept : BaseNumeral<__ValueType>(init)
+		constexpr BaseSIPrefix(const __ValueType& init) noexcept : NumeralOperators<NumericEntity<__ValueType>, BaseSIPrefix<__ValueType>>(init)
 		, Q(*this)
 		, R(*this)
 		, Y(*this)
@@ -530,46 +470,46 @@ namespace UnitOfNumber {
 		constexpr ~BaseSIPrefix() noexcept
 		{}
 
-		BaseSIPrefixUnit<__ValueType,  30> Q;
-		BaseSIPrefixUnit<__ValueType,  27> R;
-		BaseSIPrefixUnit<__ValueType,  24> Y;
-		BaseSIPrefixUnit<__ValueType,  21> Z;
-		BaseSIPrefixUnit<__ValueType,  18> E;
-		BaseSIPrefixUnit<__ValueType,  15> P;
-		BaseSIPrefixUnit<__ValueType,  12> T;
-		BaseSIPrefixUnit<__ValueType,   9> G;
-		BaseSIPrefixUnit<__ValueType,   6> M;
-		BaseSIPrefixUnit<__ValueType,   3> k;
-		BaseSIPrefixUnit<__ValueType,   2> h;
-		BaseSIPrefixUnit<__ValueType,   1> da;
-		__MySelfType&					   base;
-		BaseSIPrefixUnit<__ValueType, - 1> d;
-		BaseSIPrefixUnit<__ValueType, - 2> c;
-		BaseSIPrefixUnit<__ValueType, - 3> m;
-		BaseSIPrefixUnit<__ValueType, - 6> u;
-		BaseSIPrefixUnit<__ValueType, - 9> n;
-		BaseSIPrefixUnit<__ValueType, -12> p;
-		BaseSIPrefixUnit<__ValueType, -15> f;
-		BaseSIPrefixUnit<__ValueType, -18> a;
-		BaseSIPrefixUnit<__ValueType, -21> z;
-		BaseSIPrefixUnit<__ValueType, -24> y;
-		BaseSIPrefixUnit<__ValueType, -27> r;
-		BaseSIPrefixUnit<__ValueType, -30> q;
-
+		BaseSIPrefixUnit< 30> Q;
+		BaseSIPrefixUnit< 27> R;
+		BaseSIPrefixUnit< 24> Y;
+		BaseSIPrefixUnit< 21> Z;
+		BaseSIPrefixUnit< 18> E;
+		BaseSIPrefixUnit< 15> P;
+		BaseSIPrefixUnit< 12> T;
+		BaseSIPrefixUnit<  9> G;
+		BaseSIPrefixUnit<  6> M;
+		BaseSIPrefixUnit<  3> k;
+		BaseSIPrefixUnit<  2> h;
+		BaseSIPrefixUnit<  1> da;
+		BaseSIPrefixUnit<  0> base;
+		BaseSIPrefixUnit<- 1> d;
+		BaseSIPrefixUnit<- 2> c;
+		BaseSIPrefixUnit<- 3> m;
+		BaseSIPrefixUnit<- 6> u;
+		BaseSIPrefixUnit<- 9> n;
+		BaseSIPrefixUnit<-12> p;
+		BaseSIPrefixUnit<-15> f;
+		BaseSIPrefixUnit<-18> a;
+		BaseSIPrefixUnit<-21> z;
+		BaseSIPrefixUnit<-24> y;
+		BaseSIPrefixUnit<-27> r;
+		BaseSIPrefixUnit<-30> q;
+	
 		//代入演算子(Assignment)
 		//**********************************************************
 		//暗黙的に宣言される
-		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
-		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
+		//BaseSIPrefix& operator=(const __MySelfType&) noexcept = delete;
+		//BaseSIPrefix& operator=(__MySelfType&&) & noexcept = delete;
 		//**********************************************************
 		template<class T> inline __MySelfType& operator=(T& rhs) noexcept
 		{
-			BaseNumeral<__ValueType>::operator=(this->CAST(rhs));
+			this->SetValue(this->CAST(rhs));
 			return *this;
 		}
 		template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
 		{
-			BaseNumeral<__ValueType>::operator=(this->CAST(rhs));
+			this->SetValue(this->CAST(rhs));
 			return *this;
 		}
 	};
