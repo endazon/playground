@@ -95,9 +95,10 @@ namespace UnitTest
 	};
 	using ProcessingTimeMeasurementFunc = ProcessingTimeMeasurement::HighPrecision;
 
-	TEST_CLASS(NumeralUnitTest_Integer)
+	TEST_CLASS(NumeralUnitTest)
 	{
 		using NumeralValueType = intmax_t;
+		//using NumeralValueType = long double;
 		using Numeral = UnitOfNumber::Numeral<NumeralValueType>;
 
 	private:
@@ -113,57 +114,264 @@ namespace UnitTest
 			Logger::WriteMessage(out);// デバッグ時のログ(出力欄)に出力
 		}
 
+		const double PARAM = 0.1;
+
 	public:
 		TEST_METHOD(TestMethod_Constructor)
 		{
+			//引数なし
 			{
 				Numeral test;
-				Assert::AreEqual(CAST(0), CAST(test));
+				Assert::AreEqual(CAST(0), CAST(test), PARAM);
 			}
 
+			//プリミティブ型参照左辺値
 			{
-				Numeral test = 1;
-				Assert::AreEqual(CAST(1), CAST(test));
+				NumeralValueType test1 = 1;
+				Numeral test2 = test1;
+				Assert::AreEqual(CAST(1), CAST(test1), PARAM);
+				Assert::AreEqual(CAST(1), CAST(test2), PARAM);
+			}
+
+			//プリミティブ型右辺値
+			{
+				Numeral test = NumeralValueType(2);
+				Assert::AreEqual(CAST(2), CAST(test), PARAM);
+			}
+
+			//Numeral型参照左辺値
+			{
+				Numeral test1 = 3;
+				Numeral test2 = test1;
+				Assert::AreEqual(CAST(3), CAST(test1), PARAM);
+				Assert::AreEqual(CAST(3), CAST(test2), PARAM);
+			}
+
+			//Numeral型右辺値
+			{
+				Numeral test = Numeral(4);
+				Assert::AreEqual(CAST(4), CAST(test), PARAM);
 			}
 		}
 
 		TEST_METHOD(TestMethod_Assignment)
-		{
-			Numeral test;
-			test = 2;
-			Assert::AreEqual(CAST(2), CAST(test));
+		{	
+			//プリミティブ型参照左辺値
+			{
+				NumeralValueType test1 = 1;
+				Numeral test2;
+				test2 = test1;
+				Assert::AreEqual(CAST(1), CAST(test1), PARAM);
+				Assert::AreEqual(CAST(1), CAST(test2), PARAM);
+			}
+
+			//プリミティブ型右辺値
+			{
+				Numeral test;
+				test = NumeralValueType(2);
+				Assert::AreEqual(CAST(2), CAST(test), PARAM);
+			}
+
+			//Numeral型参照左辺値
+			{
+				Numeral test1 = 3;
+				Numeral test2;
+				test2 = test1;
+				Assert::AreEqual(CAST(3), CAST(test1), PARAM);
+				Assert::AreEqual(CAST(3), CAST(test2), PARAM);
+			}
+
+			//Numeral型右辺値
+			{
+				Numeral test;
+				test = Numeral(4);
+				Assert::AreEqual(CAST(4), CAST(test), PARAM);
+			}
 		}
 
 		TEST_METHOD(TestMethod_UnaryNegationPlus)
 		{
-			Numeral test = 3;
-			Assert::AreEqual(CAST(+3), CAST(+test));
-			Assert::AreEqual(CAST(-3), CAST(-test));
+			Numeral test1 = 3, test2 = +test1, test3 = -test1;
+			Assert::AreEqual(CAST(+3), CAST(+test1), PARAM);
+			Assert::AreEqual(CAST(-3), CAST(-test1), PARAM);
+			Assert::AreEqual(CAST(+3), CAST(+test2), PARAM);
+			Assert::AreEqual(CAST(-3), CAST(-test2), PARAM);
+			Assert::AreEqual(CAST(-3), CAST(+test3), PARAM);
+			Assert::AreEqual(CAST(+3), CAST(-test3), PARAM);
 		}
 
 		TEST_METHOD(TestMethod_Arithmetic)
 		{
-			Numeral test, lhs = 2, rhs = 3;
+			Numeral lhs = 2;
+			Numeral rhs1 = 3;
+			NumeralValueType rhs2 = 5;
 
-			test = lhs + rhs;
-			Assert::AreEqual(CAST(5), CAST(test));
-			Assert::AreEqual(CAST(10), CAST(test + 5));
+			Assert::AreEqual(CAST(5 ), CAST(lhs + rhs1), PARAM);
+			Assert::AreEqual(CAST(7 ), CAST(lhs + rhs2), PARAM);
+			Assert::AreEqual(CAST(9 ), CAST(lhs + Numeral(7)), PARAM);
+			Assert::AreEqual(CAST(11), CAST(lhs + NumeralValueType(9)), PARAM);
 
-			test = lhs - rhs;
-			Assert::AreEqual(CAST(-1), CAST(test));
-			Assert::AreEqual(CAST(4), CAST(test + 5));
+			Assert::AreEqual(CAST(-1), CAST(lhs - rhs1), PARAM);
+			Assert::AreEqual(CAST(-3), CAST(lhs - rhs2), PARAM);
+			Assert::AreEqual(CAST(-5), CAST(lhs - Numeral(7)), PARAM);
+			Assert::AreEqual(CAST(-7), CAST(lhs - NumeralValueType(9)), PARAM);
 
-			test = lhs * rhs;
-			Assert::AreEqual(CAST(6), CAST(test));
-			Assert::AreEqual(CAST(11), CAST(test + 5));
+			Assert::AreEqual(CAST(6 ), CAST(lhs * rhs1), PARAM);
+			Assert::AreEqual(CAST(10), CAST(lhs * rhs2), PARAM);
+			Assert::AreEqual(CAST(14), CAST(lhs * Numeral(7)), PARAM);
+			Assert::AreEqual(CAST(18), CAST(lhs * NumeralValueType(9)), PARAM);
 
-			test = lhs / rhs;
-			Assert::AreEqual(CAST(0), CAST(test));
-			Assert::AreEqual(CAST(5), CAST(test + 5));
+			if constexpr (std::is_integral<NumeralValueType>::value)
+			{
+				Assert::AreEqual(CAST(0 ), CAST(lhs / rhs1), PARAM);
+				Assert::AreEqual(CAST(0 ), CAST(lhs / rhs2), PARAM);
+				Assert::AreEqual(CAST(0 ), CAST(lhs / Numeral(7)), PARAM);
+				Assert::AreEqual(CAST(0 ), CAST(lhs / NumeralValueType(9)), PARAM);	
+			}
+			else if constexpr (std::is_floating_point<NumeralValueType>::value)
+			{
+				Assert::AreEqual(CAST(0.666667), CAST(lhs / rhs1), PARAM);
+				Assert::AreEqual(CAST(0.4     ), CAST(lhs / rhs2), PARAM);
+				Assert::AreEqual(CAST(0.285714), CAST(lhs / Numeral(7)), PARAM);
+				Assert::AreEqual(CAST(0.222222), CAST(lhs / NumeralValueType(9)), PARAM);
+			}
 
-			test = lhs % rhs;
-			Assert::AreEqual(CAST(2), CAST(test));
-			Assert::AreEqual(CAST(7), CAST(test + 5));
+			if constexpr (std::is_integral<NumeralValueType>::value)
+			{
+				Assert::AreEqual(CAST(2 ), CAST(lhs % rhs1), PARAM);
+				Assert::AreEqual(CAST(2 ), CAST(lhs % rhs2), PARAM);
+				Assert::AreEqual(CAST(2 ), CAST(lhs % Numeral(7)), PARAM);
+				Assert::AreEqual(CAST(2 ), CAST(lhs % NumeralValueType(9)), PARAM);
+			}
+		}
+
+		TEST_METHOD(TestMethod_CompoundAssignment)
+		{
+			Numeral lhs = 2;
+			Numeral rhs1 = 3;
+			NumeralValueType rhs2 = 5;
+
+			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+			lhs += rhs1;				Assert::AreEqual(CAST(5   ), CAST(lhs), PARAM);
+			lhs += rhs2;				Assert::AreEqual(CAST(10  ), CAST(lhs), PARAM);
+			lhs += Numeral(7);			Assert::AreEqual(CAST(17  ), CAST(lhs), PARAM);
+			lhs += NumeralValueType(9);	Assert::AreEqual(CAST(26  ), CAST(lhs), PARAM);
+
+			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+			lhs -= rhs1;				Assert::AreEqual(CAST(-1  ), CAST(lhs), PARAM);
+			lhs -= rhs2;				Assert::AreEqual(CAST(-6  ), CAST(lhs), PARAM);
+			lhs -= Numeral(7);			Assert::AreEqual(CAST(-13 ), CAST(lhs), PARAM);
+			lhs -= NumeralValueType(9);	Assert::AreEqual(CAST(-22 ), CAST(lhs), PARAM);
+
+			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+			lhs *= rhs1;				Assert::AreEqual(CAST(6   ), CAST(lhs), PARAM);
+			lhs *= rhs2;				Assert::AreEqual(CAST(30  ), CAST(lhs), PARAM);
+			lhs *= Numeral(7);			Assert::AreEqual(CAST(210 ), CAST(lhs), PARAM);
+			lhs *= NumeralValueType(9);	Assert::AreEqual(CAST(1890), CAST(lhs), PARAM);
+
+			if constexpr (std::is_integral<NumeralValueType>::value)
+			{
+				lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs /= rhs1;				Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
+				lhs /= rhs2;				Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
+				lhs /= Numeral(7);			Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
+				lhs /= NumeralValueType(9);	Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
+			}
+			else if constexpr (std::is_floating_point<NumeralValueType>::value)
+			{
+				lhs = 2;					Assert::AreEqual(CAST(2       ), CAST(lhs), PARAM);
+				lhs /= rhs1;				Assert::AreEqual(CAST(0.666667), CAST(lhs), PARAM);
+				lhs /= rhs2;				Assert::AreEqual(CAST(0.133333), CAST(lhs), PARAM);
+				lhs /= Numeral(7);			Assert::AreEqual(CAST(0       ), CAST(lhs), PARAM);
+				lhs /= NumeralValueType(9);	Assert::AreEqual(CAST(0       ), CAST(lhs), PARAM);
+			}
+
+			if constexpr (std::is_integral<NumeralValueType>::value)
+			{
+				lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs %= rhs1;				Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs %= rhs2;				Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs %= Numeral(7);			Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+				lhs %= NumeralValueType(9);	Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
+			}
+		}
+
+		TEST_METHOD(TestMethod_PostfixIncrementorDecrement)
+		{
+			Numeral test = 0;
+			Assert::AreEqual(CAST(0 ), CAST(test++), PARAM);
+			Assert::AreEqual(CAST(1 ), CAST(test--), PARAM);
+			Assert::AreEqual(CAST(0 ), CAST(test--), PARAM);
+			Assert::AreEqual(CAST(-1), CAST(test--), PARAM);
+			Assert::AreEqual(CAST(-2), CAST(test++), PARAM);
+			Assert::AreEqual(CAST(-1), CAST(test++), PARAM);
+			Assert::AreEqual(CAST(0 ), CAST(test++), PARAM);
+			Assert::AreEqual(CAST(1 ), CAST(test++), PARAM);
+		}
+
+		TEST_METHOD(TestMethod_PrefixIncrementorDecrement)
+		{
+			Numeral test = 0;
+			Assert::AreEqual(CAST(1 ), CAST(++test), PARAM);
+			Assert::AreEqual(CAST(0 ), CAST(--test), PARAM);
+			Assert::AreEqual(CAST(-1), CAST(--test), PARAM);
+			Assert::AreEqual(CAST(-2), CAST(--test), PARAM);
+			Assert::AreEqual(CAST(-1), CAST(++test), PARAM);
+			Assert::AreEqual(CAST(0 ), CAST(++test), PARAM);
+			Assert::AreEqual(CAST(1 ), CAST(++test), PARAM);
+			Assert::AreEqual(CAST(2 ), CAST(++test), PARAM);
+		}
+
+		TEST_METHOD(TestMethod_LogicalNot)
+		{
+			Numeral test;
+			test =  0; Assert::IsTrue(!test);
+			test =  1; Assert::IsFalse(!test);
+			test = -1; Assert::IsFalse(!test);
+		}
+
+		TEST_METHOD(TestMethod_Compare)
+		{
+			Numeral lhs = 2;
+			Numeral rhs1 = 3;
+			NumeralValueType rhs2 = 5;
+			Numeral rhs3 = lhs;
+
+			Assert::IsFalse(lhs == rhs1);
+			Assert::IsFalse(lhs == rhs2);
+			Assert::IsTrue(lhs  == rhs3);
+			Assert::IsFalse(lhs == Numeral(7));
+			Assert::IsFalse(lhs == NumeralValueType(9));
+
+			Assert::IsTrue(lhs  != rhs1);
+			Assert::IsTrue(lhs  != rhs2);
+			Assert::IsFalse(lhs != rhs3);
+			Assert::IsTrue(lhs  != Numeral(7));
+			Assert::IsTrue(lhs  != NumeralValueType(9));
+
+			Assert::IsTrue(lhs  <= rhs1);
+			Assert::IsTrue(lhs  <= rhs2);
+			Assert::IsTrue(lhs  <= rhs3);
+			Assert::IsTrue(lhs  <= Numeral(7));
+			Assert::IsTrue(lhs  <= NumeralValueType(9));
+
+			Assert::IsTrue(lhs  <  rhs1);
+			Assert::IsTrue(lhs  <  rhs2);
+			Assert::IsFalse(lhs <  rhs3);
+			Assert::IsTrue(lhs  <  Numeral(7));
+			Assert::IsTrue(lhs  <  NumeralValueType(9));
+
+			Assert::IsFalse(lhs >= rhs1);
+			Assert::IsFalse(lhs >= rhs2);
+			Assert::IsTrue(lhs  >= rhs3);
+			Assert::IsFalse(lhs >= Numeral(7));
+			Assert::IsFalse(lhs >= NumeralValueType(9));
+
+			Assert::IsFalse(lhs >  rhs1);
+			Assert::IsFalse(lhs >  rhs2);
+			Assert::IsFalse(lhs >  rhs3);
+			Assert::IsFalse(lhs >  Numeral(7));
+			Assert::IsFalse(lhs >  NumeralValueType(9));
 		}
 
 		TEST_METHOD(TestMethod_ProcessingTimeMeasurement)
@@ -176,7 +384,7 @@ namespace UnitTest
 					for (sum = 0; sum < LENGTH; sum++);
 				};
 				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum));
+				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
 			}
 			{
 				Numeral sum = 0;
@@ -185,107 +393,12 @@ namespace UnitTest
 					for (sum = 0; sum < LENGTH; sum++);
 				};
 				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum));
+				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
 			}
 		}
 	};
 
-	TEST_CLASS(NumeralUnitTest_Decimal)
-	{
-		using NumeralValueType = long double;
-		using Numeral = UnitOfNumber::Numeral<NumeralValueType>;
-
-	private:
-		template<class T>
-		constexpr auto CAST(T&& v) { return static_cast<NumeralValueType>(v); }
-
-		template<class T>
-		void WriteMessageForTime(T time)
-		{
-			char out[256];
-#pragma warning(suppress : 4996)
-			sprintf(out, "time %lf[ms]\n", time);
-			Logger::WriteMessage(out);// デバッグ時のログ(出力欄)に出力
-		}
-
-	public:
-		TEST_METHOD(TestMethod_Constructor)
-		{
-			{
-				Numeral test;
-				Assert::AreEqual(CAST(0), CAST(test), 0.1);
-			}
-
-			{
-				Numeral test = 1;
-				Assert::AreEqual(CAST(1), CAST(test), 0.1);
-			}
-		}
-
-		TEST_METHOD(TestMethod_Assignment)
-		{
-			Numeral test;
-			test = 2;
-			Assert::AreEqual(CAST(2), CAST(test), 0.1);
-		}
-
-		TEST_METHOD(TestMethod_UnaryNegationPlus)
-		{
-			Numeral test = 3;
-			Assert::AreEqual(CAST(+3), CAST(+test), 0.1);
-			Assert::AreEqual(CAST(-3), CAST(-test), 0.1);
-		}
-
-		TEST_METHOD(TestMethod_Arithmetic)
-		{
-			Numeral test, lhs = 2, rhs = 3;
-
-			test = lhs + rhs;
-			Assert::AreEqual(CAST(5), CAST(test), 0.1);
-			Assert::AreEqual(CAST(10), CAST(test + 5), 0.1);
-
-			test = lhs - rhs;
-			Assert::AreEqual(CAST(-1), CAST(test), 0.1);
-			Assert::AreEqual(CAST(4), CAST(test + 5), 0.1);
-
-			test = lhs * rhs;
-			Assert::AreEqual(CAST(6), CAST(test), 0.1);
-			Assert::AreEqual(CAST(11), CAST(test + 5), 0.1);
-
-			//test = lhs / rhs;
-			//Assert::AreEqual(CAST(0), CAST(test), 0.1);
-			//Assert::AreEqual(CAST(5), CAST(test + 5), 0.1);
-
-			//test = lhs % rhs;
-			//Assert::AreEqual(CAST(2), CAST(test), 0.1);
-			//Assert::AreEqual(CAST(7), CAST(test + 5), 0.1);
-		}
-
-		TEST_METHOD(TestMethod_ProcessingTimeMeasurement)
-		{
-			constexpr NumeralValueType LENGTH = 1000 * 1000;
-			{
-				NumeralValueType sum = 0;
-				auto func = [&]()
-				{
-					for (sum = 0; sum < LENGTH; sum++);
-				};
-				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum), 0.1);
-			}
-			{
-				Numeral sum = 0;
-				auto func = [&]()
-				{
-					for (sum = 0; sum < LENGTH; sum++);
-				};
-				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum), 0.1);
-			}
-		}
-	};
-
-	TEST_CLASS(SIPrefixUnitTest_Integer)
+	TEST_CLASS(SIPrefixUnitTest)
 	{
 		using BaseSIPrefixType = intmax_t;
 		using SIPrefix = UnitOfNumber::SIPrefix<BaseSIPrefixType>;
@@ -316,7 +429,6 @@ namespace UnitTest
 				Assert::AreEqual(CAST(1), CAST(test));
 			}
 		}
-
 		TEST_METHOD(TestMethod_Assignment)
 		{
 			SIPrefix test;
@@ -334,6 +446,10 @@ namespace UnitTest
 		TEST_METHOD(TestMethod_Arithmetic)
 		{
 			SIPrefix test, lhs = 2, rhs = 3;
+
+			test = lhs;
+			Assert::AreEqual(CAST(2), CAST(test));
+			Assert::AreEqual(CAST(7), CAST(test + 5));
 
 			test = lhs + rhs;
 			Assert::AreEqual(CAST(5), CAST(test));
@@ -424,6 +540,14 @@ namespace UnitTest
 			Assert::AreEqual(CAST(1000000000000000000), CAST(test.base));
 		}
 
+		TEST_METHOD(TestMethod_ConvertFromSIPrefixUnitToOriginal2)
+		{
+			SIPrefix test;
+			test.k = 1;
+			test = test.k + test.k;
+			Assert::AreEqual(CAST(2000), CAST(test));
+		}
+
 		TEST_METHOD(TestMethod_ProcessingTimeMeasurement)
 		{
 			constexpr BaseSIPrefixType LENGTH = 1000 * 1000;
@@ -444,156 +568,6 @@ namespace UnitTest
 				};
 				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
 				Assert::AreEqual(CAST(LENGTH), CAST(sum));
-			}
-		}
-	};
-
-	TEST_CLASS(SIPrefixUnitTest_Decimal)
-	{
-		using BaseSIPrefixType = long double;
-		using SIPrefix = UnitOfNumber::SIPrefix<BaseSIPrefixType>;
-
-	private:
-		template<class T>
-		constexpr auto CAST(T&& v) { return static_cast<BaseSIPrefixType>(v); }
-
-		template<class T>
-		void WriteMessageForTime(T time)
-		{
-			char out[256];
-#pragma warning(suppress : 4996)
-			sprintf(out, "time %lf[ms]\n", time);
-			Logger::WriteMessage(out);// デバッグ時のログ(出力欄)に出力
-		}
-
-	public:
-		TEST_METHOD(TestMethod_Constructor)
-		{
-			{
-				SIPrefix test;
-				Assert::AreEqual(CAST(0), CAST(test), 0.1);
-			}
-
-			{
-				SIPrefix test = 1;
-				Assert::AreEqual(CAST(1), CAST(test), 0.1);
-			}
-		}
-
-		TEST_METHOD(TestMethod_Assignment)
-		{
-			SIPrefix test;
-			test = 2;
-			Assert::AreEqual(CAST(2), CAST(test), 0.1);
-		}
-
-		TEST_METHOD(TestMethod_UnaryNegationPlus)
-		{
-			SIPrefix test = 3;
-			Assert::AreEqual(CAST(+3), CAST(+test), 0.1);
-			Assert::AreEqual(CAST(-3), CAST(-test), 0.1);
-		}
-
-		TEST_METHOD(TestMethod_Arithmetic)
-		{
-			SIPrefix test, lhs = 2, rhs = 3;
-
-			test = lhs + rhs;
-			Assert::AreEqual(CAST(5), CAST(test), 0.1);
-			Assert::AreEqual(CAST(10), CAST(test + 5), 0.1);
-
-			test = lhs - rhs;
-			Assert::AreEqual(CAST(-1), CAST(test), 0.1);
-			Assert::AreEqual(CAST(4), CAST(test + 5), 0.1);
-
-			test = lhs * rhs;
-			Assert::AreEqual(CAST(6), CAST(test), 0.1);
-			Assert::AreEqual(CAST(11), CAST(test + 5), 0.1);
-
-			//test = lhs / rhs;
-			//Assert::AreEqual(CAST(0), CAST(test), 0.1);
-			//Assert::AreEqual(CAST(5), CAST(test + 5), 0.1);
-
-			//test = lhs % rhs;
-			//Assert::AreEqual(CAST(2), CAST(test), 0.1);
-			//Assert::AreEqual(CAST(7), CAST(test + 5), 0.1);
-		}
-
-		TEST_METHOD(TestMethod_ConvertFromOriginalToSIPrefixUnit)
-		{
-			{
-				SIPrefix test = 1;
-			
-				Assert::AreEqual(CAST(0.000000000000000000000000000001), CAST(test.Q), 0.1);
-				Assert::AreEqual(CAST(0.000000000000000000000000001),	 CAST(test.R), 0.1);
-				Assert::AreEqual(CAST(0.000000000000000000000001),		 CAST(test.Y), 0.1);
-				Assert::AreEqual(CAST(0.000000000000000000001),			 CAST(test.Z), 0.1);
-				Assert::AreEqual(CAST(0.000000000000000001),			 CAST(test.E), 0.1);
-				Assert::AreEqual(CAST(0.000000000000001),				 CAST(test.P), 0.1);
-				Assert::AreEqual(CAST(0.000000000001),					 CAST(test.T), 0.1);
-				Assert::AreEqual(CAST(0.000000001),						 CAST(test.G), 0.1);
-				Assert::AreEqual(CAST(0.000001),						 CAST(test.M), 0.1);
-				Assert::AreEqual(CAST(0.001),							 CAST(test.k), 0.1);
-				Assert::AreEqual(CAST(0.01),							 CAST(test.h), 0.1);
-				Assert::AreEqual(CAST(0.1),								 CAST(test.da), 0.1);
-				Assert::AreEqual(CAST(1),								 CAST(test.base), 0.1);
-				Assert::AreEqual(CAST(10),								 CAST(test.d), 0.1);
-				Assert::AreEqual(CAST(100),								 CAST(test.c), 0.1);
-				Assert::AreEqual(CAST(1000),							 CAST(test.m), 0.1);
-				Assert::AreEqual(CAST(1000000),							 CAST(test.u), 0.1);
-				Assert::AreEqual(CAST(1000000000),						 CAST(test.n), 0.1);
-				Assert::AreEqual(CAST(1000000000000),					 CAST(test.p), 0.1);
-				Assert::AreEqual(CAST(1000000000000000),				 CAST(test.f), 0.1);
-				Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.a), 0.1);
-				//start このテストはソフト的に不可
-				//Assert::AreEqual(CAST(1000000000000000000000),			CAST(test.z), 0.1);
-				//Assert::AreEqual(CAST(1000000000000000000000000),			CAST(test.y), 0.1);
-				//Assert::AreEqual(CAST(1000000000000000000000000000),		CAST(test.r), 0.1);
-				//Assert::AreEqual(CAST(1000000000000000000000000000000),	CAST(test.q), 0.1);
-				//end
-			}
-		}
-
-		TEST_METHOD(TestMethod_ConvertFromSIPrefixUnitToOriginal)
-		{
-			SIPrefix test;
-			test.E = 1;
-			Assert::AreEqual(CAST(1000000000000000000), CAST(test.base), 0.1);
-		}
-
-		TEST_METHOD(TestMethod_Arithmetic2)
-		{
-			SIPrefix test, lhs = 2, rhs = 3;
-
-			test = lhs.d + rhs;
-			Assert::AreEqual(CAST(5), CAST(test), 0.1);
-			Assert::AreEqual(CAST(10), CAST(test + 5), 0.1);
-
-			test = lhs - rhs;
-			Assert::AreEqual(CAST(-1), CAST(test), 0.1);
-			Assert::AreEqual(CAST(4), CAST(test + 5), 0.1);
-		}
-
-		TEST_METHOD(TestMethod_ProcessingTimeMeasurement)
-		{
-			constexpr BaseSIPrefixType LENGTH = 1000 * 1000;
-			{
-				BaseSIPrefixType sum = 0;
-				auto func = [&]()
-				{
-					for (sum = 0; sum < LENGTH; sum++);
-				};
-				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum), 0.1);
-			}
-			{
-				SIPrefix sum = 0;
-				auto func = [&]()
-				{
-					for (sum = 0; sum < LENGTH; sum++);
-				};
-				WriteMessageForTime(ProcessingTimeMeasurementFunc::measurement(func) / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum), 0.1);
 			}
 		}
 	};
