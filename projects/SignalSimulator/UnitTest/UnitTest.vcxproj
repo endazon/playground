@@ -168,6 +168,7 @@
     <ClCompile Include="UnitTest.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Target\ScientificPostulates.h" />
     <ClInclude Include="..\Target\UnitOfNumber.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>

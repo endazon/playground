@@ -32,5 +32,8 @@
     <ClInclude Include="..\Target\UnitOfNumber.h">
       <Filter>Target</Filter>
     </ClInclude>
+    <ClInclude Include="..\Target\ScientificPostulates.h">
+      <Filter>Target</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

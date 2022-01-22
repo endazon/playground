@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "CppUnitTest.h"
 #include "UnitOfNumber.h"
+#include "ScientificPostulates.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -406,7 +407,7 @@ namespace UnitTest
 		}
 	};
 
-	TEST_CLASS(SIPrefixUnitTest)
+	TEST_CLASS(SIPrefixTest)
 	{
 		//using SIPrefixType = intmax_t;
 		using SIPrefixType = long double;
@@ -794,6 +795,49 @@ namespace UnitTest
 				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
 				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
 			}
+		}
+	};
+
+	TEST_CLASS(ScientificPostulatesTest)
+	{
+	private:
+		template<class T>
+		constexpr auto CAST(T&& v) { return static_cast<UnitOfNumber::ScientificPostulates::Type>(v); }
+
+		template<class T>
+		void WriteMessageForValue(T value)
+		{
+			char out[256];
+#pragma warning(suppress : 4996)
+			sprintf(out, "value %lf\n", value);
+			Logger::WriteMessage(out);// デバッグ時のログ(出力欄)に出力
+		}
+
+	public:
+		TEST_METHOD(TestMethod_Display)
+		{
+			WriteMessageForValue(CAST(UnitOfNumber::SP.C  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.Co ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.g  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.G  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.me ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.mp ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.mn ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.ou ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.e0 ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.u0 ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.h  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.e  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.Rif));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.NA ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.L  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.Vm ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.F  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.R  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.k  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.t  ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.KJ ));
+			WriteMessageForValue(CAST(UnitOfNumber::SP.atm));
 		}
 	};
 }
