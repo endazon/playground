@@ -13,18 +13,21 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Target">
+      <UniqueIdentifier>{b8dc77aa-3ed8-4848-8504-946d09a90356}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="UnitTest.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="pch.cpp">
+    <ClCompile Include="DebuggingConsole.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="..\Target\ScientificPostulates.h">
+      <Filter>Target</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Target\UnitOfNumber.h">
+      <Filter>Target</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
