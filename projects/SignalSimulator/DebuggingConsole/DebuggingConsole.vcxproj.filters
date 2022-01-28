@@ -23,10 +23,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Target\ScientificPostulates.h">
+    <ClInclude Include="..\Target\ScientificPostulates.hpp">
       <Filter>Target</Filter>
     </ClInclude>
-    <ClInclude Include="..\Target\UnitOfNumber.h">
+    <ClInclude Include="..\Target\UnitOfNumber.hpp">
       <Filter>Target</Filter>
     </ClInclude>
   </ItemGroup>

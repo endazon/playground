@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "CppUnitTest.h"
-#include "UnitOfNumber.h"
-#include "ScientificPostulates.h"
+#include "UnitOfNumber.hpp"
+#include "ScientificPostulates.hpp"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
