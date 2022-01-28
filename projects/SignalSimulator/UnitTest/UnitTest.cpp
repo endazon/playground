@@ -407,6 +407,7 @@ namespace UnitTest
 		}
 	};
 
+#ifndef _BOOST_
 	TEST_CLASS(SIPrefixTest)
 	{
 		//using SIPrefixType = intmax_t;
@@ -840,4 +841,5 @@ namespace UnitTest
 			WriteMessageForValue(CAST(UnitOfNumber::SP.atm));
 		}
 	};
+#endif
 }

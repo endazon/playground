@@ -6,6 +6,10 @@
 #include <cmath>
 #include <cassert>
 
+#ifdef _BOOST_
+#include <boost/operators.hpp>
+#endif
+
 namespace UnitOfNumber {
 
 #pragma region Numeral
@@ -22,7 +26,7 @@ namespace UnitOfNumber {
 
 	protected:
 		template<class T>
-		constexpr auto CAST(T&& v) { return static_cast<__ValueType>(v); }
+		constexpr auto CAST(T&& v) const { return static_cast<__ValueType>(v); }
 
 		inline __ValueType GetValue() const noexcept
 		{
@@ -56,6 +60,131 @@ namespace UnitOfNumber {
 			return GetValue();
 		}
 	};
+
+#ifdef _BOOST_
+
+	/// <summary>
+	/// 数字操作クラス
+	/// </summary>
+	/// <typeparam name="__InheritanceType"></typeparam>
+	/// <typeparam name="__ReturnType"></typeparam>
+	template<class __InheritanceType, class __ReturnType = __InheritanceType>
+	class NumeralOperators : private boost::operators<__ReturnType>, public __InheritanceType
+	{
+		//※以下の関数はこのクラスを使用する際に必須
+		//template<class T> constexpr auto CAST(T&& v);
+		//inline __ValueType GetValue() const noexcept;
+		//inline void SetValue(const __ValueType& v) & noexcept;
+		//inline void SetValue(const __ValueType&& v) & noexcept;
+
+	private:
+		using __MySelfType = NumeralOperators;
+
+	protected:
+		template<class T>
+		constexpr T mod(T lhs, T rhs) noexcept
+		{
+			if constexpr (std::is_integral<T>::value)
+			{
+				return lhs % rhs;
+			}
+			else if constexpr (std::is_floating_point<T>::value)
+			{
+				return std::fmod(lhs, rhs);
+			}
+		}
+
+	public:
+		//**********************************************************
+		//暗黙的に宣言される
+		NumeralOperators() noexcept = delete;
+		//NumeralOperators(const __MySelfType&) noexcept = delete;
+		//NumeralOperators(__MySelfType&&) noexcept = delete;
+		constexpr ~NumeralOperators() noexcept = default;
+		//**********************************************************
+		template<class T> constexpr NumeralOperators(const T & other) noexcept : __InheritanceType(this->CAST(other))
+		{}
+		template<class T> constexpr NumeralOperators(const T && other) noexcept : __MySelfType(other)
+		{}
+
+		//代入演算子(Assignment)
+		//**********************************************************
+		//暗黙的に宣言される
+		//NumeralOperators& operator=(const NumeralOperators&) noexcept = delete;
+		//NumeralOperators& operator=(NumeralOperators&&) & noexcept = delete;
+		//**********************************************************
+		template<class T> inline __MySelfType& operator=(T& rhs) noexcept
+		{
+			this->SetValue(this->CAST(rhs));
+			return *this;
+		}
+		template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
+		{
+			return operator=(rhs);
+		}
+
+		//単項マイナス演算子と単項プラス演算子(Unary Negation/Plus)
+		inline __ReturnType operator+() const { return __ReturnType(+this->GetValue()); }
+		inline __ReturnType operator-() const { return __ReturnType(-this->GetValue()); }
+
+		//前置インクリメント/デクリメント(Prefix Increment/Decremrnt)
+		inline __ReturnType operator++() { this->SetValue(this->GetValue() + 1); return __ReturnType(this->GetValue()); }
+		inline __ReturnType operator--() { this->SetValue(this->GetValue() - 1); return __ReturnType(this->GetValue()); }
+
+		//複合代入演算子(Compound Assignment)
+		template<class T> inline __ReturnType operator+=(const T& rhs) { this->SetValue(this->GetValue() + this->CAST(rhs));     return __ReturnType(this->GetValue()); }
+		template<class T> inline __ReturnType operator-=(const T& rhs) { this->SetValue(this->GetValue() - this->CAST(rhs));     return __ReturnType(this->GetValue()); }
+		template<class T> inline __ReturnType operator*=(const T& rhs) { this->SetValue(this->GetValue() * this->CAST(rhs));     return __ReturnType(this->GetValue()); }
+		template<class T> inline __ReturnType operator/=(const T& rhs) { this->SetValue(this->GetValue() / this->CAST(rhs));     return __ReturnType(this->GetValue()); }
+		template<class T> inline __ReturnType operator%=(const T& rhs) { this->SetValue(mod(this->GetValue(), this->CAST(rhs))); return __ReturnType(this->GetValue()); }
+
+		//論理否定演算子(Logical Not)
+		inline bool operator!() const noexcept { return  this->GetValue() == 0; }
+
+		//比較演算子(Compare)
+		template<class T> inline bool operator==(const T& rhs) const { return this->GetValue() == this->CAST(rhs); }
+		template<class T> inline bool operator< (const T& rhs) const { return this->GetValue() <  this->CAST(rhs); }
+		//template<class rhsT> friend inline bool operator!=(const __ReturnType& lhs, const rhsT& rhs) { return !(lhs == rhs); }
+
+		//科学算術(Scientific Arithmetic)
+		template<class T> inline __ReturnType pow(const T& rhs) { return __ReturnType(std::pow(this->GetValue(), this->CAST(rhs))); }
+						  inline __ReturnType log()				{ return __ReturnType(std::log(this->GetValue())); }
+		template<class T> inline __ReturnType log(const T& rhs) { return __ReturnType(std::log(this->GetValue() / this->CAST(rhs))); }
+						  inline __ReturnType abs()				{ return __ReturnType(std::abs(this->GetValue())); }
+	};
+
+	/// <summary>
+	/// 基本数字クラス
+	/// </summary>
+	/// <typeparam name="__ValueType"></typeparam>
+	template<class __ValueType>
+	class BaseNumeral : public NumeralOperators<NumericEntity<__ValueType>, BaseNumeral<__ValueType>>
+	{
+	private:
+		using __MySelfType = BaseNumeral;
+
+	public:
+		//**********************************************************
+		//暗黙的に宣言される
+		//BaseNumeral() noexcept = delete;
+		//BaseNumeral(const __MySelfType&) noexcept = delete;
+		//BaseNumeral(__MySelfType&&) noexcept = delete;
+		constexpr ~BaseNumeral() noexcept = default;
+		//**********************************************************
+		constexpr BaseNumeral(const __ValueType & init) noexcept : NumeralOperators<NumericEntity<__ValueType>, BaseNumeral<__ValueType>>(init)
+		{}
+		constexpr BaseNumeral(const __ValueType && init = 0) noexcept : __MySelfType(init)
+		{}
+		template<class T> constexpr BaseNumeral(const T & other) noexcept : __MySelfType(this->CAST(other))
+		{}
+		template<class T> constexpr BaseNumeral(const T && other) noexcept : __MySelfType(other)
+		{}
+
+		//比較演算子(Compare)
+		friend inline bool operator!=(const __MySelfType& lhs, const __ValueType& rhs) { return !(lhs == rhs); }
+	};
+
+#else
 
 	/// <summary>
 	/// 数字操作クラス
@@ -175,6 +304,8 @@ namespace UnitOfNumber {
 		{}
 	};
 
+#endif
+
 	/// <summary>
 	/// 数字クラス
 	/// </summary>
@@ -187,7 +318,17 @@ namespace UnitOfNumber {
 	}
 #pragma endregion
 
+#ifndef _BOOST_
 #pragma region SIPrefixUnit
+
+	/// <summary>
+	/// SI接頭辞操作クラス
+	/// </summary>
+	/// <typeparam name="__InheritanceType"></typeparam>
+	/// <typeparam name="__ReturnType"></typeparam>
+	template<class __InheritanceType, class __ReturnType = __InheritanceType>
+	using SIPrefixOperators = NumeralOperators<__InheritanceType, __ReturnType>;
+
 	/// <summary>
 	/// 基本SI接頭辞クラス
 	/// 型を指定できる
@@ -195,7 +336,7 @@ namespace UnitOfNumber {
 	/// </summary>
 	/// <typeparam name="__ValueType"></typeparam>
 	template<class __ValueType>
-	class BaseSIPrefix : public NumeralOperators<NumericEntity<__ValueType>, BaseSIPrefix<__ValueType>>
+	class BaseSIPrefix : public SIPrefixOperators<NumericEntity<__ValueType>, BaseSIPrefix<__ValueType>>
 	{
 	private:
 		using __MySelfType = BaseSIPrefix;
@@ -215,7 +356,7 @@ namespace UnitOfNumber {
 
 		protected:
 			template<class T>
-			constexpr auto CAST(T&& v) { return static_cast<__ValueType>(v); }
+			constexpr auto CAST(T&& v) const { return static_cast<__ValueType>(v); }
 
 			inline __ValueType GetValue() const noexcept
 			{
@@ -250,7 +391,7 @@ namespace UnitOfNumber {
 			}
 		};
 		template<int __Exp = 0>
-		using BaseSIPrefixUnit = NumeralOperators<SIPrefixUnitEntity<__Exp>, BaseSIPrefix<__ValueType>>;
+		using BaseSIPrefixUnit = SIPrefixOperators<SIPrefixUnitEntity<__Exp>, BaseSIPrefix<__ValueType>>;
 
 	public:
 		//**********************************************************
@@ -260,7 +401,7 @@ namespace UnitOfNumber {
 		//BaseSIPrefix(__MySelfType&&) noexcept = delete;
 		//~BaseSIPrefix() noexcept = default;
 		//**********************************************************
-		constexpr BaseSIPrefix(const __ValueType& init) noexcept : NumeralOperators<NumericEntity<__ValueType>, BaseSIPrefix<__ValueType>>(init)
+		constexpr BaseSIPrefix(const __ValueType& init) noexcept : SIPrefixOperators<NumericEntity<__ValueType>, BaseSIPrefix<__ValueType>>(init)
 		, Q(*this)
 		, R(*this)
 		, Y(*this)
@@ -349,5 +490,5 @@ namespace UnitOfNumber {
 		static_assert(sizeof(SIPrefix<SIPrefixType>) == sizeof(SIPrefixType) + sizeof(SIPrefix<SIPrefixType>*) * 25, "SIPrefix Size Error");
 	}
 #pragma endregion
-
+#endif
 }
