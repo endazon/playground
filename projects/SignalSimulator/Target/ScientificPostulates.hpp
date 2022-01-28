@@ -4,7 +4,6 @@
 #include "UnitOfNumber.hpp"
 
 namespace UnitOfNumber {
-#ifndef _BOOST_
 	//‰ÈŠw’è”
 	static const struct ScientificPostulates {
 		using Type = long double;
@@ -153,5 +152,4 @@ namespace UnitOfNumber {
 		/// </summary>				
 		SIType atm;
 	}SP;
-#endif
 }
