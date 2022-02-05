@@ -150,9 +150,10 @@ namespace UnitOfNumber {
 	/// <summary>
 	/// 基本数字クラス
 	/// </summary>
+	/// <typeparam name="__EntityType"></typeparam>
 	/// <typeparam name="__ValueType"></typeparam>
-	template<class __ValueType>
-	class BaseNumeral : public NumeralOperators<NumericEntity<__ValueType>, BaseNumeral<__ValueType>>
+	template<class __EntityType, class __ValueType>
+	class BaseNumeral : public NumeralOperators<__EntityType, BaseNumeral<__EntityType, __ValueType>>
 	{
 	private:
 		using __MySelfType = BaseNumeral;
@@ -165,7 +166,7 @@ namespace UnitOfNumber {
 		//BaseNumeral(__MySelfType&&) noexcept = delete;
 		constexpr ~BaseNumeral() noexcept = default;
 		//**********************************************************
-		constexpr BaseNumeral(const __ValueType & init) noexcept : NumeralOperators<NumericEntity<__ValueType>, BaseNumeral<__ValueType>>(init)
+		constexpr BaseNumeral(const __ValueType & init) noexcept : NumeralOperators<__EntityType, BaseNumeral<__EntityType, __ValueType>>(init)
 		{}
 		constexpr BaseNumeral(const __ValueType && init = 0) noexcept : __MySelfType(init)
 		{}
@@ -173,6 +174,22 @@ namespace UnitOfNumber {
 		{}
 		template<class T> constexpr BaseNumeral(const T && other) noexcept : __MySelfType(other)
 		{}
+
+		//代入演算子(Assignment)
+		//**********************************************************
+		//暗黙的に宣言される
+		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
+		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
+		//**********************************************************
+		template<class T> inline __MySelfType& operator=(T& rhs) noexcept
+		{
+			this->SetValue(this->CAST(rhs));
+			return *this;
+		}
+		template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
+		{
+			return operator=(rhs);
+		}
 	};
 
 	/// <summary>
@@ -180,7 +197,7 @@ namespace UnitOfNumber {
 	/// </summary>
 	/// <typeparam name="__ValueType"></typeparam>
 	template<class __ValueType>
-	using Numeral = BaseNumeral<__ValueType>;
+	using Numeral = BaseNumeral<NumericEntity<__ValueType>, __ValueType>;
 	namespace {
 		using NumeralValueType = long double;
 		static_assert(sizeof(Numeral<NumeralValueType>) == sizeof(NumeralValueType), "Numeral Size Error");

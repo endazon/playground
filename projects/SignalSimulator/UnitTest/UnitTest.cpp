@@ -1,14 +1,15 @@
-#include "pch.h"
-#include "CppUnitTest.h"
+#include <gtest/gtest.h>
+#include <time.h>
+#include <windows.h>
+#include <chrono>
 #include "UnitOfNumber.hpp"
 #include "ScientificPostulates.hpp"
 
-using namespace Microsoft::VisualStudio::CppUnitTestFramework;
-
-namespace UnitTest
+class UnitOfNumberUnitTest : public ::testing::Test
 {
-	struct ProcessingTimeMeasurement {
-
+protected:
+	struct ProcessingTimeMeasurement
+	{
 		//C/C++で処理時間の計測を行う時，time.h で定義されている clock()関数が良く利用されます．
 		//ただ，clock()関数の分解能は10[ms]程度ですので，短い処理の計測には向きません．
 		struct LowPrecision
@@ -95,749 +96,746 @@ namespace UnitTest
 		};
 	};
 	using ProcessingTimeMeasurementFunc = ProcessingTimeMeasurement::HighPrecision;
+};
 
-	TEST_CLASS(NumeralUnitTest)
+class NumeralUnitTest : public UnitOfNumberUnitTest
+{
+protected:
+	using NumeralValueType = intmax_t;
+	//using NumeralValueType = long double;
+	using Numeral = UnitOfNumber::Numeral<NumeralValueType>;
+
+	template<class T>
+	constexpr auto CAST(T&& v) { return static_cast<NumeralValueType>(v); }
+
+	template<class T>
+	void WriteMessageForTime(T time)
 	{
-		using NumeralValueType = intmax_t;
-		//using NumeralValueType = long double;
-		using Numeral = UnitOfNumber::Numeral<NumeralValueType>;
-
-	private:
-		template<class T>
-		constexpr auto CAST(T&& v) { return static_cast<NumeralValueType>(v); }
-
-		template<class T>
-		void WriteMessageForTime(T time)
-		{
-			char out[256];
+		char out[256];
 #pragma warning(suppress : 4996)
-			sprintf(out, "time %lf[ms]\n", time);
-			Logger::WriteMessage(out);// デバッグ時のログ(出力欄)に出力
-		}
+		sprintf(out, "time %lf[ms]\n", time);
+		std::cout << out << std::endl;// デバッグ時のログ(出力欄)に出力
+	}
 
-		const double PARAM = 0.1;
+	const double PARAM = 0.1;
+};
 
-	public:
-		TEST_METHOD(TestMethod_Constructor)
-		{
-			//引数なし
-			{
-				Numeral test;
-				Assert::AreEqual(CAST(0), CAST(test), PARAM);
-			}
-
-			//プリミティブ型参照左辺値
-			{
-				NumeralValueType test1 = 1;
-				Numeral test2 = test1;
-				Assert::AreEqual(CAST(1), CAST(test1), PARAM);
-				Assert::AreEqual(CAST(1), CAST(test2), PARAM);
-			}
-
-			//プリミティブ型右辺値
-			{
-				Numeral test = NumeralValueType(2);
-				Assert::AreEqual(CAST(2), CAST(test), PARAM);
-			}
-
-			//Numeral型参照左辺値
-			{
-				Numeral test1 = 3;
-				Numeral test2 = test1;
-				Assert::AreEqual(CAST(3), CAST(test1), PARAM);
-				Assert::AreEqual(CAST(3), CAST(test2), PARAM);
-			}
-
-			//Numeral型右辺値
-			{
-				Numeral test = Numeral(4);
-				Assert::AreEqual(CAST(4), CAST(test), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_Assignment)
-		{	
-			//プリミティブ型参照左辺値
-			{
-				NumeralValueType test1 = 1;
-				Numeral test2;
-				test2 = test1;
-				Assert::AreEqual(CAST(1), CAST(test1), PARAM);
-				Assert::AreEqual(CAST(1), CAST(test2), PARAM);
-			}
-
-			//プリミティブ型右辺値
-			{
-				Numeral test;
-				test = NumeralValueType(2);
-				Assert::AreEqual(CAST(2), CAST(test), PARAM);
-			}
-
-			//Numeral型参照左辺値
-			{
-				Numeral test1 = 3;
-				Numeral test2;
-				test2 = test1;
-				Assert::AreEqual(CAST(3), CAST(test1), PARAM);
-				Assert::AreEqual(CAST(3), CAST(test2), PARAM);
-			}
-
-			//Numeral型右辺値
-			{
-				Numeral test;
-				test = Numeral(4);
-				Assert::AreEqual(CAST(4), CAST(test), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_UnaryNegationPlus)
-		{
-			Numeral test1 = 3, test2 = +test1, test3 = -test1;
-			Assert::AreEqual(CAST(+3), CAST(+test1), PARAM);
-			Assert::AreEqual(CAST(-3), CAST(-test1), PARAM);
-			Assert::AreEqual(CAST(+3), CAST(+test2), PARAM);
-			Assert::AreEqual(CAST(-3), CAST(-test2), PARAM);
-			Assert::AreEqual(CAST(-3), CAST(+test3), PARAM);
-			Assert::AreEqual(CAST(+3), CAST(-test3), PARAM);
-		}
-
-		TEST_METHOD(TestMethod_Arithmetic)
-		{
-			Numeral lhs = 2;
-			Numeral rhs1 = 3;
-			NumeralValueType rhs2 = 5;
-
-			Assert::AreEqual(CAST(5 ), CAST(lhs + rhs1), PARAM);
-			Assert::AreEqual(CAST(7 ), CAST(lhs + rhs2), PARAM);
-			Assert::AreEqual(CAST(9 ), CAST(lhs + Numeral(7)), PARAM);
-			Assert::AreEqual(CAST(11), CAST(lhs + NumeralValueType(9)), PARAM);
-
-			Assert::AreEqual(CAST(-1), CAST(lhs - rhs1), PARAM);
-			Assert::AreEqual(CAST(-3), CAST(lhs - rhs2), PARAM);
-			Assert::AreEqual(CAST(-5), CAST(lhs - Numeral(7)), PARAM);
-			Assert::AreEqual(CAST(-7), CAST(lhs - NumeralValueType(9)), PARAM);
-
-			Assert::AreEqual(CAST(6 ), CAST(lhs * rhs1), PARAM);
-			Assert::AreEqual(CAST(10), CAST(lhs * rhs2), PARAM);
-			Assert::AreEqual(CAST(14), CAST(lhs * Numeral(7)), PARAM);
-			Assert::AreEqual(CAST(18), CAST(lhs * NumeralValueType(9)), PARAM);
-
-			if constexpr (std::is_integral<NumeralValueType>::value)
-			{
-				Assert::AreEqual(CAST(0 ), CAST(lhs / rhs1), PARAM);
-				Assert::AreEqual(CAST(0 ), CAST(lhs / rhs2), PARAM);
-				Assert::AreEqual(CAST(0 ), CAST(lhs / Numeral(7)), PARAM);
-				Assert::AreEqual(CAST(0 ), CAST(lhs / NumeralValueType(9)), PARAM);	
-			}
-			else if constexpr (std::is_floating_point<NumeralValueType>::value)
-			{
-				Assert::AreEqual(CAST(0.666667), CAST(lhs / rhs1), PARAM);
-				Assert::AreEqual(CAST(0.4     ), CAST(lhs / rhs2), PARAM);
-				Assert::AreEqual(CAST(0.285714), CAST(lhs / Numeral(7)), PARAM);
-				Assert::AreEqual(CAST(0.222222), CAST(lhs / NumeralValueType(9)), PARAM);
-			}
-
-			if constexpr (std::is_integral<NumeralValueType>::value)
-			{
-				Assert::AreEqual(CAST(2 ), CAST(lhs % rhs1), PARAM);
-				Assert::AreEqual(CAST(2 ), CAST(lhs % rhs2), PARAM);
-				Assert::AreEqual(CAST(2 ), CAST(lhs % Numeral(7)), PARAM);
-				Assert::AreEqual(CAST(2 ), CAST(lhs % NumeralValueType(9)), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_CompoundAssignment)
-		{
-			Numeral lhs = 2;
-			Numeral rhs1 = 3;
-			NumeralValueType rhs2 = 5;
-
-			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-			lhs += rhs1;				Assert::AreEqual(CAST(5   ), CAST(lhs), PARAM);
-			lhs += rhs2;				Assert::AreEqual(CAST(10  ), CAST(lhs), PARAM);
-			lhs += Numeral(7);			Assert::AreEqual(CAST(17  ), CAST(lhs), PARAM);
-			lhs += NumeralValueType(9);	Assert::AreEqual(CAST(26  ), CAST(lhs), PARAM);
-
-			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-			lhs -= rhs1;				Assert::AreEqual(CAST(-1  ), CAST(lhs), PARAM);
-			lhs -= rhs2;				Assert::AreEqual(CAST(-6  ), CAST(lhs), PARAM);
-			lhs -= Numeral(7);			Assert::AreEqual(CAST(-13 ), CAST(lhs), PARAM);
-			lhs -= NumeralValueType(9);	Assert::AreEqual(CAST(-22 ), CAST(lhs), PARAM);
-
-			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-			lhs *= rhs1;				Assert::AreEqual(CAST(6   ), CAST(lhs), PARAM);
-			lhs *= rhs2;				Assert::AreEqual(CAST(30  ), CAST(lhs), PARAM);
-			lhs *= Numeral(7);			Assert::AreEqual(CAST(210 ), CAST(lhs), PARAM);
-			lhs *= NumeralValueType(9);	Assert::AreEqual(CAST(1890), CAST(lhs), PARAM);
-
-			if constexpr (std::is_integral<NumeralValueType>::value)
-			{
-				lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs /= rhs1;				Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
-				lhs /= rhs2;				Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
-				lhs /= Numeral(7);			Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
-				lhs /= NumeralValueType(9);	Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
-			}
-			else if constexpr (std::is_floating_point<NumeralValueType>::value)
-			{
-				lhs = 2;					Assert::AreEqual(CAST(2       ), CAST(lhs), PARAM);
-				lhs /= rhs1;				Assert::AreEqual(CAST(0.666667), CAST(lhs), PARAM);
-				lhs /= rhs2;				Assert::AreEqual(CAST(0.133333), CAST(lhs), PARAM);
-				lhs /= Numeral(7);			Assert::AreEqual(CAST(0       ), CAST(lhs), PARAM);
-				lhs /= NumeralValueType(9);	Assert::AreEqual(CAST(0       ), CAST(lhs), PARAM);
-			}
-
-			if constexpr (std::is_integral<NumeralValueType>::value)
-			{
-				lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs %= rhs1;				Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs %= rhs2;				Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs %= Numeral(7);			Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs %= NumeralValueType(9);	Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_PostfixIncrementorDecrement)
-		{
-			Numeral test = 0;
-			Assert::AreEqual(CAST(0 ), CAST(test++), PARAM);
-			Assert::AreEqual(CAST(1 ), CAST(test--), PARAM);
-			Assert::AreEqual(CAST(0 ), CAST(test--), PARAM);
-			Assert::AreEqual(CAST(-1), CAST(test--), PARAM);
-			Assert::AreEqual(CAST(-2), CAST(test++), PARAM);
-			Assert::AreEqual(CAST(-1), CAST(test++), PARAM);
-			Assert::AreEqual(CAST(0 ), CAST(test++), PARAM);
-			Assert::AreEqual(CAST(1 ), CAST(test++), PARAM);
-		}
-
-		TEST_METHOD(TestMethod_PrefixIncrementorDecrement)
-		{
-			Numeral test = 0;
-			Assert::AreEqual(CAST(1 ), CAST(++test), PARAM);
-			Assert::AreEqual(CAST(0 ), CAST(--test), PARAM);
-			Assert::AreEqual(CAST(-1), CAST(--test), PARAM);
-			Assert::AreEqual(CAST(-2), CAST(--test), PARAM);
-			Assert::AreEqual(CAST(-1), CAST(++test), PARAM);
-			Assert::AreEqual(CAST(0 ), CAST(++test), PARAM);
-			Assert::AreEqual(CAST(1 ), CAST(++test), PARAM);
-			Assert::AreEqual(CAST(2 ), CAST(++test), PARAM);
-		}
-
-		TEST_METHOD(TestMethod_LogicalNot)
-		{
-			Numeral test;
-			test =  0; Assert::IsTrue(!test);
-			test =  1; Assert::IsFalse(!test);
-			test = -1; Assert::IsFalse(!test);
-		}
-
-		TEST_METHOD(TestMethod_Compare)
-		{
-			Numeral lhs = 2;
-			Numeral rhs1 = 3;
-			NumeralValueType rhs2 = 5;
-			Numeral rhs3 = lhs;
-
-			Assert::IsFalse(lhs == rhs1);
-			Assert::IsFalse(lhs == rhs2);
-			Assert::IsTrue(lhs  == rhs3);
-			Assert::IsFalse(lhs == Numeral(7));
-			Assert::IsFalse(lhs == NumeralValueType(9));
-
-			Assert::IsTrue(lhs  != rhs1);
-			Assert::IsTrue(lhs  != rhs2);
-			Assert::IsFalse(lhs != rhs3);
-			Assert::IsTrue(lhs  != Numeral(7));
-			Assert::IsTrue(lhs  != NumeralValueType(9));
-
-			Assert::IsTrue(lhs  <= rhs1);
-			Assert::IsTrue(lhs  <= rhs2);
-			Assert::IsTrue(lhs  <= rhs3);
-			Assert::IsTrue(lhs  <= Numeral(7));
-			Assert::IsTrue(lhs  <= NumeralValueType(9));
-
-			Assert::IsTrue(lhs  <  rhs1);
-			Assert::IsTrue(lhs  <  rhs2);
-			Assert::IsFalse(lhs <  rhs3);
-			Assert::IsTrue(lhs  <  Numeral(7));
-			Assert::IsTrue(lhs  <  NumeralValueType(9));
-
-			Assert::IsFalse(lhs >= rhs1);
-			Assert::IsFalse(lhs >= rhs2);
-			Assert::IsTrue(lhs  >= rhs3);
-			Assert::IsFalse(lhs >= Numeral(7));
-			Assert::IsFalse(lhs >= NumeralValueType(9));
-
-			Assert::IsFalse(lhs >  rhs1);
-			Assert::IsFalse(lhs >  rhs2);
-			Assert::IsFalse(lhs >  rhs3);
-			Assert::IsFalse(lhs >  Numeral(7));
-			Assert::IsFalse(lhs >  NumeralValueType(9));
-		}
-
-		TEST_METHOD(TestMethod_ProcessingTimeMeasurement)
-		{
-			constexpr NumeralValueType LENGTH = 1000 * 1000;
-			{
-				NumeralValueType sum = 0;
-				auto func = [&]()
-				{
-					for (sum = 0; sum < LENGTH; sum++);
-				};
-				Logger::WriteMessage("【プリミティブ型】\n");
-				Logger::WriteMessage("ループ1000000回実行\n");
-				const auto time = ProcessingTimeMeasurementFunc::measurement(func);
-				Logger::WriteMessage("合計:"); WriteMessageForTime(time);
-				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
-			}
-			{
-				Numeral sum = 0;
-				auto func = [&]()
-				{
-					for (sum = 0; sum < LENGTH; sum++);
-				};
-				Logger::WriteMessage("【Numeral型】\n");
-				Logger::WriteMessage("ループ1000000回実行\n");
-				const auto time = ProcessingTimeMeasurementFunc::measurement(func);
-				Logger::WriteMessage("合計:"); WriteMessageForTime(time);
-				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
-			}
-		}
-	};
-
-	TEST_CLASS(SIPrefixTest)
+TEST_F(NumeralUnitTest, TestMethod_Constructor)
+{
+	//引数なし
 	{
-		//using SIPrefixType = intmax_t;
-		using SIPrefixType = long double;
-		using SIPrefix = UnitOfNumber::SIPrefix<SIPrefixType>;
-
-	private:
-		template<class T>
-		constexpr auto CAST(T&& v) { return static_cast<SIPrefixType>(v); }
-
-		template<class T>
-		void WriteMessageForTime(T time)
-		{
-			char out[256];
-#pragma warning(suppress : 4996)
-			sprintf(out, "time %lf[ms]\n", time);
-			Logger::WriteMessage(out);// デバッグ時のログ(出力欄)に出力
-		}
-
-		const double PARAM = 0.1;
-
-	public:
-		TEST_METHOD(TestMethod_Constructor)
-		{
-			//引数なし
-			{
-				SIPrefix test;
-				Assert::AreEqual(CAST(0), CAST(test), PARAM);
-			}
-
-			//プリミティブ型参照左辺値
-			{
-				SIPrefixType test1 = 1;
-				SIPrefix test2 = test1;
-				Assert::AreEqual(CAST(1), CAST(test1), PARAM);
-				Assert::AreEqual(CAST(1), CAST(test2), PARAM);
-			}
-
-			//プリミティブ型右辺値
-			{
-				SIPrefix test = SIPrefixType(2);
-				Assert::AreEqual(CAST(2), CAST(test), PARAM);
-			}
-
-			//Numeral型参照左辺値
-			{
-				SIPrefix test1 = 3;
-				SIPrefix test2 = test1;
-				Assert::AreEqual(CAST(3), CAST(test1), PARAM);
-				Assert::AreEqual(CAST(3), CAST(test2), PARAM);
-			}
-
-			//Numeral型右辺値
-			{
-				SIPrefix test = SIPrefix(4);
-				Assert::AreEqual(CAST(4), CAST(test), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_Assignment)
-		{	
-			//プリミティブ型参照左辺値
-			{
-				SIPrefixType test1 = 1;
-				SIPrefix test2;
-				test2 = test1;
-				Assert::AreEqual(CAST(1), CAST(test1), PARAM);
-				Assert::AreEqual(CAST(1), CAST(test2), PARAM);
-			}
-
-			//プリミティブ型右辺値
-			{
-				SIPrefix test;
-				test = SIPrefixType(2);
-				Assert::AreEqual(CAST(2), CAST(test), PARAM);
-			}
-
-			//Numeral型参照左辺値
-			{
-				SIPrefix test1 = 3;
-				SIPrefix test2;
-				test2 = test1;
-				Assert::AreEqual(CAST(3), CAST(test1), PARAM);
-				Assert::AreEqual(CAST(3), CAST(test2), PARAM);
-			}
-
-			//Numeral型右辺値
-			{
-				SIPrefix test;
-				test = SIPrefix(4);
-				Assert::AreEqual(CAST(4), CAST(test), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_UnaryNegationPlus)
-		{
-			SIPrefix test1 = 3, test2 = +test1, test3 = -test1;
-			Assert::AreEqual(CAST(+3), CAST(+test1), PARAM);
-			Assert::AreEqual(CAST(-3), CAST(-test1), PARAM);
-			Assert::AreEqual(CAST(+3), CAST(+test2), PARAM);
-			Assert::AreEqual(CAST(-3), CAST(-test2), PARAM);
-			Assert::AreEqual(CAST(-3), CAST(+test3), PARAM);
-			Assert::AreEqual(CAST(+3), CAST(-test3), PARAM);
-		}
-
-		TEST_METHOD(TestMethod_Arithmetic)
-		{
-			SIPrefix lhs = 2;
-			SIPrefix rhs1 = 3;
-			SIPrefixType rhs2 = 5;
-
-			Assert::AreEqual(CAST(5 ), CAST(lhs + rhs1), PARAM);
-			Assert::AreEqual(CAST(7 ), CAST(lhs + rhs2), PARAM);
-			Assert::AreEqual(CAST(9 ), CAST(lhs + SIPrefix(7)), PARAM);
-			Assert::AreEqual(CAST(11), CAST(lhs + SIPrefixType(9)), PARAM);
-
-			Assert::AreEqual(CAST(-1), CAST(lhs - rhs1), PARAM);
-			Assert::AreEqual(CAST(-3), CAST(lhs - rhs2), PARAM);
-			Assert::AreEqual(CAST(-5), CAST(lhs - SIPrefix(7)), PARAM);
-			Assert::AreEqual(CAST(-7), CAST(lhs - SIPrefixType(9)), PARAM);
-
-			Assert::AreEqual(CAST(6 ), CAST(lhs * rhs1), PARAM);
-			Assert::AreEqual(CAST(10), CAST(lhs * rhs2), PARAM);
-			Assert::AreEqual(CAST(14), CAST(lhs * SIPrefix(7)), PARAM);
-			Assert::AreEqual(CAST(18), CAST(lhs * SIPrefixType(9)), PARAM);
-
-			if constexpr (std::is_integral<SIPrefixType>::value)
-			{
-				Assert::AreEqual(CAST(0 ), CAST(lhs / rhs1), PARAM);
-				Assert::AreEqual(CAST(0 ), CAST(lhs / rhs2), PARAM);
-				Assert::AreEqual(CAST(0 ), CAST(lhs / SIPrefix(7)), PARAM);
-				Assert::AreEqual(CAST(0 ), CAST(lhs / SIPrefixType(9)), PARAM);
-			}
-			else if constexpr (std::is_floating_point<SIPrefixType>::value)
-			{
-				Assert::AreEqual(CAST(0.666667), CAST(lhs / rhs1), PARAM);
-				Assert::AreEqual(CAST(0.4     ), CAST(lhs / rhs2), PARAM);
-				Assert::AreEqual(CAST(0.285714), CAST(lhs / SIPrefix(7)), PARAM);
-				Assert::AreEqual(CAST(0.222222), CAST(lhs / SIPrefixType(9)), PARAM);
-			}
-
-			if constexpr (std::is_integral<SIPrefixType>::value)
-			{
-				Assert::AreEqual(CAST(2 ), CAST(lhs % rhs1), PARAM);
-				Assert::AreEqual(CAST(2 ), CAST(lhs % rhs2), PARAM);
-				Assert::AreEqual(CAST(2 ), CAST(lhs % SIPrefix(7)), PARAM);
-				Assert::AreEqual(CAST(2 ), CAST(lhs % SIPrefixType(9)), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_CompoundAssignment)
-		{
-			SIPrefix lhs = 2;
-			SIPrefix rhs1 = 3;
-			SIPrefixType rhs2 = 5;
-
-			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-			lhs += rhs1;				Assert::AreEqual(CAST(5   ), CAST(lhs), PARAM);
-			lhs += rhs2;				Assert::AreEqual(CAST(10  ), CAST(lhs), PARAM);
-			lhs += SIPrefix(7);			Assert::AreEqual(CAST(17  ), CAST(lhs), PARAM);
-			lhs += SIPrefixType(9);	Assert::AreEqual(CAST(26  ), CAST(lhs), PARAM);
-
-			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-			lhs -= rhs1;				Assert::AreEqual(CAST(-1  ), CAST(lhs), PARAM);
-			lhs -= rhs2;				Assert::AreEqual(CAST(-6  ), CAST(lhs), PARAM);
-			lhs -= SIPrefix(7);			Assert::AreEqual(CAST(-13 ), CAST(lhs), PARAM);
-			lhs -= SIPrefixType(9);	Assert::AreEqual(CAST(-22 ), CAST(lhs), PARAM);
-
-			lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-			lhs *= rhs1;				Assert::AreEqual(CAST(6   ), CAST(lhs), PARAM);
-			lhs *= rhs2;				Assert::AreEqual(CAST(30  ), CAST(lhs), PARAM);
-			lhs *= SIPrefix(7);			Assert::AreEqual(CAST(210 ), CAST(lhs), PARAM);
-			lhs *= SIPrefixType(9);	Assert::AreEqual(CAST(1890), CAST(lhs), PARAM);
-
-			if constexpr (std::is_integral<SIPrefixType>::value)
-			{
-				lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs /= rhs1;				Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
-				lhs /= rhs2;				Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
-				lhs /= SIPrefix(7);			Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
-				lhs /= SIPrefixType(9);	Assert::AreEqual(CAST(0   ), CAST(lhs), PARAM);
-			}
-			else if constexpr (std::is_floating_point<SIPrefixType>::value)
-			{
-				lhs = 2;					Assert::AreEqual(CAST(2       ), CAST(lhs), PARAM);
-				lhs /= rhs1;				Assert::AreEqual(CAST(0.666667), CAST(lhs), PARAM);
-				lhs /= rhs2;				Assert::AreEqual(CAST(0.133333), CAST(lhs), PARAM);
-				lhs /= SIPrefix(7);			Assert::AreEqual(CAST(0       ), CAST(lhs), PARAM);
-				lhs /= SIPrefixType(9);	Assert::AreEqual(CAST(0       ), CAST(lhs), PARAM);
-			}
-
-			if constexpr (std::is_integral<SIPrefixType>::value)
-			{
-				lhs = 2;					Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs %= rhs1;				Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs %= rhs2;				Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs %= SIPrefix(7);			Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-				lhs %= SIPrefixType(9);	Assert::AreEqual(CAST(2   ), CAST(lhs), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_PostfixIncrementorDecrement)
-		{
-			SIPrefix test = 0;
-			Assert::AreEqual(CAST(0 ), CAST(test++), PARAM);
-			Assert::AreEqual(CAST(1 ), CAST(test--), PARAM);
-			Assert::AreEqual(CAST(0 ), CAST(test--), PARAM);
-			Assert::AreEqual(CAST(-1), CAST(test--), PARAM);
-			Assert::AreEqual(CAST(-2), CAST(test++), PARAM);
-			Assert::AreEqual(CAST(-1), CAST(test++), PARAM);
-			Assert::AreEqual(CAST(0 ), CAST(test++), PARAM);
-			Assert::AreEqual(CAST(1 ), CAST(test++), PARAM);
-		}
-
-		TEST_METHOD(TestMethod_PrefixIncrementorDecrement)
-		{
-			SIPrefix test = 0;
-			Assert::AreEqual(CAST(1 ), CAST(++test), PARAM);
-			Assert::AreEqual(CAST(0 ), CAST(--test), PARAM);
-			Assert::AreEqual(CAST(-1), CAST(--test), PARAM);
-			Assert::AreEqual(CAST(-2), CAST(--test), PARAM);
-			Assert::AreEqual(CAST(-1), CAST(++test), PARAM);
-			Assert::AreEqual(CAST(0 ), CAST(++test), PARAM);
-			Assert::AreEqual(CAST(1 ), CAST(++test), PARAM);
-			Assert::AreEqual(CAST(2 ), CAST(++test), PARAM);
-		}
-
-		TEST_METHOD(TestMethod_LogicalNot)
-		{
-			SIPrefix test;
-			test =  0; Assert::IsTrue(!test);
-			test =  1; Assert::IsFalse(!test);
-			test = -1; Assert::IsFalse(!test);
-		}
-
-		TEST_METHOD(TestMethod_Compare)
-		{
-			SIPrefix lhs = 2;
-			SIPrefix rhs1 = 3;
-			SIPrefixType rhs2 = 5;
-			SIPrefix rhs3 = lhs;
-
-			Assert::IsFalse(lhs == rhs1);
-			Assert::IsFalse(lhs == rhs2);
-			Assert::IsTrue(lhs  == rhs3);
-			Assert::IsFalse(lhs == SIPrefix(7));
-			Assert::IsFalse(lhs == SIPrefixType(9));
-
-			Assert::IsTrue(lhs  != rhs1);
-			Assert::IsTrue(lhs  != rhs2);
-			Assert::IsFalse(lhs != rhs3);
-			Assert::IsTrue(lhs  != SIPrefix(7));
-			Assert::IsTrue(lhs  != SIPrefixType(9));
-
-			Assert::IsTrue(lhs  <= rhs1);
-			Assert::IsTrue(lhs  <= rhs2);
-			Assert::IsTrue(lhs  <= rhs3);
-			Assert::IsTrue(lhs  <= SIPrefix(7));
-			Assert::IsTrue(lhs  <= SIPrefixType(9));
-
-			Assert::IsTrue(lhs  <  rhs1);
-			Assert::IsTrue(lhs  <  rhs2);
-			Assert::IsFalse(lhs <  rhs3);
-			Assert::IsTrue(lhs  < SIPrefix(7));
-			Assert::IsTrue(lhs  < SIPrefixType(9));
-
-			Assert::IsFalse(lhs >= rhs1);
-			Assert::IsFalse(lhs >= rhs2);
-			Assert::IsTrue(lhs  >= rhs3);
-			Assert::IsFalse(lhs >= SIPrefix(7));
-			Assert::IsFalse(lhs >= SIPrefixType(9));
-
-			Assert::IsFalse(lhs >  rhs1);
-			Assert::IsFalse(lhs >  rhs2);
-			Assert::IsFalse(lhs >  rhs3);
-			Assert::IsFalse(lhs > SIPrefix(7));
-			Assert::IsFalse(lhs > SIPrefixType(9));
-		}
-
-		TEST_METHOD(TestMethod_ConvertFromOriginalToSIPrefixUnit)
-		{
-			//{
-			//	SIPrefix test = 1;
-			//
-			//	Assert::AreEqual(CAST(0.000000000000000000000000000001), CAST(test.Q), PARAM);
-			//	Assert::AreEqual(CAST(0.000000000000000000000000001),	 CAST(test.R), PARAM);
-			//	Assert::AreEqual(CAST(0.000000000000000000000001),		 CAST(test.Y), PARAM);
-			//	Assert::AreEqual(CAST(0.000000000000000000001),			 CAST(test.Z), PARAM);
-			//	Assert::AreEqual(CAST(0.000000000000000001),			 CAST(test.E), PARAM);
-			//	Assert::AreEqual(CAST(0.000000000000001),				 CAST(test.P), PARAM);
-			//	Assert::AreEqual(CAST(0.000000000001),					 CAST(test.T), PARAM);
-			//	Assert::AreEqual(CAST(0.000000001),						 CAST(test.G), PARAM);
-			//	Assert::AreEqual(CAST(0.000001),						 CAST(test.M), PARAM);
-			//	Assert::AreEqual(CAST(0.001),							 CAST(test.k), PARAM);
-			//	Assert::AreEqual(CAST(0.01),							 CAST(test.h), PARAM);
-			//	Assert::AreEqual(CAST(0.1),								 CAST(test.da), PARAM);
-			//	Assert::AreEqual(CAST(1),								 CAST(test.base), PARAM);
-			//	Assert::AreEqual(CAST(10),								 CAST(test.d), PARAM);
-			//	Assert::AreEqual(CAST(100),								 CAST(test.c), PARAM);
-			//	Assert::AreEqual(CAST(1000),							 CAST(test.m), PARAM);
-			//	Assert::AreEqual(CAST(1000000),							 CAST(test.u), PARAM);
-			//	Assert::AreEqual(CAST(1000000000),						 CAST(test.n), PARAM);
-			//	Assert::AreEqual(CAST(1000000000000),					 CAST(test.p), PARAM);
-			//	Assert::AreEqual(CAST(1000000000000000),				 CAST(test.f), PARAM);
-			//	Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.a), PARAM);
-			//	//start このテストはソフト的に不可
-			//	//Assert::AreEqual(CAST(1000000000000000000000),			CAST(test.z), PARAM);
-			//	//Assert::AreEqual(CAST(1000000000000000000000000),			CAST(test.y), PARAM);
-			//	//Assert::AreEqual(CAST(1000000000000000000000000000),		CAST(test.r), PARAM);
-			//	//Assert::AreEqual(CAST(1000000000000000000000000000000),	CAST(test.q), PARAM);
-			//	//end
-			//}
-			{
-				SIPrefix test = 1;
-
-				Assert::AreEqual(CAST(1),								 CAST(test.base), PARAM);
-				Assert::AreEqual(CAST(10),								 CAST(test.d), PARAM);
-				Assert::AreEqual(CAST(100),								 CAST(test.c), PARAM);
-				Assert::AreEqual(CAST(1000),							 CAST(test.m), PARAM);
-				Assert::AreEqual(CAST(1000000),							 CAST(test.u), PARAM);
-				Assert::AreEqual(CAST(1000000000),						 CAST(test.n), PARAM);
-				Assert::AreEqual(CAST(1000000000000),					 CAST(test.p), PARAM);
-				Assert::AreEqual(CAST(1000000000000000),				 CAST(test.f), PARAM);
-				Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.a), PARAM);
-			}
-			{
-				SIPrefix test = 1000000000000000000;
-				
-				Assert::AreEqual(CAST(1),								 CAST(test.E), PARAM);
-				Assert::AreEqual(CAST(1000),							 CAST(test.P), PARAM);
-				Assert::AreEqual(CAST(1000000),							 CAST(test.T), PARAM);
-				Assert::AreEqual(CAST(1000000000),						 CAST(test.G), PARAM);
-				Assert::AreEqual(CAST(1000000000000),					 CAST(test.M), PARAM);
-				Assert::AreEqual(CAST(1000000000000000),				 CAST(test.k), PARAM);
-				Assert::AreEqual(CAST(10000000000000000),				 CAST(test.h), PARAM);
-				Assert::AreEqual(CAST(100000000000000000),				 CAST(test.da), PARAM);
-				Assert::AreEqual(CAST(1000000000000000000),				 CAST(test.base), PARAM);
-			}
-		}
-
-		TEST_METHOD(TestMethod_ConvertFromSIPrefixUnitToOriginal)
-		{
-			SIPrefix test;
-			test.E = 1;
-			Assert::AreEqual(CAST(1000000000000000000), CAST(test.base), PARAM);
-		}
-
-		TEST_METHOD(TestMethod_ConvertFromSIPrefixUnitToOriginal2)
-		{
-			SIPrefix test;
-
-			test.k = 1;
-			test.k = test.k + test.k;
-			Assert::AreEqual(CAST(2000), CAST(test), PARAM);
-			test.k = 1;
-			test = test.k + test.k;
-			Assert::AreEqual(CAST(2), CAST(test), PARAM);
-		}
-
-		TEST_METHOD(TestMethod_ProcessingTimeMeasurement)
-		{
-			constexpr SIPrefixType LENGTH = 1000 * 1000;
-			{
-				SIPrefixType sum = 0;
-				auto func = [&]()
-				{
-					for (sum = 0; sum < LENGTH; sum++);
-				};
-				Logger::WriteMessage("【プリミティブ型】\n");
-				Logger::WriteMessage("ループ1000000回実行\n");
-				const auto time = ProcessingTimeMeasurementFunc::measurement(func);
-				Logger::WriteMessage("合計:"); WriteMessageForTime(time);
-				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
-			}
-			{
-				SIPrefix sum = 0;
-				auto func = [&]()
-				{
-					for (sum = 0; sum < LENGTH; sum++);
-				};
-				Logger::WriteMessage("【Numeral型】\n");
-				Logger::WriteMessage("ループ1000000回実行\n");
-				const auto time = ProcessingTimeMeasurementFunc::measurement(func);
-				Logger::WriteMessage("合計:"); WriteMessageForTime(time);
-				Logger::WriteMessage("平均:"); WriteMessageForTime(time / LENGTH);
-				Assert::AreEqual(CAST(LENGTH), CAST(sum), PARAM);
-			}
-		}
-	};
-
-	TEST_CLASS(ScientificPostulatesTest)
+		Numeral test;
+		EXPECT_NEAR(CAST(0), CAST(test), PARAM);
+	}
+	
+	//プリミティブ型参照左辺値
 	{
-	private:
-		template<class T>
-		constexpr auto CAST(T&& v) { return static_cast<UnitOfNumber::ScientificPostulates::Type>(v); }
+		NumeralValueType test1 = 1;
+		Numeral test2 = test1;
+		EXPECT_NEAR(CAST(1), CAST(test1), PARAM);
+		EXPECT_NEAR(CAST(1), CAST(test2), PARAM);
+	}
+	
+	//プリミティブ型右辺値
+	{
+		Numeral test = NumeralValueType(2);
+		EXPECT_NEAR(CAST(2), CAST(test), PARAM);
+	}
+	
+	//Numeral型参照左辺値
+	{
+		Numeral test1 = 3;
+		Numeral test2 = test1;
+		EXPECT_NEAR(CAST(3), CAST(test1), PARAM);
+		EXPECT_NEAR(CAST(3), CAST(test2), PARAM);
+	}
+	
+	//Numeral型右辺値
+	{
+		Numeral test = Numeral(4);
+		EXPECT_NEAR(CAST(4), CAST(test), PARAM);
+	}
+}
 
-		template<class T>
-		void WriteMessageForValue(T value)
+TEST_F(NumeralUnitTest, TestMethod_Assignment)
+{
+	//プリミティブ型参照左辺値
+	{
+		NumeralValueType test1 = 1;
+		Numeral test2;
+		test2 = test1;
+		EXPECT_NEAR(CAST(1), CAST(test1), PARAM);
+		EXPECT_NEAR(CAST(1), CAST(test2), PARAM);
+	}
+
+	//プリミティブ型右辺値
+	{
+		Numeral test;
+		test = NumeralValueType(2);
+		EXPECT_NEAR(CAST(2), CAST(test), PARAM);
+	}
+
+	//Numeral型参照左辺値
+	{
+		Numeral test1 = 3;
+		Numeral test2;
+		test2 = test1;
+		EXPECT_NEAR(CAST(3), CAST(test1), PARAM);
+		EXPECT_NEAR(CAST(3), CAST(test2), PARAM);
+	}
+
+	//Numeral型右辺値
+	{
+		Numeral test;
+		test = Numeral(4);
+		EXPECT_NEAR(CAST(4), CAST(test), PARAM);
+	}
+}
+
+TEST_F(NumeralUnitTest, TestMethod_UnaryNegationPlus)
+{
+	Numeral test1 = 3, test2 = +test1, test3 = -test1;
+	EXPECT_NEAR(CAST(+3), CAST(+test1), PARAM);
+	EXPECT_NEAR(CAST(-3), CAST(-test1), PARAM);
+	EXPECT_NEAR(CAST(+3), CAST(+test2), PARAM);
+	EXPECT_NEAR(CAST(-3), CAST(-test2), PARAM);
+	EXPECT_NEAR(CAST(-3), CAST(+test3), PARAM);
+	EXPECT_NEAR(CAST(+3), CAST(-test3), PARAM);
+}
+
+TEST_F(NumeralUnitTest, TestMethod_Arithmetic)
+{
+	Numeral lhs = 2;
+	Numeral rhs1 = 3;
+	NumeralValueType rhs2 = 5;
+
+	EXPECT_NEAR(CAST(5 ), CAST(lhs + rhs1), PARAM);
+	EXPECT_NEAR(CAST(7 ), CAST(lhs + rhs2), PARAM);
+	EXPECT_NEAR(CAST(9 ), CAST(lhs + Numeral(7)), PARAM);
+	EXPECT_NEAR(CAST(11), CAST(lhs + NumeralValueType(9)), PARAM);
+
+	EXPECT_NEAR(CAST(-1), CAST(lhs - rhs1), PARAM);
+	EXPECT_NEAR(CAST(-3), CAST(lhs - rhs2), PARAM);
+	EXPECT_NEAR(CAST(-5), CAST(lhs - Numeral(7)), PARAM);
+	EXPECT_NEAR(CAST(-7), CAST(lhs - NumeralValueType(9)), PARAM);
+
+	EXPECT_NEAR(CAST(6 ), CAST(lhs * rhs1), PARAM);
+	EXPECT_NEAR(CAST(10), CAST(lhs * rhs2), PARAM);
+	EXPECT_NEAR(CAST(14), CAST(lhs * Numeral(7)), PARAM);
+	EXPECT_NEAR(CAST(18), CAST(lhs * NumeralValueType(9)), PARAM);
+
+	if constexpr (std::is_integral<NumeralValueType>::value)
+	{
+		EXPECT_NEAR(CAST(0 ), CAST(lhs / rhs1), PARAM);
+		EXPECT_NEAR(CAST(0 ), CAST(lhs / rhs2), PARAM);
+		EXPECT_NEAR(CAST(0 ), CAST(lhs / Numeral(7)), PARAM);
+		EXPECT_NEAR(CAST(0 ), CAST(lhs / NumeralValueType(9)), PARAM);	
+	}
+	else if constexpr (std::is_floating_point<NumeralValueType>::value)
+	{
+		EXPECT_NEAR(CAST(0.666667), CAST(lhs / rhs1), PARAM);
+		EXPECT_NEAR(CAST(0.4     ), CAST(lhs / rhs2), PARAM);
+		EXPECT_NEAR(CAST(0.285714), CAST(lhs / Numeral(7)), PARAM);
+		EXPECT_NEAR(CAST(0.222222), CAST(lhs / NumeralValueType(9)), PARAM);
+	}
+
+	if constexpr (std::is_integral<NumeralValueType>::value)
+	{
+		EXPECT_NEAR(CAST(2 ), CAST(lhs % rhs1), PARAM);
+		EXPECT_NEAR(CAST(2 ), CAST(lhs % rhs2), PARAM);
+		EXPECT_NEAR(CAST(2 ), CAST(lhs % Numeral(7)), PARAM);
+		EXPECT_NEAR(CAST(2 ), CAST(lhs % NumeralValueType(9)), PARAM);
+	}
+}
+
+TEST_F(NumeralUnitTest, TestMethod_CompoundAssignment)
+{
+	Numeral lhs = 2;
+	Numeral rhs1 = 3;
+	NumeralValueType rhs2 = 5;
+
+	lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+	lhs += rhs1;				EXPECT_NEAR(CAST(5   ), CAST(lhs), PARAM);
+	lhs += rhs2;				EXPECT_NEAR(CAST(10  ), CAST(lhs), PARAM);
+	lhs += Numeral(7);			EXPECT_NEAR(CAST(17  ), CAST(lhs), PARAM);
+	lhs += NumeralValueType(9);	EXPECT_NEAR(CAST(26  ), CAST(lhs), PARAM);
+
+	lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+	lhs -= rhs1;				EXPECT_NEAR(CAST(-1  ), CAST(lhs), PARAM);
+	lhs -= rhs2;				EXPECT_NEAR(CAST(-6  ), CAST(lhs), PARAM);
+	lhs -= Numeral(7);			EXPECT_NEAR(CAST(-13 ), CAST(lhs), PARAM);
+	lhs -= NumeralValueType(9);	EXPECT_NEAR(CAST(-22 ), CAST(lhs), PARAM);
+
+	lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+	lhs *= rhs1;				EXPECT_NEAR(CAST(6   ), CAST(lhs), PARAM);
+	lhs *= rhs2;				EXPECT_NEAR(CAST(30  ), CAST(lhs), PARAM);
+	lhs *= Numeral(7);			EXPECT_NEAR(CAST(210 ), CAST(lhs), PARAM);
+	lhs *= NumeralValueType(9);	EXPECT_NEAR(CAST(1890), CAST(lhs), PARAM);
+
+	if constexpr (std::is_integral<NumeralValueType>::value)
+	{
+		lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs /= rhs1;				EXPECT_NEAR(CAST(0   ), CAST(lhs), PARAM);
+		lhs /= rhs2;				EXPECT_NEAR(CAST(0   ), CAST(lhs), PARAM);
+		lhs /= Numeral(7);			EXPECT_NEAR(CAST(0   ), CAST(lhs), PARAM);
+		lhs /= NumeralValueType(9);	EXPECT_NEAR(CAST(0   ), CAST(lhs), PARAM);
+	}
+	else if constexpr (std::is_floating_point<NumeralValueType>::value)
+	{
+		lhs = 2;					EXPECT_NEAR(CAST(2       ), CAST(lhs), PARAM);
+		lhs /= rhs1;				EXPECT_NEAR(CAST(0.666667), CAST(lhs), PARAM);
+		lhs /= rhs2;				EXPECT_NEAR(CAST(0.133333), CAST(lhs), PARAM);
+		lhs /= Numeral(7);			EXPECT_NEAR(CAST(0       ), CAST(lhs), PARAM);
+		lhs /= NumeralValueType(9);	EXPECT_NEAR(CAST(0       ), CAST(lhs), PARAM);
+	}
+
+	if constexpr (std::is_integral<NumeralValueType>::value)
+	{
+		lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs %= rhs1;				EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs %= rhs2;				EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs %= Numeral(7);			EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs %= NumeralValueType(9);	EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+	}
+}
+
+TEST_F(NumeralUnitTest, TestMethod_PostfixIncrementorDecrement)
+{
+	Numeral test = 0;
+	EXPECT_NEAR(CAST(0 ), CAST(test++), PARAM);
+	EXPECT_NEAR(CAST(1 ), CAST(test--), PARAM);
+	EXPECT_NEAR(CAST(0 ), CAST(test--), PARAM);
+	EXPECT_NEAR(CAST(-1), CAST(test--), PARAM);
+	EXPECT_NEAR(CAST(-2), CAST(test++), PARAM);
+	EXPECT_NEAR(CAST(-1), CAST(test++), PARAM);
+	EXPECT_NEAR(CAST(0 ), CAST(test++), PARAM);
+	EXPECT_NEAR(CAST(1 ), CAST(test++), PARAM);
+}
+
+TEST_F(NumeralUnitTest, TestMethod_PrefixIncrementorDecrement)
+{
+	Numeral test = 0;
+	EXPECT_NEAR(CAST(1 ), CAST(++test), PARAM);
+	EXPECT_NEAR(CAST(0 ), CAST(--test), PARAM);
+	EXPECT_NEAR(CAST(-1), CAST(--test), PARAM);
+	EXPECT_NEAR(CAST(-2), CAST(--test), PARAM);
+	EXPECT_NEAR(CAST(-1), CAST(++test), PARAM);
+	EXPECT_NEAR(CAST(0 ), CAST(++test), PARAM);
+	EXPECT_NEAR(CAST(1 ), CAST(++test), PARAM);
+	EXPECT_NEAR(CAST(2 ), CAST(++test), PARAM);
+}
+
+TEST_F(NumeralUnitTest, TestMethod_LogicalNot)
+{
+	Numeral test;
+	test =  0; ASSERT_TRUE(!test);
+	test =  1; ASSERT_FALSE(!test);
+	test = -1; ASSERT_FALSE(!test);
+}
+
+TEST_F(NumeralUnitTest, TestMethod_Compare)
+{
+	Numeral lhs = 2;
+	Numeral rhs1 = 3;
+	NumeralValueType rhs2 = 5;
+	Numeral rhs3 = lhs;
+	
+	ASSERT_FALSE(lhs == rhs1);
+	ASSERT_FALSE(lhs == rhs2);
+	ASSERT_TRUE(lhs  == rhs3);
+	ASSERT_FALSE(lhs == Numeral(7));
+	ASSERT_FALSE(lhs == NumeralValueType(9));
+	
+	ASSERT_TRUE(lhs  != rhs1);
+	ASSERT_TRUE(lhs  != rhs2);
+	ASSERT_FALSE(lhs != rhs3);
+	ASSERT_TRUE(lhs  != Numeral(7));
+	ASSERT_TRUE(lhs  != NumeralValueType(9));
+	
+	ASSERT_TRUE(lhs  <= rhs1);
+	ASSERT_TRUE(lhs  <= rhs2);
+	ASSERT_TRUE(lhs  <= rhs3);
+	ASSERT_TRUE(lhs  <= Numeral(7));
+	ASSERT_TRUE(lhs  <= NumeralValueType(9));
+	
+	ASSERT_TRUE(lhs  <  rhs1);
+	ASSERT_TRUE(lhs  <  rhs2);
+	ASSERT_FALSE(lhs <  rhs3);
+	ASSERT_TRUE(lhs  <  Numeral(7));
+	ASSERT_TRUE(lhs  <  NumeralValueType(9));
+	
+	ASSERT_FALSE(lhs >= rhs1);
+	ASSERT_FALSE(lhs >= rhs2);
+	ASSERT_TRUE(lhs  >= rhs3);
+	ASSERT_FALSE(lhs >= Numeral(7));
+	ASSERT_FALSE(lhs >= NumeralValueType(9));
+	
+	ASSERT_FALSE(lhs >  rhs1);
+	ASSERT_FALSE(lhs >  rhs2);
+	ASSERT_FALSE(lhs >  rhs3);
+	ASSERT_FALSE(lhs >  Numeral(7));
+	ASSERT_FALSE(lhs >  NumeralValueType(9));
+}
+
+TEST_F(NumeralUnitTest, TestMethod_ProcessingTimeMeasurement)
+{
+	constexpr NumeralValueType LENGTH = 1000 * 1000;
+	{
+		NumeralValueType sum = 0;
+		auto func = [&]()
 		{
-			char out[256];
+			for (sum = 0; sum < LENGTH; sum++);
+		};
+		std::cout << "【プリミティブ型】" << std::endl;
+		std::cout << "ループ1000000回実行" << std::endl;
+		const auto time = ProcessingTimeMeasurementFunc::measurement(func);
+		std::cout << "合計:"; WriteMessageForTime(time);
+		std::cout << "平均:"; WriteMessageForTime(time / LENGTH);
+		EXPECT_NEAR(CAST(LENGTH), CAST(sum), PARAM);
+	}
+	{
+		Numeral sum = 0;
+		auto func = [&]()
+		{
+			for (sum = 0; sum < LENGTH; sum++);
+		};
+		std::cout << "【Numeral型】" << std::endl;
+		std::cout << "ループ1000000回実行" << std::endl;
+		const auto time = ProcessingTimeMeasurementFunc::measurement(func);
+		std::cout << "合計:"; WriteMessageForTime(time);
+		std::cout << "平均:"; WriteMessageForTime(time / LENGTH);
+		EXPECT_NEAR(CAST(LENGTH), CAST(sum), PARAM);
+	}
+}
+
+class SIPrefixUnitTest : public UnitOfNumberUnitTest
+{
+protected:
+	//using SIPrefixType = intmax_t;
+	using SIPrefixType = long double;
+	using SIPrefix = UnitOfNumber::SIPrefix<SIPrefixType>;
+
+	template<class T>
+	constexpr auto CAST(T&& v) { return static_cast<SIPrefixType>(v); }
+
+	template<class T>
+	void WriteMessageForTime(T time)
+	{
+		char out[256];
 #pragma warning(suppress : 4996)
-			sprintf(out, "value %lf\n", value);
-			Logger::WriteMessage(out);// デバッグ時のログ(出力欄)に出力
-		}
+		sprintf(out, "time %lf[ms]\n", time);
+		std::cout << out << std::endl;// デバッグ時のログ(出力欄)に出力
+	}
 
-	public:
-		TEST_METHOD(TestMethod_Display)
+	const double PARAM = 0.1;
+};
+
+TEST_F(SIPrefixUnitTest, TestMethod_Constructor)
+{
+	//引数なし
+	{
+		SIPrefix test;
+		EXPECT_NEAR(CAST(0), CAST(test), PARAM);
+	}
+
+	//プリミティブ型参照左辺値
+	{
+		SIPrefixType test1 = 1;
+		SIPrefix test2 = test1;
+		EXPECT_NEAR(CAST(1), CAST(test1), PARAM);
+		EXPECT_NEAR(CAST(1), CAST(test2), PARAM);
+	}
+
+	//プリミティブ型右辺値
+	{
+		SIPrefix test = SIPrefixType(2);
+		EXPECT_NEAR(CAST(2), CAST(test), PARAM);
+	}
+
+	//Numeral型参照左辺値
+	{
+		SIPrefix test1 = 3;
+		SIPrefix test2 = test1;
+		EXPECT_NEAR(CAST(3), CAST(test1), PARAM);
+		EXPECT_NEAR(CAST(3), CAST(test2), PARAM);
+	}
+
+	//Numeral型右辺値
+	{
+		SIPrefix test = SIPrefix(4);
+		EXPECT_NEAR(CAST(4), CAST(test), PARAM);
+	}
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_Assignment)
+{
+	//プリミティブ型参照左辺値
+	{
+		SIPrefixType test1 = 1;
+		SIPrefix test2;
+		test2 = test1;
+		EXPECT_NEAR(CAST(1), CAST(test1), PARAM);
+		EXPECT_NEAR(CAST(1), CAST(test2), PARAM);
+	}
+
+	//プリミティブ型右辺値
+	{
+		SIPrefix test;
+		test = SIPrefixType(2);
+		EXPECT_NEAR(CAST(2), CAST(test), PARAM);
+	}
+
+	//Numeral型参照左辺値
+	{
+		SIPrefix test1 = 3;
+		SIPrefix test2;
+		test2 = test1;
+		EXPECT_NEAR(CAST(3), CAST(test1), PARAM);
+		EXPECT_NEAR(CAST(3), CAST(test2), PARAM);
+	}
+
+	//Numeral型右辺値
+	{
+		SIPrefix test;
+		test = SIPrefix(4);
+		EXPECT_NEAR(CAST(4), CAST(test), PARAM);
+	}
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_UnaryNegationPlus)
+{
+	SIPrefix test1 = 3, test2 = +test1, test3 = -test1;
+	EXPECT_NEAR(CAST(+3), CAST(+test1), PARAM);
+	EXPECT_NEAR(CAST(-3), CAST(-test1), PARAM);
+	EXPECT_NEAR(CAST(+3), CAST(+test2), PARAM);
+	EXPECT_NEAR(CAST(-3), CAST(-test2), PARAM);
+	EXPECT_NEAR(CAST(-3), CAST(+test3), PARAM);
+	EXPECT_NEAR(CAST(+3), CAST(-test3), PARAM);
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_Arithmetic)
+{
+	SIPrefix lhs = 2;
+	SIPrefix rhs1 = 3;
+	SIPrefixType rhs2 = 5;
+
+	EXPECT_NEAR(CAST(5 ), CAST(lhs + rhs1), PARAM);
+	EXPECT_NEAR(CAST(7 ), CAST(lhs + rhs2), PARAM);
+	EXPECT_NEAR(CAST(9 ), CAST(lhs + SIPrefix(7)), PARAM);
+	EXPECT_NEAR(CAST(11), CAST(lhs + SIPrefixType(9)), PARAM);
+
+	EXPECT_NEAR(CAST(-1), CAST(lhs - rhs1), PARAM);
+	EXPECT_NEAR(CAST(-3), CAST(lhs - rhs2), PARAM);
+	EXPECT_NEAR(CAST(-5), CAST(lhs - SIPrefix(7)), PARAM);
+	EXPECT_NEAR(CAST(-7), CAST(lhs - SIPrefixType(9)), PARAM);
+
+	EXPECT_NEAR(CAST(6 ), CAST(lhs * rhs1), PARAM);
+	EXPECT_NEAR(CAST(10), CAST(lhs * rhs2), PARAM);
+	EXPECT_NEAR(CAST(14), CAST(lhs * SIPrefix(7)), PARAM);
+	EXPECT_NEAR(CAST(18), CAST(lhs * SIPrefixType(9)), PARAM);
+
+	if constexpr (std::is_integral<SIPrefixType>::value)
+	{
+		EXPECT_NEAR(CAST(0 ), CAST(lhs / rhs1), PARAM);
+		EXPECT_NEAR(CAST(0 ), CAST(lhs / rhs2), PARAM);
+		EXPECT_NEAR(CAST(0 ), CAST(lhs / SIPrefix(7)), PARAM);
+		EXPECT_NEAR(CAST(0 ), CAST(lhs / SIPrefixType(9)), PARAM);
+	}
+	else if constexpr (std::is_floating_point<SIPrefixType>::value)
+	{
+		EXPECT_NEAR(CAST(0.666667), CAST(lhs / rhs1), PARAM);
+		EXPECT_NEAR(CAST(0.4     ), CAST(lhs / rhs2), PARAM);
+		EXPECT_NEAR(CAST(0.285714), CAST(lhs / SIPrefix(7)), PARAM);
+		EXPECT_NEAR(CAST(0.222222), CAST(lhs / SIPrefixType(9)), PARAM);
+	}
+
+	if constexpr (std::is_integral<SIPrefixType>::value)
+	{
+		EXPECT_NEAR(CAST(2 ), CAST(lhs % rhs1), PARAM);
+		EXPECT_NEAR(CAST(2 ), CAST(lhs % rhs2), PARAM);
+		EXPECT_NEAR(CAST(2 ), CAST(lhs % SIPrefix(7)), PARAM);
+		EXPECT_NEAR(CAST(2 ), CAST(lhs % SIPrefixType(9)), PARAM);
+	}
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_CompoundAssignment)
+{
+	SIPrefix lhs = 2;
+	SIPrefix rhs1 = 3;
+	SIPrefixType rhs2 = 5;
+
+	lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+	lhs += rhs1;				EXPECT_NEAR(CAST(5   ), CAST(lhs), PARAM);
+	lhs += rhs2;				EXPECT_NEAR(CAST(10  ), CAST(lhs), PARAM);
+	lhs += SIPrefix(7);			EXPECT_NEAR(CAST(17  ), CAST(lhs), PARAM);
+	lhs += SIPrefixType(9);	EXPECT_NEAR(CAST(26  ), CAST(lhs), PARAM);
+
+	lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+	lhs -= rhs1;				EXPECT_NEAR(CAST(-1  ), CAST(lhs), PARAM);
+	lhs -= rhs2;				EXPECT_NEAR(CAST(-6  ), CAST(lhs), PARAM);
+	lhs -= SIPrefix(7);			EXPECT_NEAR(CAST(-13 ), CAST(lhs), PARAM);
+	lhs -= SIPrefixType(9);	EXPECT_NEAR(CAST(-22 ), CAST(lhs), PARAM);
+
+	lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+	lhs *= rhs1;				EXPECT_NEAR(CAST(6   ), CAST(lhs), PARAM);
+	lhs *= rhs2;				EXPECT_NEAR(CAST(30  ), CAST(lhs), PARAM);
+	lhs *= SIPrefix(7);			EXPECT_NEAR(CAST(210 ), CAST(lhs), PARAM);
+	lhs *= SIPrefixType(9);	EXPECT_NEAR(CAST(1890), CAST(lhs), PARAM);
+
+	if constexpr (std::is_integral<SIPrefixType>::value)
+	{
+		lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs /= rhs1;				EXPECT_NEAR(CAST(0   ), CAST(lhs), PARAM);
+		lhs /= rhs2;				EXPECT_NEAR(CAST(0   ), CAST(lhs), PARAM);
+		lhs /= SIPrefix(7);			EXPECT_NEAR(CAST(0   ), CAST(lhs), PARAM);
+		lhs /= SIPrefixType(9);	EXPECT_NEAR(CAST(0   ), CAST(lhs), PARAM);
+	}
+	else if constexpr (std::is_floating_point<SIPrefixType>::value)
+	{
+		lhs = 2;					EXPECT_NEAR(CAST(2       ), CAST(lhs), PARAM);
+		lhs /= rhs1;				EXPECT_NEAR(CAST(0.666667), CAST(lhs), PARAM);
+		lhs /= rhs2;				EXPECT_NEAR(CAST(0.133333), CAST(lhs), PARAM);
+		lhs /= SIPrefix(7);			EXPECT_NEAR(CAST(0       ), CAST(lhs), PARAM);
+		lhs /= SIPrefixType(9);	EXPECT_NEAR(CAST(0       ), CAST(lhs), PARAM);
+	}
+
+	if constexpr (std::is_integral<SIPrefixType>::value)
+	{
+		lhs = 2;					EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs %= rhs1;				EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs %= rhs2;				EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs %= SIPrefix(7);			EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+		lhs %= SIPrefixType(9);	EXPECT_NEAR(CAST(2   ), CAST(lhs), PARAM);
+	}
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_PostfixIncrementorDecrement)
+{
+	SIPrefix test = 0;
+	EXPECT_NEAR(CAST(0 ), CAST(test++), PARAM);
+	EXPECT_NEAR(CAST(1 ), CAST(test--), PARAM);
+	EXPECT_NEAR(CAST(0 ), CAST(test--), PARAM);
+	EXPECT_NEAR(CAST(-1), CAST(test--), PARAM);
+	EXPECT_NEAR(CAST(-2), CAST(test++), PARAM);
+	EXPECT_NEAR(CAST(-1), CAST(test++), PARAM);
+	EXPECT_NEAR(CAST(0 ), CAST(test++), PARAM);
+	EXPECT_NEAR(CAST(1 ), CAST(test++), PARAM);
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_PrefixIncrementorDecrement)
+{
+	SIPrefix test = 0;
+	EXPECT_NEAR(CAST(1 ), CAST(++test), PARAM);
+	EXPECT_NEAR(CAST(0 ), CAST(--test), PARAM);
+	EXPECT_NEAR(CAST(-1), CAST(--test), PARAM);
+	EXPECT_NEAR(CAST(-2), CAST(--test), PARAM);
+	EXPECT_NEAR(CAST(-1), CAST(++test), PARAM);
+	EXPECT_NEAR(CAST(0 ), CAST(++test), PARAM);
+	EXPECT_NEAR(CAST(1 ), CAST(++test), PARAM);
+	EXPECT_NEAR(CAST(2 ), CAST(++test), PARAM);
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_LogicalNot)
+{
+	SIPrefix test;
+	test =  0; ASSERT_TRUE(!test);
+	test =  1; ASSERT_FALSE(!test);
+	test = -1; ASSERT_FALSE(!test);
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_Compare)
+{
+	SIPrefix lhs = 2;
+	SIPrefix rhs1 = 3;
+	SIPrefixType rhs2 = 5;
+	SIPrefix rhs3 = lhs;
+
+	ASSERT_FALSE(lhs == rhs1);
+	ASSERT_FALSE(lhs == rhs2);
+	ASSERT_TRUE(lhs  == rhs3);
+	ASSERT_FALSE(lhs == SIPrefix(7));
+	ASSERT_FALSE(lhs == SIPrefixType(9));
+
+	ASSERT_TRUE(lhs  != rhs1);
+	ASSERT_TRUE(lhs  != rhs2);
+	ASSERT_FALSE(lhs != rhs3);
+	ASSERT_TRUE(lhs  != SIPrefix(7));
+	ASSERT_TRUE(lhs  != SIPrefixType(9));
+
+	ASSERT_TRUE(lhs  <= rhs1);
+	ASSERT_TRUE(lhs  <= rhs2);
+	ASSERT_TRUE(lhs  <= rhs3);
+	ASSERT_TRUE(lhs  <= SIPrefix(7));
+	ASSERT_TRUE(lhs  <= SIPrefixType(9));
+
+	ASSERT_TRUE(lhs  <  rhs1);
+	ASSERT_TRUE(lhs  <  rhs2);
+	ASSERT_FALSE(lhs <  rhs3);
+	ASSERT_TRUE(lhs  < SIPrefix(7));
+	ASSERT_TRUE(lhs  < SIPrefixType(9));
+
+	ASSERT_FALSE(lhs >= rhs1);
+	ASSERT_FALSE(lhs >= rhs2);
+	ASSERT_TRUE(lhs  >= rhs3);
+	ASSERT_FALSE(lhs >= SIPrefix(7));
+	ASSERT_FALSE(lhs >= SIPrefixType(9));
+
+	ASSERT_FALSE(lhs >  rhs1);
+	ASSERT_FALSE(lhs >  rhs2);
+	ASSERT_FALSE(lhs >  rhs3);
+	ASSERT_FALSE(lhs > SIPrefix(7));
+	ASSERT_FALSE(lhs > SIPrefixType(9));
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_ConvertFromOriginalToSIPrefixUnit)
+{
+	//{
+	//	SIPrefix test = 1;
+	//
+	//	EXPECT_NEAR(CAST(0.000000000000000000000000000001), CAST(test.Q), PARAM);
+	//	EXPECT_NEAR(CAST(0.000000000000000000000000001),	 CAST(test.R), PARAM);
+	//	EXPECT_NEAR(CAST(0.000000000000000000000001),		 CAST(test.Y), PARAM);
+	//	EXPECT_NEAR(CAST(0.000000000000000000001),			 CAST(test.Z), PARAM);
+	//	EXPECT_NEAR(CAST(0.000000000000000001),			 CAST(test.E), PARAM);
+	//	EXPECT_NEAR(CAST(0.000000000000001),				 CAST(test.P), PARAM);
+	//	EXPECT_NEAR(CAST(0.000000000001),					 CAST(test.T), PARAM);
+	//	EXPECT_NEAR(CAST(0.000000001),						 CAST(test.G), PARAM);
+	//	EXPECT_NEAR(CAST(0.000001),						 CAST(test.M), PARAM);
+	//	EXPECT_NEAR(CAST(0.001),							 CAST(test.k), PARAM);
+	//	EXPECT_NEAR(CAST(0.01),							 CAST(test.h), PARAM);
+	//	EXPECT_NEAR(CAST(0.1),								 CAST(test.da), PARAM);
+	//	EXPECT_NEAR(CAST(1),								 CAST(test.base), PARAM);
+	//	EXPECT_NEAR(CAST(10),								 CAST(test.d), PARAM);
+	//	EXPECT_NEAR(CAST(100),								 CAST(test.c), PARAM);
+	//	EXPECT_NEAR(CAST(1000),							 CAST(test.m), PARAM);
+	//	EXPECT_NEAR(CAST(1000000),							 CAST(test.u), PARAM);
+	//	EXPECT_NEAR(CAST(1000000000),						 CAST(test.n), PARAM);
+	//	EXPECT_NEAR(CAST(1000000000000),					 CAST(test.p), PARAM);
+	//	EXPECT_NEAR(CAST(1000000000000000),				 CAST(test.f), PARAM);
+	//	EXPECT_NEAR(CAST(1000000000000000000),				 CAST(test.a), PARAM);
+	//	//start このテストはソフト的に不可
+	//	//EXPECT_NEAR(CAST(1000000000000000000000),			CAST(test.z), PARAM);
+	//	//EXPECT_NEAR(CAST(1000000000000000000000000),			CAST(test.y), PARAM);
+	//	//EXPECT_NEAR(CAST(1000000000000000000000000000),		CAST(test.r), PARAM);
+	//	//EXPECT_NEAR(CAST(1000000000000000000000000000000),	CAST(test.q), PARAM);
+	//	//end
+	//}
+	{
+		SIPrefix test = 1;
+	
+		EXPECT_NEAR(CAST(1),								 CAST(test.base), PARAM);
+		EXPECT_NEAR(CAST(10),								 CAST(test.d), PARAM);
+		EXPECT_NEAR(CAST(100),								 CAST(test.c), PARAM);
+		EXPECT_NEAR(CAST(1000),							 CAST(test.m), PARAM);
+		EXPECT_NEAR(CAST(1000000),							 CAST(test.u), PARAM);
+		EXPECT_NEAR(CAST(1000000000),						 CAST(test.n), PARAM);
+		EXPECT_NEAR(CAST(1000000000000),					 CAST(test.p), PARAM);
+		EXPECT_NEAR(CAST(1000000000000000),				 CAST(test.f), PARAM);
+		EXPECT_NEAR(CAST(1000000000000000000),				 CAST(test.a), PARAM);
+	}
+	{
+		SIPrefix test = 1000000000000000000;
+		
+		EXPECT_NEAR(CAST(1),								 CAST(test.E), PARAM);
+		EXPECT_NEAR(CAST(1000),							 CAST(test.P), PARAM);
+		EXPECT_NEAR(CAST(1000000),							 CAST(test.T), PARAM);
+		EXPECT_NEAR(CAST(1000000000),						 CAST(test.G), PARAM);
+		EXPECT_NEAR(CAST(1000000000000),					 CAST(test.M), PARAM);
+		EXPECT_NEAR(CAST(1000000000000000),				 CAST(test.k), PARAM);
+		EXPECT_NEAR(CAST(10000000000000000),				 CAST(test.h), PARAM);
+		EXPECT_NEAR(CAST(100000000000000000),				 CAST(test.da), PARAM);
+		EXPECT_NEAR(CAST(1000000000000000000),				 CAST(test.base), PARAM);
+	}
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_ConvertFromSIPrefixUnitToOriginal)
+{
+	SIPrefix test;
+	test.E = 1;
+	EXPECT_NEAR(CAST(1000000000000000000), CAST(test.base), PARAM);
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_ConvertFromSIPrefixUnitToOriginal2)
+{
+	SIPrefix test;
+
+	test.k = 1;
+	test.k = test.k + test.k;
+	EXPECT_NEAR(CAST(2000), CAST(test), PARAM);
+	test.k = 1;
+	test = test.k + test.k;
+	EXPECT_NEAR(CAST(2), CAST(test), PARAM);
+}
+
+TEST_F(SIPrefixUnitTest, TestMethod_ProcessingTimeMeasurement)
+{
+	constexpr SIPrefixType LENGTH = 1000 * 1000;
+	{
+		SIPrefixType sum = 0;
+		auto func = [&]()
 		{
-			WriteMessageForValue(CAST(UnitOfNumber::SP.C  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.Co ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.g  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.G  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.me ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.mp ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.mn ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.ou ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.e0 ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.u0 ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.h  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.e  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.Rif));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.NA ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.L  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.Vm ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.F  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.R  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.k  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.t  ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.KJ ));
-			WriteMessageForValue(CAST(UnitOfNumber::SP.atm));
-		}
-	};
+			for (sum = 0; sum < LENGTH; sum++);
+		};
+		std::cout << "【プリミティブ型】" << std::endl;
+		std::cout << "ループ1000000回実行" << std::endl;
+		const auto time = ProcessingTimeMeasurementFunc::measurement(func);
+		std::cout << "合計:"; WriteMessageForTime(time);
+		std::cout << "平均:"; WriteMessageForTime(time / LENGTH);
+		EXPECT_NEAR(CAST(LENGTH), CAST(sum), PARAM);
+	}
+	{
+		SIPrefix sum = 0;
+		auto func = [&]()
+		{
+			for (sum = 0; sum < LENGTH; sum++);
+		};
+		std::cout << "【Numeral型】" << std::endl;
+		std::cout << "ループ1000000回実行" << std::endl;
+		const auto time = ProcessingTimeMeasurementFunc::measurement(func);
+		std::cout << "合計:"; WriteMessageForTime(time);
+		std::cout << "平均:"; WriteMessageForTime(time / LENGTH);
+		EXPECT_NEAR(CAST(LENGTH), CAST(sum), PARAM);
+	}
+}
+
+class ScientificPostulatesUnitTest : public UnitOfNumberUnitTest
+{
+protected:
+	template<class T>
+	constexpr auto CAST(T&& v) { return static_cast<UnitOfNumber::ScientificPostulates::Type>(v); }
+
+	template<class T>
+	void WriteMessageForValue(T value)
+	{
+		char out[256];
+#pragma warning(suppress : 4996)
+		sprintf(out, "value %lf", value);
+		std::cout << out << std::endl;// デバッグ時のログ(出力欄)に出力
+	}
+};
+
+TEST_F(ScientificPostulatesUnitTest, TestMethod_Display)
+{
+	WriteMessageForValue(CAST(UnitOfNumber::SP.C  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.Co ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.g  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.G  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.me ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.mp ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.mn ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.ou ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.e0 ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.u0 ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.h  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.e  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.Rif));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.NA ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.L  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.Vm ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.F  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.R  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.k  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.t  ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.KJ ));
+	WriteMessageForValue(CAST(UnitOfNumber::SP.atm));
 }
