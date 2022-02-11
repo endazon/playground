@@ -40,14 +40,18 @@ namespace UnitOfNumber {
 	public:
 		//**********************************************************
 		//暗黙的に宣言される
-		NumericEntity() noexcept = delete;
+		//NumericEntity() noexcept = delete;
 		//NumericEntity(const __MySelfType&) noexcept = delete;
 		//NumericEntity(__MySelfType&&) noexcept = delete;
 		constexpr ~NumericEntity() noexcept = default;
 		//**********************************************************
-		template<class T> constexpr NumericEntity(const T & other) noexcept : _Value(CAST(other))
+		constexpr NumericEntity(const __ValueType& init) noexcept : _Value(init)
 		{}
-		template<class T> constexpr NumericEntity(const T && other) noexcept : __MySelfType(other)
+		constexpr NumericEntity(const __ValueType&& init = 0) noexcept : __MySelfType(init)
+		{}
+		template<class T> constexpr NumericEntity(const T& other) noexcept : __MySelfType(CAST(other))
+		{}
+		template<class T> constexpr NumericEntity(const T&& other) noexcept : __MySelfType(other)
 		{}
 
 		//キャスト演算子(Cast)
@@ -87,17 +91,7 @@ namespace UnitOfNumber {
 		}
 
 	public:
-		//**********************************************************
-		//暗黙的に宣言される
-		NumeralOperators() noexcept = delete;
-		//NumeralOperators(const __MySelfType&) noexcept = delete;
-		//NumeralOperators(__MySelfType&&) noexcept = delete;
-		constexpr ~NumeralOperators() noexcept = default;
-		//**********************************************************
-		template<class T> constexpr NumeralOperators(const T & other) noexcept : __InheritanceType(other)
-		{}
-		template<class T> constexpr NumeralOperators(const T && other) noexcept : __InheritanceType(other)
-		{}
+		using __InheritanceType::__InheritanceType;
 
 		//代入演算子(Assignment)
 		//**********************************************************
@@ -169,23 +163,10 @@ namespace UnitOfNumber {
 	{
 	private:
 		using __MySelfType = BaseNumeral;
+		using __InheritanceType = NumeralOperators<__EntityType, BaseNumeral<__EntityType, __ValueType>>;
 
 	public:
-		//**********************************************************
-		//暗黙的に宣言される
-		//BaseNumeral() noexcept = delete;
-		//BaseNumeral(const __MySelfType&) noexcept = delete;
-		//BaseNumeral(__MySelfType&&) noexcept = delete;
-		constexpr ~BaseNumeral() noexcept = default;
-		//**********************************************************
-		constexpr BaseNumeral(const __ValueType & init) noexcept : NumeralOperators<__EntityType, BaseNumeral<__EntityType, __ValueType>>(init)
-		{}
-		constexpr BaseNumeral(const __ValueType && init = 0) noexcept : __MySelfType(init)
-		{}
-		template<class T> constexpr BaseNumeral(const T & other) noexcept : __MySelfType(this->CAST(other))
-		{}
-		template<class T> constexpr BaseNumeral(const T && other) noexcept : __MySelfType(other)
-		{}
+		using __InheritanceType::__InheritanceType;
 
 		//代入演算子(Assignment)
 		//**********************************************************
@@ -417,14 +398,18 @@ namespace UnitOfNumber {
 	public:
 		//**********************************************************
 		//暗黙的に宣言される
-		SpecificNumeralEntity() noexcept = delete;
+		//SpecificNumeralEntity() noexcept = delete;
 		//SpecificNumeralEntity(const __MySelfType&) noexcept = delete;
 		//SpecificNumeralEntity(__MySelfType&&) noexcept = delete;
 		constexpr ~SpecificNumeralEntity() noexcept = default;
 		//**********************************************************
-		template<class T> constexpr SpecificNumeralEntity(const T& other) noexcept : _Value(CAST(other))
+		constexpr SpecificNumeralEntity(const __ValueType & init) noexcept : _Value(init)
 		{}
-		template<class T> constexpr SpecificNumeralEntity(const T&& other) noexcept : __MySelfType(other)
+		constexpr SpecificNumeralEntity(const __ValueType && init = 0) noexcept : __MySelfType(init)
+		{}
+		template<class T> constexpr SpecificNumeralEntity(const T & other) noexcept : __MySelfType(CAST(other))
+		{}
+		template<class T> constexpr SpecificNumeralEntity(const T && other) noexcept : __MySelfType(other)
 		{}
 
 		//キャスト演算子(Cast)
@@ -440,24 +425,14 @@ namespace UnitOfNumber {
 	/// <typeparam name="__ValueType"></typeparam>
 	/// <typeparam name="__ReturnType"></typeparam>
 	template<class __ValueType, class __ReturnType>
-	class BaseSpecificNumeral : public UnitOfNumber::NumeralOperators<UnitOfNumber::SpecificNumeralEntity<__ValueType>, __ReturnType> 
+	class BaseSpecificNumeral : public NumeralOperators<SpecificNumeralEntity<__ValueType>, __ReturnType> 
 	{
 	private:
 		using __MySelfType = BaseSpecificNumeral;
-		using __InheritanceType = UnitOfNumber::NumeralOperators<UnitOfNumber::SpecificNumeralEntity<__ValueType>, __ReturnType>;
+		using __InheritanceType = NumeralOperators<SpecificNumeralEntity<__ValueType>, __ReturnType>;
 
 	public:
-		//**********************************************************
-		//暗黙的に宣言される
-		BaseSpecificNumeral() noexcept = delete;
-		//BaseSpecificNumeral(const __MySelfType&) noexcept = delete;
-		//BaseSpecificNumeral(__MySelfType&&) noexcept = delete;
-		constexpr ~BaseSpecificNumeral() noexcept = default;
-		//**********************************************************
-		template<class T> constexpr BaseSpecificNumeral(const T & other) noexcept : __InheritanceType(other)
-		{}
-		template<class T> constexpr BaseSpecificNumeral(const T && other) noexcept : __InheritanceType(other)
-		{}
+		using __InheritanceType::__InheritanceType;
 
 		//代入演算子(Assignment)
 		//**********************************************************
