@@ -15,13 +15,10 @@ protected:
 	{
 		auto print = [](const __ValueType v)
 		{			
-			GeneralPurposeTimer::Accessor::dateFormat date;
+			GeneralPurposeTimer::DateFormat::UTC date;
+			auto format = date.format();
 
-			std::cout << "[";
-			std::cout << date.getISOStringForJST();
-			std::cout << "]:";
-			std::cout << static_cast<int>(v);
-			std::cout << std::endl;
+			std::cout << format << ":" << static_cast<int>(v) << std::endl;
 		};
 		print(v);
 
@@ -73,7 +70,9 @@ int main()
 		}
 
 	};
+
 	std::thread thread(timer);
 	thread.join();
+
 	return 0;
 }

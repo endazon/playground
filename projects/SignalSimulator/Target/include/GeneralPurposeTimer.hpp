@@ -13,7 +13,7 @@
 
 namespace GeneralPurposeTimer
 {
-	namespace Accessor
+	namespace Type
 	{
 		template<class __InheritanceType>
 		class timeOperation : public __InheritanceType
@@ -27,80 +27,100 @@ namespace GeneralPurposeTimer
 
 		class nanosecondsOperation : public std::chrono::nanoseconds
 		{
+			using __InheritanceType = std::chrono::nanoseconds;
+
 		public:
-			using std::chrono::nanoseconds::nanoseconds;
+			using __InheritanceType::__InheritanceType;
 			constexpr nanosecondsOperation(const std::chrono::nanoseconds& t) noexcept : std::chrono::nanoseconds(t) {}
 
-			constexpr std::string units2Display() { return "[ ns]"; }
+			constexpr std::string units2Display() { return "[ns]"; }
 		};
 		class microsecondsOperation : public std::chrono::microseconds
 		{
+			using __InheritanceType = std::chrono::microseconds;
+
 		public:
-			using std::chrono::microseconds::microseconds;
+			using __InheritanceType::__InheritanceType;
 			constexpr microsecondsOperation(const std::chrono::microseconds& t) noexcept : std::chrono::microseconds(t) {}
 
 			constexpr std::string units2Display() { return "[us]"; }
 		};
 		class millisecondsOperation : public std::chrono::milliseconds
 		{
+			using __InheritanceType = std::chrono::milliseconds;
+
 		public:
-			using std::chrono::milliseconds::milliseconds;
+			using __InheritanceType::__InheritanceType;
 			constexpr millisecondsOperation(const std::chrono::milliseconds& t) noexcept : std::chrono::milliseconds(t) {}
 
 			constexpr std::string units2Display() { return "[ms]"; }
 		};
 		class secondsOperation : public std::chrono::seconds
 		{
+			using __InheritanceType = std::chrono::seconds;
+
 		public:
-			using std::chrono::seconds::seconds;
+			using __InheritanceType::__InheritanceType;
 			constexpr secondsOperation(const std::chrono::seconds& t) noexcept : std::chrono::seconds(t) {}
 
 			constexpr std::string units2Display() { return "[s]"; }
 		};
 		class minutesOperation : public std::chrono::minutes
 		{
+			using __InheritanceType = std::chrono::minutes;
+
 		public:
-			using std::chrono::minutes::minutes;
+			using __InheritanceType::__InheritanceType;
 			constexpr minutesOperation(const std::chrono::minutes& t) noexcept : std::chrono::minutes(t) {}
 
 			constexpr std::string units2Display() { return "[min]"; }
 		};
 		class hoursOperation : public std::chrono::hours
 		{
+			using __InheritanceType = std::chrono::hours;
+
 		public:
-			using std::chrono::hours::hours;
+			using __InheritanceType::__InheritanceType;
 			constexpr hoursOperation(const std::chrono::hours& t) noexcept : std::chrono::hours(t) {}
 
 			constexpr std::string units2Display() { return "[h]"; }
 		};
 		class daysOperation : public std::chrono::days
 		{
+			using __InheritanceType = std::chrono::days;
+
 		public:
-			using std::chrono::days::days;
+			using __InheritanceType::__InheritanceType;
 			constexpr daysOperation(const std::chrono::days& t) noexcept : std::chrono::days(t) {}
 
 			constexpr std::string units2Display() { return "[d]"; }
 		};
 		class weeksOperation : public std::chrono::weeks
 		{
+			using __InheritanceType = std::chrono::weeks;
+
 		public:
-			using std::chrono::weeks::weeks;
+			using __InheritanceType::__InheritanceType;
 			constexpr weeksOperation(const std::chrono::weeks& t) noexcept : std::chrono::weeks(t) {}
 
 			constexpr std::string units2Display() { return "[w]"; }
 		};
 		class monthsOperation : public std::chrono::months
 		{
+			using __InheritanceType = std::chrono::months;
+
 		public:
-			using std::chrono::months::months;
+			using __InheritanceType::__InheritanceType;
 			constexpr monthsOperation(const std::chrono::months& t) noexcept : std::chrono::months(t) {}
 
 			constexpr std::string units2Display() { return "[m]"; }
 		};
 		class yearsOperation : public std::chrono::years
 		{
+			using __InheritanceType = std::chrono::years;
+
 		public:
-			using std::chrono::years::years;
+			using __InheritanceType::__InheritanceType;
 			constexpr yearsOperation(const std::chrono::years& t) noexcept : std::chrono::years(t) {}
 
 			constexpr std::string units2Display() { return "[y]"; }
@@ -116,130 +136,53 @@ namespace GeneralPurposeTimer
 		using weeks			= timeOperation<weeksOperation>;
 		using months		= timeOperation<monthsOperation>;
 		using years			= timeOperation<yearsOperation>;
+	}
 
-		//参考にしたサイト
-		//https://memo.appri.me/programming/cpp-date-time
-		class dateFormat
+	//参考にしたサイト
+	//https://memo.appri.me/programming/cpp-date-time
+	//https://cpprefjp.github.io/reference/chrono/local_time.html
+	namespace DateFormat
+	{
+		class UTC
 		{
+
 		private:
-			/**
-			 * Check whether ISO date string with milliseconds or not.
-			 * @param  isoStr {string} A ISO date string. e.g. "2021-02-09T01:46:45.595Z".
-			 * @return {bool} e.g. Passing "2021-02-09T01:46:45.595Z" (has millisecond's part) returns true.
-			 */
-			bool isLongISOString(std::string isoStr) 
-			{
-				std::smatch m;
-				std::regex_match(isoStr, m, std::regex(R"(^(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)\.(\d+)Z$)"));
-				if (m.size() >= 1) { return true; }
-				return false;
-			}
+			const std::string_view TimeZone;
 
 		public:
-			/**
-			 * Get a current time in millisecond.
-			 * @return {long int} a current unix epoch time in millisecond.
-			 */
-			inline unsigned long long getTime()
+			UTC(std::string_view _tz = std::chrono::current_zone()->name()) :TimeZone(_tz) {}
+
+			inline auto now()
 			{
-				return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			}
-			/**
-			 * Converts an ISO date string to unix epoch time and returns it.
-			 * @param  isoStr {string} A ISO date string. e.g. "2021-02-09T01:46:45.595Z"
-			 * @return {long int} An unix epoch time in milliseconds.
-			 */
-			long long getTime(std::string isoStr)
-			{
-				struct tm : public std::tm
-				{
-					int tm_msec;
-				};
-
-				auto timeConversion = [this](std::string isoStr)
-				{
-					tm tm = {};
-					if (isLongISOString(isoStr))
-					{
-						// with milliseconds' part:
-						assert(sscanf(isoStr.c_str(), "%d-%d-%dT%d:%d:%d.%dZ", &tm.tm_year, &tm.tm_mon, &tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec, &tm.tm_msec) == 7);
-					}
-					else
-					{
-						// without milliseconds' part:
-						assert(sscanf(isoStr.c_str(), "%d-%d-%dT%d:%d:%dZ", &tm.tm_year, &tm.tm_mon, &tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec) == 6);
-					}
-
-					tm.tm_hour += 9;
-					tm.tm_mon -=1;
-					tm.tm_year -=1900;
-					tm.tm_isdst = -1; // Use DST value from local time zone
-
-					return tm;
-				};
-
-				tm tm = timeConversion(isoStr);
-				auto msec = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::from_time_t(std::mktime(&tm)).time_since_epoch()).count();
-				return msec + tm.tm_msec; // Add actual millisecond's value to the rough result in millisecond.
+				// local_timeは、システム時間のエポックからの経過時間によって構築できる
+				return std::chrono::local_time<std::chrono::system_clock::duration>(std::chrono::system_clock::now().time_since_epoch());
 			}
 
-			/**
-			 * Get an ISO date string.
-			 * @param  msec {long int}
-			 * @return {std::string} An ISO date string. e.g. "2021-02-09T01:46:45.595Z".
-			 */
-			std::string getISOString(unsigned long long msec)
+			inline auto timezone()
 			{
-				time_t sec = msec / 1000;
-				char isoStr[sizeof("2021-01-31T23:59:59.000Z")];
-				strftime(isoStr, sizeof(isoStr), "%FT%T", gmtime(&sec));
-				int delta = msec - (sec * 1000);
-				sprintf(isoStr, "%s.%03dZ", isoStr, delta);
-				return isoStr;
+				return std::chrono::zoned_time(TimeZone, now());
 			}
-			/**
-			 * Get a current ISO date string.
-			 * @return {std::string} An ISO date string. e.g. "2021-02-09T01:46:45.595Z".
-			 */
-			inline std::string getISOString()
+
+			inline auto format()
 			{
-				return getISOString(getTime());
+				auto tz     = timezone();
+				auto time   = std::chrono::duration_cast<std::chrono::milliseconds>(tz.get_local_time().time_since_epoch()).count();
+				auto msec   = time % 1000;
+				auto sec    = time / 1000;
+				auto& lt    = *std::localtime(&sec);
+				lt.tm_mon  += 1;
+				lt.tm_year += 1900;
+
+				char str[sizeof("[YYYY-MM-DDThh:mm:ss.fff XXX]")];
+				assert(sprintf(str, "[%04d-%02d-%02dT%02d:%02d:%02d", lt.tm_year, lt.tm_mon, lt.tm_mday, lt.tm_hour, lt.tm_min, lt.tm_sec) == 20);
+				assert(sprintf(str, "%s.%03d %s]", str, msec, tz.get_info().abbrev.c_str()) == 29);
+				return std::string(str);
 			}
-			inline std::string getISOStringForJST()
+
+			void print()
 			{
-				return getISOString(getTime() + 9 * 60 * 60 * 1000);
-			}
-			
-			/**
-			 * Get a local date string.
-			 * @param msec {long int} An unix epoch time in milliseconds.
-			 * @param dateformat {char*} A date format. e.g. "%Y/%m/%d(%a)%H:%M:%S"
-			 * @return {std::string} A local date string. e.g. "2021/02/09(Tue)16:20:30".
-			 */
-			std::string getLocaleString(unsigned long long msec, const char* dateformat) {
-				time_t sec = msec / 1000;
-				struct tm* timeinfo;
-				timeinfo = localtime(&sec);
-				const int charsize = sizeof "2021/02/09(Tue)23:59:59";
-				char output[charsize];
-				strftime(output, charsize, dateformat, timeinfo);
-				return std::string(output);
-			}
-			/**
-			 * Get a local date string.
-			 * @param msec {long int} An unix epoch time in milliseconds.
-			 * @return {std::string} A local date string. e.g. "2021/02/09(Tue)16:20:30".
-			 */
-			inline std::string getLocaleString(unsigned long long msec)
-			{
-				return getLocaleString(msec, "%Y/%m/%d(%a)%H:%M:%S");
-			}
-			/**
-			 * Get a current local date string.
-			 * @return {std::string} A local date string. e.g. "2021/02/09(Tue)16:20:30".
-			 */
-			inline std::string getLocaleString() {
-				return getLocaleString(getTime());
+				// 日時を出力
+				std::cout << "[" << format() << "]";
 			}
 		};
 	}
@@ -253,7 +196,7 @@ namespace GeneralPurposeTimer
 		class LowPrecision
 		{
 		public:
-			using __CountType = Accessor::milliseconds;
+			using __CountType = Type::milliseconds;
 
 			inline __CountType getTime()
 			{
@@ -266,7 +209,7 @@ namespace GeneralPurposeTimer
 		class MediumPrecision
 		{
 		public:
-			using __CountType = Accessor::microseconds;
+			using __CountType = Type::microseconds;
 
 			inline __CountType getTime()
 			{
@@ -282,7 +225,7 @@ namespace GeneralPurposeTimer
 			size_t DigitAdjustment = 1;
 
 		public:
-			using __CountType = Accessor::nanoseconds;
+			using __CountType = Type::nanoseconds;
 
 			HighPrecision()
 			{
