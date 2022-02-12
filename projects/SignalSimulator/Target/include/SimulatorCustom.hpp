@@ -3,12 +3,12 @@
 #include <cassert>
 #include <vector>
 
-namespace Signals {
+namespace Simulator {
     template<class __SignalType>
-    class SignalCustom
+    class SimulateCustom
     {
 	private:
-		using __MySelfType = SignalCustom;
+		using __MySelfType = SimulateCustom;
 
 		inline static std::vector<__SignalType*> signalList = {};
 
@@ -32,10 +32,10 @@ namespace Signals {
     public:
 		//**********************************************************
 		//SignalêÈåæÇ≥ÇÍÇÈ
-		SignalCustom() noexcept = delete;
-		SignalCustom(const __MySelfType&) noexcept = delete;
-		SignalCustom(__MySelfType&&) noexcept = delete;
-		constexpr ~SignalCustom() noexcept = default;
+		SimulateCustom() noexcept = delete;
+		SimulateCustom(const __MySelfType&) noexcept = delete;
+		SimulateCustom(__MySelfType&&) noexcept = delete;
+		constexpr ~SimulateCustom() noexcept = default;
 		//**********************************************************
 
 		//ë„ì¸ââéZéq(Assignment)

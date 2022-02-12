@@ -11,4 +11,4 @@
 #include "GeneralPurposeTimer.hpp"
 #include "UnitOfNumber.hpp"
 #include "ScientificPostulates.hpp"
-#include "Signals.hpp"
+#include "Simulator.hpp"
