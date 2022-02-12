@@ -139,55 +139,6 @@ namespace GeneralPurposeTimer
 	}
 
 	//参考にしたサイト
-	//https://memo.appri.me/programming/cpp-date-time
-	//https://cpprefjp.github.io/reference/chrono/local_time.html
-	namespace DateFormat
-	{
-		class UTC
-		{
-
-		private:
-			const std::string_view TimeZone;
-
-		public:
-			UTC(std::string_view _tz = std::chrono::current_zone()->name()) :TimeZone(_tz) {}
-
-			inline auto now()
-			{
-				// local_timeは、システム時間のエポックからの経過時間によって構築できる
-				return std::chrono::local_time<std::chrono::system_clock::duration>(std::chrono::system_clock::now().time_since_epoch());
-			}
-
-			inline auto timezone()
-			{
-				return std::chrono::zoned_time(TimeZone, now());
-			}
-
-			inline auto format()
-			{
-				auto tz     = timezone();
-				auto time   = std::chrono::duration_cast<std::chrono::milliseconds>(tz.get_local_time().time_since_epoch()).count();
-				auto msec   = time % 1000;
-				auto sec    = time / 1000;
-				auto& lt    = *std::localtime(&sec);
-				lt.tm_mon  += 1;
-				lt.tm_year += 1900;
-
-				char str[sizeof("[YYYY-MM-DDThh:mm:ss.fff XXX]")];
-				assert(sprintf(str, "[%04d-%02d-%02dT%02d:%02d:%02d", lt.tm_year, lt.tm_mon, lt.tm_mday, lt.tm_hour, lt.tm_min, lt.tm_sec) == 20);
-				assert(sprintf(str, "%s.%03d %s]", str, msec, tz.get_info().abbrev.c_str()) == 29);
-				return std::string(str);
-			}
-
-			void print()
-			{
-				// 日時を出力
-				std::cout << "[" << format() << "]";
-			}
-		};
-	}
-
-	//参考にしたサイト
 	//http://www.sanko-shoko.net/note.php?id=rnfd
 	namespace Measurement
 	{
@@ -271,6 +222,55 @@ namespace GeneralPurposeTimer
 		public:
 			inline MeasuringElapsedTime() noexcept  { setStartTine();          }
 			inline ~MeasuringElapsedTime() noexcept { setEndTine();   print(); }
+		};
+	}
+
+	//参考にしたサイト
+	//https://memo.appri.me/programming/cpp-date-time
+	//https://cpprefjp.github.io/reference/chrono/local_time.html
+	namespace DateFormat
+	{
+		class UTC
+		{
+
+		private:
+			const std::string_view TimeZone;
+
+		public:
+			UTC(std::string_view _tz = std::chrono::current_zone()->name()) :TimeZone(_tz) {}
+
+			inline auto now()
+			{
+				// local_timeは、システム時間のエポックからの経過時間によって構築できる
+				return std::chrono::local_time<std::chrono::system_clock::duration>(std::chrono::system_clock::now().time_since_epoch());
+			}
+
+			inline auto timezone()
+			{
+				return std::chrono::zoned_time(TimeZone, now());
+			}
+
+			inline auto format()
+			{
+				auto tz     = timezone();
+				auto time   = std::chrono::duration_cast<std::chrono::milliseconds>(tz.get_local_time().time_since_epoch()).count();
+				auto msec   = time % 1000;
+				auto sec    = time / 1000;
+				tm lt = {}; localtime_s(&lt, &sec);
+				lt.tm_mon  += 1;
+				lt.tm_year += 1900;
+
+				char str[sizeof("[YYYY-MM-DDThh:mm:ss.fff XXX]")];
+				assert(sprintf_s(str, "[%04d-%02d-%02dT%02d:%02d:%02d", lt.tm_year, lt.tm_mon, lt.tm_mday, lt.tm_hour, lt.tm_min, lt.tm_sec) == 20);
+				assert(sprintf_s(str, "%s.%03I64d %s]", str, msec, tz.get_info().abbrev.c_str()) == 29);
+				return std::string(str);
+			}
+
+			void print()
+			{
+				// 日時を出力
+				std::cout << "[" << format() << "]" << std::endl;
+			}
 		};
 	}
 }
