@@ -223,6 +223,58 @@ namespace GeneralPurposeTimer
 			inline MeasuringElapsedTime() noexcept  { setStartTine();          }
 			inline ~MeasuringElapsedTime() noexcept { setEndTine();   print(); }
 		};
+
+		template<class __PrecisionType>
+		class ElapsedTimeDetection
+		{			
+			static_assert(
+				std::is_same<__PrecisionType, LowPrecision>::value    ||
+				std::is_same<__PrecisionType, MediumPrecision>::value ||
+				std::is_same<__PrecisionType, HighPrecision>::value   ,
+				"type error"
+				);
+
+		private:
+			using __CountType = __PrecisionType::__CountType;
+
+			__PrecisionType timerAccessor;
+			__CountType BasePoint;
+			const __CountType THRESHOLD;
+
+			__CountType getElapsedTime()
+			{
+				__CountType atPresent = timerAccessor.getTime();
+
+				//オーバーフロー
+				//if (atPresent < BasePoint) {
+				//
+				//}
+				return atPresent - BasePoint;
+			}
+
+			inline void basePointUpdate()
+			{
+				BasePoint = timerAccessor.getTime();
+			}
+
+		public:
+			template<class T> inline ElapsedTimeDetection(const T& time) noexcept : THRESHOLD(__CountType(time))
+			{
+				basePointUpdate();
+			}
+			template<class T> inline ElapsedTimeDetection(const T&& time) noexcept : ElapsedTimeDetection(time)
+			{}
+
+			bool isElapsed() 
+			{
+				if (THRESHOLD < getElapsedTime())
+				{
+					basePointUpdate();
+					return true;
+				}
+				return false;
+			}			
+		};
 	}
 
 	//参考にしたサイト

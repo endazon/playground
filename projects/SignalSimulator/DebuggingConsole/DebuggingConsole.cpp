@@ -4,11 +4,19 @@
 #include "DebuggingConsole.h"
 
 using namespace Simulator;
+
+static TimeSimulateTest timeSimulate = { 0,"Test0", "テスト", "☆★☆彡" };
+//static TimeSimulateTest timeSimulate[5000] = 
+//{ 
+//	{0,"Test0", "テスト", "☆★☆彡"},
+//	{1,"Test1", "テスト", "☆★☆彡"}
+//};
+
 int main()
 {
 	auto timer = []()
 	{
-		Signal<int> time(1, "Test", "テスト", "☆★☆彡");
+		Signal time(1, "Test", "テスト", "☆★☆彡");
 		// QueryPerformanceCounter関数の1秒当たりのカウント数を取得する
 		LARGE_INTEGER freq;
 		QueryPerformanceFrequency(&freq);
@@ -18,7 +26,7 @@ int main()
 		while (true)
 		{
 			{
-				Signal<int> obj(time, std::string("Test") + time.to_string(), "テスト", "☆★☆彡");
+				Signal obj(time, std::string("Test") + time.to_string(), "テスト", "☆★☆彡");
 				//GeneralPurposeTimer::Measurement::MeasuringElapsedTime<GeneralPurposeTimer::Measurement::LowPrecision>    elapsedTime1;
 				//GeneralPurposeTimer::Measurement::MeasuringElapsedTime<GeneralPurposeTimer::Measurement::MediumPrecision> elapsedTime2;
 				//GeneralPurposeTimer::Measurement::MeasuringElapsedTime<GeneralPurposeTimer::Measurement::HighPrecision>   elapsedTime3;

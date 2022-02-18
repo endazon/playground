@@ -8,6 +8,7 @@
 #include <ctime>
 #include <windows.h>
 #include <thread>
+#include "Utility.hpp"
 #include "GeneralPurposeTimer.hpp"
 #include "UnitOfNumber.hpp"
 #include "ScientificPostulates.hpp"
