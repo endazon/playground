@@ -6,20 +6,51 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>539</width>
-    <height>400</height>
+    <width>665</width>
+    <height>331</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>QtWidgetsApplication</string>
   </property>
-  <widget class="QWidget" name="centralWidget"/>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="verticalLayout_2">
+    <property name="spacing">
+     <number>0</number>
+    </property>
+    <property name="leftMargin">
+     <number>0</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>0</number>
+    </property>
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
+    <item>
+     <widget class="QPushButton" name="pushButton">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="text">
+       <string>ShowSimulatorListDialog</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>539</width>
+     <width>665</width>
      <height>22</height>
     </rect>
    </property>
@@ -38,5 +69,25 @@
  <resources>
   <include location="QtWidgetsApplication.qrc"/>
  </resources>
- <connections/>
+ <connections>
+  <connection>
+   <sender>pushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>QtWidgetsApplicationClass</receiver>
+   <slot>ShowSimulatorListDialog()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>210</x>
+     <y>120</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>248</x>
+     <y>-3</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>ShowSimulatorListDialog()</slot>
+ </slots>
 </ui>

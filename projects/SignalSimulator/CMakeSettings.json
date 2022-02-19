@@ -7,7 +7,7 @@
       "inheritEnvironments": [ "msvc_x64" ],
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DCMAKE_FIND_DEBUG_MODE=1",
+      "cmakeCommandArgs": "-DCMAKE_FIND_DEBUG_MODE=1 -DSIMULATORLISTDIALOG_BUILD_SHARED_LIBS=ON",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "cmakeToolchain": "${projectDir}\\toolchain.cmake"
