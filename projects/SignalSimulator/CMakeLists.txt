@@ -14,4 +14,5 @@ include_directories (
 # サブディレクトリを登録
 add_subdirectory(Target)
 add_subdirectory(DebuggingConsole)
-add_subdirectory(UnitTest)
+add_subdirectory(QtDebuggingDialog)
+#add_subdirectory(UnitTest)

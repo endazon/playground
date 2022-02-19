@@ -5,7 +5,91 @@
 
 using namespace Simulator;
 
-static TimeSimulateTest timeSimulate = { 0,"Test0", "テスト", "☆★☆彡" };
+class Signal : public BaseSimulator
+{
+private:
+	using __MySelfType = Signal;
+	using __InheritanceType = BaseSimulator;
+
+protected:
+	void Changing() noexcept override
+	{
+	
+	}
+
+	void Changed() noexcept override
+	{
+		//DebuggingTimestampForChanged();
+		//std::cout << to_string() << std::endl;
+	}
+
+public:
+	using __InheritanceType::__InheritanceType;
+
+	//代入演算子(Assignment)
+	//**********************************************************
+	//暗黙的に宣言される
+	//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
+	//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
+	//**********************************************************
+	template<class T> inline __MySelfType& operator=(T& rhs) noexcept
+	{
+		__InheritanceType::operator=(rhs);
+		return *this;
+	}
+
+	template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
+	{
+		return operator=(rhs);
+	}
+};
+
+class TimeSimulateTest : public BaseTimeSimulator
+{
+private:
+	using __MySelfType = TimeSimulateTest;
+	using __InheritanceType = BaseTimeSimulator;
+
+protected:
+	inline void Changing() noexcept override{}
+	inline void Changed()  noexcept override{}
+
+	inline void UpdateIn100usCycle() noexcept override{}
+	inline void UpdateIn200usCycle() noexcept override{}
+	inline void UpdateIn500usCycle() noexcept override{}
+	inline void UpdateIn1msCycle()   noexcept override{}
+	inline void UpdateIn2msCycle()   noexcept override{}
+	inline void UpdateIn5msCycle()   noexcept override{}
+	inline void UpdateIn10msCycle()  noexcept override{}
+	inline void UpdateIn20msCycle()  noexcept override{}
+	inline void UpdateIn50msCycle()  noexcept override{}
+	inline void UpdateIn100msCycle() noexcept override{}
+	inline void UpdateIn200msCycle() noexcept override{}
+	inline void UpdateIn500msCycle() noexcept override{}
+	inline void UpdateIn1000msCycle()noexcept override{}
+
+public:
+	using __InheritanceType::__InheritanceType; //継承元のコンストラクタは使わない
+
+	//代入演算子(Assignment)
+	//**********************************************************
+	//暗黙的に宣言される
+	//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
+	//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
+	//**********************************************************
+	template<class T> inline __MySelfType& operator=(T& rhs) noexcept
+	{
+		__InheritanceType::operator=(rhs);
+		return *this;
+	}
+
+	template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
+	{
+		return operator=(rhs);
+	}
+};
+
+//static TimeSimulateTest timeSimulate = { 0,"Test0", "テスト", "☆★☆彡" };
 //static TimeSimulateTest timeSimulate[5000] = 
 //{ 
 //	{0,"Test0", "テスト", "☆★☆彡"},
@@ -16,23 +100,13 @@ int main()
 {
 	auto timer = []()
 	{
+		GeneralPurposeTimer::Measurement::ElapsedTimeDetection<GeneralPurposeTimer::Measurement::MediumPrecision> timer = 1000 * 1000;
 		Signal time(1, "Test", "テスト", "☆★☆彡");
-		// QueryPerformanceCounter関数の1秒当たりのカウント数を取得する
-		LARGE_INTEGER freq;
-		QueryPerformanceFrequency(&freq);
-
-		LARGE_INTEGER start, end;
 
 		while (true)
 		{
+			if (timer.isElapsed() )
 			{
-				Signal obj(time, std::string("Test") + time.to_string(), "テスト", "☆★☆彡");
-				//GeneralPurposeTimer::Measurement::MeasuringElapsedTime<GeneralPurposeTimer::Measurement::LowPrecision>    elapsedTime1;
-				//GeneralPurposeTimer::Measurement::MeasuringElapsedTime<GeneralPurposeTimer::Measurement::MediumPrecision> elapsedTime2;
-				//GeneralPurposeTimer::Measurement::MeasuringElapsedTime<GeneralPurposeTimer::Measurement::HighPrecision>   elapsedTime3;
-				QueryPerformanceCounter(&start);
-				QueryPerformanceCounter(&end);
-				for (; static_cast<double>(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart < 200; QueryPerformanceCounter(&end));
 				time++;
 			}
 		}

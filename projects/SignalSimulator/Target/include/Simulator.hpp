@@ -7,40 +7,40 @@
 #include "GeneralPurposeTimer.hpp"
 
 namespace Simulator {
-	class Simulate : public UnitOfNumber::BaseSpecificNumeral<long double, UnitOfNumber::Numeral<long double>>
+	class BaseSimulator : public UnitOfNumber::BaseSpecificNumeral<long double, UnitOfNumber::Numeral<long double>>
 	{
 	public:
 		using __ValueType = long double;
 
 	private:
-		using __MySelfType = Simulate;
+		using __MySelfType = BaseSimulator;
 		using __InheritanceType = UnitOfNumber::BaseSpecificNumeral<__ValueType, UnitOfNumber::Numeral<__ValueType>>;
 
-		inline static std::vector<__MySelfType*> signalList;
+		inline static std::vector<__MySelfType*> _SimulatorList;
 
 		void RegisteredSignalObjects(__MySelfType* pObj) noexcept
 		{
 			//DebuggingTimestampForRegistered(*pObj);
 
-			signalList.push_back(pObj);
+			_SimulatorList.push_back(pObj);
 
-			signalInstanceUpdateFunction->Registered(*pObj);
+			_SimulatorInstanceUpdateFunction->Registered(*pObj);
 		}
 		void DeleteSignalObject(__MySelfType* pObj) noexcept
 		{
 			//DebuggingTimestampForDelete(*pObj);
 
-			for (auto it = signalList.begin(); it != signalList.end();) {
+			for (auto it = _SimulatorList.begin(); it != _SimulatorList.end();) {
 				// 条件一致した要素を削除する
 				if (*it == pObj) {
 					// 削除された要素の次を指すイテレータが返される。
-					it = signalList.erase(it);
+					it = _SimulatorList.erase(it);
 					return;
 				}
 				// 要素削除をしない場合に、イテレータを進める
 				++it;
 			}
-			signalInstanceUpdateFunction->Registered(*pObj);
+			_SimulatorInstanceUpdateFunction->Registered(*pObj);
 		}
 
 	protected:
@@ -82,22 +82,22 @@ namespace Simulator {
 		//using __InheritanceType::__InheritanceType; //継承元のコンストラクタは使わない
 		//**********************************************************
 		//暗黙的に宣言される
-		//Simulate() noexcept = delete;
-		//Simulate(const __MySelfType&) noexcept = delete;
-		//Simulate(__MySelfType&&) noexcept = delete;
-		//constexpr ~Simulate() noexcept = default;
+		//BaseSimulator() noexcept = delete;
+		//BaseSimulator(const __MySelfType&) noexcept = delete;
+		//BaseSimulator(__MySelfType&&) noexcept = delete;
+		//constexpr ~BaseSimulator() noexcept = default;
 		//**********************************************************
-		inline Simulate(const __ValueType& init, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __InheritanceType(init), _Name(name), _Group(group), _Comment(comment)
+		inline BaseSimulator(const __ValueType& init, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __InheritanceType(init), _Name(name), _Group(group), _Comment(comment)
 		{
 			RegisteredSignalObjects(this);
 		}
-		inline Simulate(const __ValueType&& init = 0, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(init, name, group, comment)
+		inline BaseSimulator(const __ValueType&& init = 0, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(init, name, group, comment)
 		{}
-		template<class T> inline Simulate(const T& other, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(this->CAST(other), name, group, comment)
+		template<class T> inline BaseSimulator(const T& other, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(this->CAST(other), name, group, comment)
 		{}
-		template<class T> inline Simulate(const T&& other, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(other, name, group, comment)
+		template<class T> inline BaseSimulator(const T&& other, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(other, name, group, comment)
 		{}
-		inline ~Simulate() noexcept
+		inline ~BaseSimulator() noexcept
 		{
 			DeleteSignalObject(this);
 		}
@@ -144,76 +144,34 @@ namespace Simulator {
 			void Registered(__MySelfType& rSignalInstance) override{}
 			void Delete(__MySelfType& rSignalInstance) override {}
 		};
-		inline static ISignalInstanceUpdateFunction* signalInstanceUpdateFunction = new DummySignalInstanceUpdateFunction();
+		inline static ISignalInstanceUpdateFunction* _SimulatorInstanceUpdateFunction = new DummySignalInstanceUpdateFunction();
 	public:
 		inline void RegisterSignalListAcquisitionFunction(ISignalInstanceUpdateFunction* func)
 		{
-			signalInstanceUpdateFunction = func;
-			for (auto item : signalList)
+			_SimulatorInstanceUpdateFunction = func;
+			for (auto item : _SimulatorList)
 			{
-				signalInstanceUpdateFunction->Registered(*item);
+				_SimulatorInstanceUpdateFunction->Registered(*item);
 			}
 		}
 
 		//
 	protected: 
 		//継承先で処理を定義する
-		virtual void Changing() noexcept {}
-		virtual void Changed() noexcept {}
+		virtual inline void Changing() noexcept = 0;
+		virtual inline void Changed() noexcept = 0;
 	};
 
-	class TimeSimulate : public Simulate
+	class BaseTimeSimulator : public BaseSimulator
 	{
 	private:
-		using __MySelfType = TimeSimulate;
-		using __InheritanceType = Simulate;
+		using __MySelfType = BaseTimeSimulator;
+		using __InheritanceType = BaseSimulator;
 
 		inline static std::mutex _Mutex;
 		inline static std::thread* _Thread = nullptr;
-		inline static std::vector<__MySelfType*> _TimeSimulatelList;
-
-		void RegisteredSignalObjects(__MySelfType* pObj) noexcept
-		{
-			//DebuggingTimestampForRegistered(*pObj);
-
-			{
-				std::lock_guard<std::mutex> lock(_Mutex);
-			
-				_TimeSimulatelList.push_back(pObj);
-
-				if (_Thread == nullptr) {
-					_Thread = new std::thread(
-						[this]() {
-							do {
-								UpdateProcess();
-							} while (!_TimeSimulatelList.empty());
-						}
-					);
-
-					_Thread->detach();
-				}
-			}
-		}
-		void DeleteSignalObject(__MySelfType* pObj) noexcept
-		{
-			//DebuggingTimestampForDelete(*pObj);
-
-			{
-				std::lock_guard<std::mutex> lock(_Mutex);
-
-				for (auto it = _TimeSimulatelList.begin(); it != _TimeSimulatelList.end();) {
-					// 条件一致した要素を削除する
-					if (*it == pObj) {
-						// 削除された要素の次を指すイテレータが返される。
-						it = _TimeSimulatelList.erase(it);
-						return;
-					}
-					// 要素削除をしない場合に、イテレータを進める
-					++it;
-				}
-			}
-		}
-
+		inline static std::vector<__MySelfType*> _TimeSimulatorList;
+		
 		inline static void UpdateProcess()
 		{
 			constexpr int BEGIN_COUNT = 0;
@@ -225,123 +183,104 @@ namespace Simulator {
 			{
 				std::lock_guard<std::mutex> lock(_Mutex);
 
-				for (auto i = count %     1; i < _TimeSimulatelList.size(); i +=     1) { _TimeSimulatelList[i]->UpdateIn100usCycle();  }
-				for (auto i = count %     2; i < _TimeSimulatelList.size(); i +=     2) { _TimeSimulatelList[i]->UpdateIn200usCycle();  }
-				for (auto i = count %     5; i < _TimeSimulatelList.size(); i +=     5) { _TimeSimulatelList[i]->UpdateIn500usCycle();  }
-				for (auto i = count %    10; i < _TimeSimulatelList.size(); i +=    10) { _TimeSimulatelList[i]->UpdateIn1msCycle();    }
-				for (auto i = count %    20; i < _TimeSimulatelList.size(); i +=    20) { _TimeSimulatelList[i]->UpdateIn2msCycle();    }
-				for (auto i = count %    50; i < _TimeSimulatelList.size(); i +=    50) { _TimeSimulatelList[i]->UpdateIn5msCycle();    }
-				for (auto i = count %   100; i < _TimeSimulatelList.size(); i +=   100) { _TimeSimulatelList[i]->UpdateIn10msCycle();   }
-				for (auto i = count %   200; i < _TimeSimulatelList.size(); i +=   200) { _TimeSimulatelList[i]->UpdateIn20msCycle();   }
-				for (auto i = count %   500; i < _TimeSimulatelList.size(); i +=   500) { _TimeSimulatelList[i]->UpdateIn50msCycle();   }
-				for (auto i = count %  1000; i < _TimeSimulatelList.size(); i +=  1000) { _TimeSimulatelList[i]->UpdateIn100msCycle();  }
-				for (auto i = count %  2000; i < _TimeSimulatelList.size(); i +=  2000) { _TimeSimulatelList[i]->UpdateIn200msCycle();  }
-				for (auto i = count %  5000; i < _TimeSimulatelList.size(); i +=  5000) { _TimeSimulatelList[i]->UpdateIn500msCycle();  }
-				for (auto i = count % 10000; i < _TimeSimulatelList.size(); i += 10000) { _TimeSimulatelList[i]->UpdateIn1000msCycle(); }
+				for (auto i = count %     1; i < _TimeSimulatorList.size(); i +=     1) { _TimeSimulatorList[i]->UpdateIn100usCycle();  }
+				for (auto i = count %     2; i < _TimeSimulatorList.size(); i +=     2) { _TimeSimulatorList[i]->UpdateIn200usCycle();  }
+				for (auto i = count %     5; i < _TimeSimulatorList.size(); i +=     5) { _TimeSimulatorList[i]->UpdateIn500usCycle();  }
+				for (auto i = count %    10; i < _TimeSimulatorList.size(); i +=    10) { _TimeSimulatorList[i]->UpdateIn1msCycle();    }
+				for (auto i = count %    20; i < _TimeSimulatorList.size(); i +=    20) { _TimeSimulatorList[i]->UpdateIn2msCycle();    }
+				for (auto i = count %    50; i < _TimeSimulatorList.size(); i +=    50) { _TimeSimulatorList[i]->UpdateIn5msCycle();    }
+				for (auto i = count %   100; i < _TimeSimulatorList.size(); i +=   100) { _TimeSimulatorList[i]->UpdateIn10msCycle();   }
+				for (auto i = count %   200; i < _TimeSimulatorList.size(); i +=   200) { _TimeSimulatorList[i]->UpdateIn20msCycle();   }
+				for (auto i = count %   500; i < _TimeSimulatorList.size(); i +=   500) { _TimeSimulatorList[i]->UpdateIn50msCycle();   }
+				for (auto i = count %  1000; i < _TimeSimulatorList.size(); i +=  1000) { _TimeSimulatorList[i]->UpdateIn100msCycle();  }
+				for (auto i = count %  2000; i < _TimeSimulatorList.size(); i +=  2000) { _TimeSimulatorList[i]->UpdateIn200msCycle();  }
+				for (auto i = count %  5000; i < _TimeSimulatorList.size(); i +=  5000) { _TimeSimulatorList[i]->UpdateIn500msCycle();  }
+				for (auto i = count % 10000; i < _TimeSimulatorList.size(); i += 10000) { _TimeSimulatorList[i]->UpdateIn1000msCycle(); }
 
 				count = count < END_COUNT ? count + 1 : BEGIN_COUNT;
 			}
 		}
 
-	protected:
-		virtual inline void UpdateIn100usCycle() noexcept {}
-		virtual inline void UpdateIn200usCycle() noexcept {}
-		virtual inline void UpdateIn500usCycle() noexcept {}
-		virtual inline void UpdateIn1msCycle()   noexcept {}
-		virtual inline void UpdateIn2msCycle()   noexcept {}
-		virtual inline void UpdateIn5msCycle()   noexcept {}
-		virtual inline void UpdateIn10msCycle()  noexcept {}
-		virtual inline void UpdateIn20msCycle()  noexcept {}
-		virtual inline void UpdateIn50msCycle()  noexcept {}
-		virtual inline void UpdateIn100msCycle() noexcept {}
-		virtual inline void UpdateIn200msCycle() noexcept {}
-		virtual inline void UpdateIn500msCycle() noexcept {}
-		virtual inline void UpdateIn1000msCycle()noexcept {}
+		void RegisteredSignalObjects(__MySelfType* pObj) noexcept
+		{
+			//DebuggingTimestampForRegistered(*pObj);
+
+			{
+				std::lock_guard<std::mutex> lock(_Mutex);
+			
+				_TimeSimulatorList.push_back(pObj);
+
+				if (_Thread == nullptr) {
+					_Thread = new std::thread(
+						[this]() {
+							do {
+								UpdateProcess();
+							} while (!_TimeSimulatorList.empty());
+						}
+					);
+
+					_Thread->detach();
+				}
+			}
+		}
+
+		void DeleteSignalObject(__MySelfType* pObj) noexcept
+		{
+			//DebuggingTimestampForDelete(*pObj);
+
+			{
+				std::lock_guard<std::mutex> lock(_Mutex);
+
+				for (auto it = _TimeSimulatorList.begin(); it != _TimeSimulatorList.end();) {
+					// 条件一致した要素を削除する
+					if (*it == pObj) {
+						// 削除された要素の次を指すイテレータが返される。
+						it = _TimeSimulatorList.erase(it);
+						return;
+					}
+					// 要素削除をしない場合に、イテレータを進める
+					++it;
+				}
+			}
+		}
 
 	public:
 		//using __InheritanceType::__InheritanceType; //継承元のコンストラクタは使わない
 		//**********************************************************
 		//暗黙的に宣言される
-		//TimeSimulate() noexcept = delete;
-		//TimeSimulate(const __MySelfType&) noexcept = delete;
-		//TimeSimulate(__MySelfType&&) noexcept = delete;
-		//constexpr ~TimeSimulate() noexcept = default;
+		//BaseTimeSimulator() noexcept = delete;
+		//BaseTimeSimulator(const __MySelfType&) noexcept = delete;
+		//BaseTimeSimulator(__MySelfType&&) noexcept = delete;
+		//constexpr ~BaseTimeSimulator() noexcept = default;
 		//**********************************************************
-		inline TimeSimulate(const __ValueType& init, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __InheritanceType(init, name, group, comment)
+		inline BaseTimeSimulator(const __ValueType& init, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __InheritanceType(init, name, group, comment)
 		{
 			RegisteredSignalObjects(this);
 		}
-		inline TimeSimulate(const __ValueType&& init = 0, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(init, name, group, comment)
+		inline BaseTimeSimulator(const __ValueType&& init = 0, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(init, name, group, comment)
 		{}
-		template<class T> inline TimeSimulate(const T& other, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(this->CAST(other), name, group, comment)
+		template<class T> inline BaseTimeSimulator(const T& other, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(this->CAST(other), name, group, comment)
 		{}
-		template<class T> inline TimeSimulate(const T&& other, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(other, name, group, comment)
+		template<class T> inline BaseTimeSimulator(const T&& other, const std::string name = "", const std::string group = "", const std::string comment = "") noexcept : __MySelfType(other, name, group, comment)
 		{}
-		inline ~TimeSimulate() noexcept
+		inline ~BaseTimeSimulator() noexcept
 		{
 			DeleteSignalObject(this);
 		}
-	};
-
-	class Signal : public Simulate
-	{
-	private:
-		using __MySelfType = Signal;
-		using __InheritanceType = Simulate;
 
 	protected:
-		void Changing() noexcept override{}
-		void Changed() noexcept override{}
-
-	public:
-		using __InheritanceType::__InheritanceType;
-
-		//代入演算子(Assignment)
-		//**********************************************************
-		//暗黙的に宣言される
-		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
-		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
-		//**********************************************************
-		template<class T> inline __MySelfType& operator=(T& rhs) noexcept
-		{
-			__InheritanceType::operator=(rhs);
-			return *this;
-		}
-
-		template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
-		{
-			return operator=(rhs);
-		}
-	};
-
-	class TimeSimulateTest : public TimeSimulate
-	{
-	private:
-		using __MySelfType = TimeSimulateTest;
-		using __InheritanceType = TimeSimulate;
-
-	protected:
-		void Changing() noexcept override{}
-		void Changed() noexcept override{}
-
-	public:
-		using __InheritanceType::__InheritanceType; //継承元のコンストラクタは使わない
-
-		//代入演算子(Assignment)
-		//**********************************************************
-		//暗黙的に宣言される
-		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
-		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
-		//**********************************************************
-		template<class T> inline __MySelfType& operator=(T& rhs) noexcept
-		{
-			__InheritanceType::operator=(rhs);
-			return *this;
-		}
-
-		template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
-		{
-			return operator=(rhs);
-		}
+		virtual inline void UpdateIn100usCycle() noexcept = 0;
+		virtual inline void UpdateIn200usCycle() noexcept = 0;
+		virtual inline void UpdateIn500usCycle() noexcept = 0;
+		virtual inline void UpdateIn1msCycle()   noexcept = 0;
+		virtual inline void UpdateIn2msCycle()   noexcept = 0;
+		virtual inline void UpdateIn5msCycle()   noexcept = 0;
+		virtual inline void UpdateIn10msCycle()  noexcept = 0;
+		virtual inline void UpdateIn20msCycle()  noexcept = 0;
+		virtual inline void UpdateIn50msCycle()  noexcept = 0;
+		virtual inline void UpdateIn100msCycle() noexcept = 0;
+		virtual inline void UpdateIn200msCycle() noexcept = 0;
+		virtual inline void UpdateIn500msCycle() noexcept = 0;
+		virtual inline void UpdateIn1000msCycle()noexcept = 0;
 	};
 }
