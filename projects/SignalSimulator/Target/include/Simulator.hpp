@@ -35,23 +35,20 @@ namespace Simulator {
 				if (*it == pObj) {
 					// 削除された要素の次を指すイテレータが返される。
 					it = _SimulatorList.erase(it);
+					_SimulatorInstanceUpdateFunction->Delete(*pObj);
 					return;
 				}
 				// 要素削除をしない場合に、イテレータを進める
 				++it;
 			}
-			_SimulatorInstanceUpdateFunction->Registered(*pObj);
 		}
 
 	protected:
 		//オーバーライド
-		void SetValue(const __ValueType& v) & noexcept override final
+		void SetValue(const __ValueType& v) & noexcept override
 		{
-			Changing();
 			__InheritanceType::SetValue(v);
-			Changed();
-
-			//DebuggingTimestampForChanged();
+			_SimulatorInstanceUpdateFunction->ValueUpdate(*this);
 		}
 
 		//デバッグ用関数
@@ -137,29 +134,32 @@ namespace Simulator {
 		public:
 			virtual void Registered(__MySelfType& rSignalInstance) = 0;
 			virtual void Delete(__MySelfType& rSignalInstance) = 0;
+			virtual void ValueUpdate(__MySelfType& rSignalInstance) = 0;
 		};
 	private:
 		class DummySignalInstanceUpdateFunction : public ISignalInstanceUpdateFunction
 		{
+		public:
+			static DummySignalInstanceUpdateFunction* GetInstance() { static DummySignalInstanceUpdateFunction dummy; return &dummy; }
 			void Registered(__MySelfType& rSignalInstance) override{}
 			void Delete(__MySelfType& rSignalInstance) override {}
+			void ValueUpdate(__MySelfType& rSignalInstance) override {}
 		};
-		inline static ISignalInstanceUpdateFunction* _SimulatorInstanceUpdateFunction = new DummySignalInstanceUpdateFunction();
+		inline static ISignalInstanceUpdateFunction* _SimulatorInstanceUpdateFunction = DummySignalInstanceUpdateFunction::GetInstance();
 	public:
-		inline void RegisterSignalListAcquisitionFunction(ISignalInstanceUpdateFunction* func)
+		inline static void RegisterSignalListAcquisitionFunction(ISignalInstanceUpdateFunction* func)
 		{
+			if (_SimulatorInstanceUpdateFunction == func) { return; }
 			_SimulatorInstanceUpdateFunction = func;
 			for (auto item : _SimulatorList)
 			{
 				_SimulatorInstanceUpdateFunction->Registered(*item);
 			}
 		}
-
-		//
-	protected: 
-		//継承先で処理を定義する
-		virtual inline void Changing() noexcept = 0;
-		virtual inline void Changed() noexcept = 0;
+		inline static void DeleteSignalListAcquisitionFunction()
+		{
+			_SimulatorInstanceUpdateFunction = DummySignalInstanceUpdateFunction::GetInstance();
+		}
 	};
 
 	class BaseTimeSimulator : public BaseSimulator

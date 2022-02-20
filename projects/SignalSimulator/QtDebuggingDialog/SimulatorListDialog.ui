@@ -34,11 +34,9 @@
      <property name="sizeAdjustPolicy">
       <enum>QAbstractScrollArea::AdjustToContents</enum>
      </property>
-     <column>
-      <property name="text">
-       <string>No.</string>
-      </property>
-     </column>
+     <attribute name="verticalHeaderShowSortIndicator" stdset="0">
+      <bool>false</bool>
+     </attribute>
      <column>
       <property name="text">
        <string>Name</string>

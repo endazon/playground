@@ -1,49 +1,91 @@
 #include "SimulatorListDialog.h"
 
 SimulatorListDialog::SimulatorListDialog(QWidget *parent)
-    : QWidget(parent)
+: QWidget(parent)
+, List()
 {
     ui.setupUi(this);
+}
 
-    ////初期設定
-    //{
-    //    if (ui.TableWidget->rowCount() < 1)
-    //        ui.TableWidget->setRowCount(1);
-    //    QTableWidgetItem* __qtablewidgetitem = new QTableWidgetItem();
-    //    ui.TableWidget->setVerticalHeaderItem(0, __qtablewidgetitem);
-    //}
-    //
-    ////行
-    //{
-    //    QTableWidgetItem* ___qtablewidgetitem = ui.TableWidget->verticalHeaderItem(0);
-    //    ___qtablewidgetitem->setText(QCoreApplication::translate("SimulatorListDialogClass", "1", nullptr));
+void SimulatorListDialog::AddElement(long long key, std::string Name, std::string Group, std::string Comment, long double Value)
+{
+    std::lock_guard<std::mutex> lock(_Mutex);
 
-    //    QTableWidgetItem* __qtablewidgetitem = new QTableWidgetItem();
-    //    ui.TableWidget->setItem(0, 0, __qtablewidgetitem);
-    //    QTableWidgetItem* __qtablewidgetitem1 = new QTableWidgetItem();
-    //    ui.TableWidget->setItem(0, 1, __qtablewidgetitem1);
-    //    QTableWidgetItem* __qtablewidgetitem2 = new QTableWidgetItem();
-    //    ui.TableWidget->setItem(0, 2, __qtablewidgetitem2);
-    //    QTableWidgetItem* __qtablewidgetitem3 = new QTableWidgetItem();
-    //    ui.TableWidget->setItem(0, 3, __qtablewidgetitem3);
-    //    QTableWidgetItem* __qtablewidgetitem4 = new QTableWidgetItem();
-    //    ui.TableWidget->setItem(0, 4, __qtablewidgetitem4);
-    //}
-    //
-    ////要素
-    //{
-    //    const bool __sortingEnabled = ui.TableWidget->isSortingEnabled();
-    //    ui.TableWidget->setSortingEnabled(false);
-    //    QTableWidgetItem* ___qtablewidgetitem = ui.TableWidget->item(0, 0);
-    //    ___qtablewidgetitem->setText(QCoreApplication::translate("SimulatorListDialogClass", "1", nullptr));
-    //    QTableWidgetItem* ___qtablewidgetitem1 = ui.TableWidget->item(0, 1);
-    //    ___qtablewidgetitem1->setText(QCoreApplication::translate("SimulatorListDialogClass", "2", nullptr));
-    //    QTableWidgetItem* ___qtablewidgetitem2 = ui.TableWidget->item(0, 2);
-    //    ___qtablewidgetitem2->setText(QCoreApplication::translate("SimulatorListDialogClass", "3", nullptr));
-    //    QTableWidgetItem* ___qtablewidgetitem3 = ui.TableWidget->item(0, 3);
-    //    ___qtablewidgetitem3->setText(QCoreApplication::translate("SimulatorListDialogClass", "4", nullptr));
-    //    QTableWidgetItem* ___qtablewidgetitem4 = ui.TableWidget->item(0, 4);
-    //    ___qtablewidgetitem4->setText(QCoreApplication::translate("SimulatorListDialogClass", "5", nullptr));
-    //    ui.TableWidget->setSortingEnabled(__sortingEnabled);
-    //}
+    //初期設定
+    if (List.contains(key)) { return; }
+    //Element element = Element(QString::fromStdString(Name), QString::fromStdString(Group), QString::fromStdString(Comment), Value);
+    //Element element = Element(QString::fromUtf8(Name), QString::fromUtf8(Group), QString::fromUtf8(Comment), Value);
+    Element element = Element(QString::fromLocal8Bit(Name), QString::fromLocal8Bit(Group), QString::fromLocal8Bit(Comment), Value);
+    List.append(key, element);
+    const int numberOfLists = List.count();
+    const int addOffset = numberOfLists - 1;
+    if (numberOfLists < 1) { return; }
+    ui.TableWidget->setRowCount(numberOfLists);
+
+    //行ヘッダ追加
+    QTableWidgetItem* qtablewidgetverticalheaderitem = new QTableWidgetItem();
+    qtablewidgetverticalheaderitem->setText(QString::number(List.indexOf(key) + 1));
+    ui.TableWidget->setVerticalHeaderItem(addOffset, qtablewidgetverticalheaderitem);
+
+    //行要素追加
+    const bool sortingEnabled = ui.TableWidget->isSortingEnabled();
+    ui.TableWidget->setSortingEnabled(false);
+    for (int i = 0; i < ui.TableWidget->columnCount(); i++)
+    {
+        QTableWidgetItem* qtablewidgetitem = new QTableWidgetItem();
+        qtablewidgetitem->setText(element.toQString(i));
+        ui.TableWidget->setItem(addOffset, i, qtablewidgetitem);
+    }
+    ui.TableWidget->setSortingEnabled(sortingEnabled);
+}
+
+void SimulatorListDialog::RemovalElement(long long key)
+{
+    std::lock_guard<std::mutex> lock(_Mutex);
+
+    //初期設定
+    if (!List.contains(key)) { return; }
+    qsizetype no = List.indexOf(key);
+    List.remove(key);
+    const int numberOfLists = List.count();
+    const int addOffset = numberOfLists - 1;
+    if (numberOfLists < 1) { return; }
+
+    //行削除
+    delete ui.TableWidget->takeVerticalHeaderItem(no);
+    for (int i = 0; i < ui.TableWidget->columnCount(); i++)
+    {
+        delete ui.TableWidget->takeItem(no, i);
+    }
+
+    for (qsizetype i = no + 1; i < numberOfLists + 1; i++)
+    {
+        //行ヘッダ再配置
+        QTableWidgetItem* qtablewidgetverticalheaderitem = ui.TableWidget->takeVerticalHeaderItem(i);
+        qtablewidgetverticalheaderitem->setText(QString::number(i));
+        ui.TableWidget->setVerticalHeaderItem(i - 1, qtablewidgetverticalheaderitem);
+
+        //行要素再配置
+        const bool sortingEnabled = ui.TableWidget->isSortingEnabled();
+        ui.TableWidget->setSortingEnabled(false);
+        for (int j = 0; j < ui.TableWidget->columnCount(); j++)
+        {
+            QTableWidgetItem* qtablewidgetitem = ui.TableWidget->takeItem(i, j);
+            ui.TableWidget->setItem(i - 1, j, qtablewidgetitem);
+        }
+        ui.TableWidget->setSortingEnabled(sortingEnabled);
+    }
+
+    ui.TableWidget->setRowCount(numberOfLists);
+}
+
+void SimulatorListDialog::ValueUpdate(long long key, long double Value)
+{
+    std::lock_guard<std::mutex> lock(_Mutex);
+    if (!List.contains(key)) { return; }
+    Element& element = List[key];
+    element.Value = Value;
+
+    QTableWidgetItem* qtablewidgetitem = ui.TableWidget->item(List.indexOf(key), 3);
+    qtablewidgetitem->setText(element.toQString(3));
 }

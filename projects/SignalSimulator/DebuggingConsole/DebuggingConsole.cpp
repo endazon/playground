@@ -3,22 +3,18 @@
 
 #include "DebuggingConsole.h"
 
-using namespace Simulator;
-
-class Signal : public BaseSimulator
+class Signal : public Simulator::BaseSimulator
 {
 private:
 	using __MySelfType = Signal;
 	using __InheritanceType = BaseSimulator;
 
 protected:
-	void Changing() noexcept override
+	//オーバーライド
+	void SetValue(const __ValueType& v) & noexcept override final
 	{
-	
-	}
+		__InheritanceType::SetValue(v);
 
-	void Changed() noexcept override
-	{
 		//DebuggingTimestampForChanged();
 		//std::cout << to_string() << std::endl;
 	}
@@ -44,16 +40,13 @@ public:
 	}
 };
 
-class TimeSimulateTest : public BaseTimeSimulator
+class TimeSimulateTest : public Simulator::BaseTimeSimulator
 {
 private:
 	using __MySelfType = TimeSimulateTest;
 	using __InheritanceType = BaseTimeSimulator;
 
 protected:
-	inline void Changing() noexcept override{}
-	inline void Changed()  noexcept override{}
-
 	inline void UpdateIn100usCycle() noexcept override{}
 	inline void UpdateIn200usCycle() noexcept override{}
 	inline void UpdateIn500usCycle() noexcept override{}
