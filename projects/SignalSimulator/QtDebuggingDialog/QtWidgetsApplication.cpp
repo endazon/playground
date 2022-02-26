@@ -3,25 +3,44 @@
 
 QtWidgetsApplication::QtWidgetsApplication(QWidget *parent)
 : QMainWindow(parent)
+, Dialog(parent)
 {
     ui.setupUi(this);
-    pSimulatorListDialog = new SimulatorListDialog();
+
+    Dialog.AddElement(0, "time", __func__, "", 0);
+    startTimer(1);
 }
 
 QtWidgetsApplication::~QtWidgetsApplication()
-{
-    delete pSimulatorListDialog;
-}
+{}
 
 void QtWidgetsApplication::ShowSimulatorListDialog()
 {
-    if (pSimulatorListDialog->isVisible()) { return; }
-    pSimulatorListDialog->show();
-    //pSimulatorListDialog->showMaximized();
+    if (Dialog.isVisible()) { return; }
+    Dialog.show();
+    //Dialog.showMaximized();
 }
 
 void QtWidgetsApplication::CloseSimulatorListDialog()
 {
-    if (pSimulatorListDialog->isHidden()) { return; }
-    pSimulatorListDialog->close();
+    if (Dialog.isHidden()) { return; }
+    Dialog.close();
+}
+
+void QtWidgetsApplication::timerEvent(QTimerEvent* event)
+{
+    static int time = 0;
+    Dialog.ValueUpdate(0, time++);
+
+    switch (time%1000)
+    {
+    case 499:
+        Dialog.AddElement(1, "time", __func__, "", 100);
+        break;
+    case 999:
+        Dialog.RemovalElement(1);
+        break;
+    }
+
+    QMainWindow::timerEvent(event);
 }

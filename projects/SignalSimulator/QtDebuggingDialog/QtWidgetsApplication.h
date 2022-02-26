@@ -16,8 +16,11 @@ public slots:
     void ShowSimulatorListDialog();
     void CloseSimulatorListDialog();
 
+protected:
+    void timerEvent(QTimerEvent* event) override;
+
 private:
     Ui::QtWidgetsApplicationClass ui;
-    static inline SimulatorListDialog* pSimulatorListDialog;
+    SimulatorListDialog Dialog;
    
 };
