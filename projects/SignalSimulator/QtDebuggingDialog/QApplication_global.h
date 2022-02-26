@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 class IQApplication
 {
@@ -21,33 +21,31 @@ class QApplicationOfDLL : public IQApplication
 private:
 	using __MySelfType = QApplicationOfDLL;
 
-	using load_QApplication_symbol = IQApplication* (*)(int argc, char* argv[]);
-
 	IQApplication* _ap;
 
 	inline Utility::DLLLoader& DLL()
 	{
 		return Utility::DLLLoader::GetInstance("QApplication.dll");
 	}
-	inline IQApplication* InstanceCreationForQApplication(int argc, char* argv[])
+	inline IQApplication* InstanceCreation(int argc, char* argv[])
 	{
-		return DLL().GetFunction<load_QApplication_symbol>("load_QApplication_symbol")(argc, argv);
+		return DLL().GetFunction<IQApplication*(*)(int argc, char* argv[])>(__func__)(argc, argv);
 	}
 
 public:
 	//**********************************************************
-	//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+	//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 	//QApplicationOfDLL() noexcept = delete;
 	QApplicationOfDLL(const __MySelfType&) noexcept = delete;
 	QApplicationOfDLL(__MySelfType&&) noexcept = delete;
 	constexpr ~QApplicationOfDLL() noexcept = default;
 	//**********************************************************
-	QApplicationOfDLL(int argc, char* argv[]) noexcept:_ap(InstanceCreationForQApplication(argc, argv))
+	QApplicationOfDLL(int argc, char* argv[]) noexcept:_ap(InstanceCreation(argc, argv))
 	{}
 
-	//‘ã“ü‰‰Zq(Assignment)
+	//ä»£å…¥æ¼”ç®—å­(Assignment)
 	//**********************************************************
-	//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+	//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 	__MySelfType& operator=(const __MySelfType&) noexcept = delete;
 	__MySelfType& operator=(__MySelfType&&) &noexcept = delete;
 	//**********************************************************

@@ -1,117 +1,15 @@
-#include <windows.h>
+ï»¿#include <windows.h>
 #include "QtWidgetsApplication.h"
-
-class TimeSimulateTest : public Simulator::BaseTimeSimulator
-{
-private:
-    using __MySelfType = TimeSimulateTest;
-    using __InheritanceType = BaseTimeSimulator;
-
-protected:
-    inline void UpdateIn100usCycle() noexcept override {}
-    inline void UpdateIn200usCycle() noexcept override {}
-    inline void UpdateIn500usCycle() noexcept override {}
-    inline void UpdateIn1msCycle()   noexcept override {}
-    inline void UpdateIn2msCycle()   noexcept override {}
-    inline void UpdateIn5msCycle()   noexcept override {}
-    inline void UpdateIn10msCycle()  noexcept override {}
-    inline void UpdateIn20msCycle()  noexcept override {}
-    inline void UpdateIn50msCycle()  noexcept override {}
-    inline void UpdateIn100msCycle() noexcept override {}
-    inline void UpdateIn200msCycle() noexcept override {}
-    inline void UpdateIn500msCycle() noexcept override {}
-    inline void UpdateIn1000msCycle()noexcept override
-    {
-        static Signal timer(0, "Timer", "TimeSimulateTest", "ƒ^ƒCƒ}");
-        timer++;
-
-        //new Signal(timer * 2, "temporary", "TimeSimulateTest");
-        if (temporary == nullptr) {
-            temporary = new Signal(timer * 2, "temporary", "TimeSimulateTest");
-        }
-        else {
-            delete temporary;
-            temporary = nullptr;
-        }
-    }
-    static inline Signal* temporary = nullptr;
-
-public:
-    using __InheritanceType::__InheritanceType; //Œp³Œ³‚ÌƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Íg‚í‚È‚¢
-
-    //‘ã“ü‰‰Zq(Assignment)
-    //**********************************************************
-    //ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
-    //__MySelfType& operator=(const __MySelfType&) noexcept = delete;
-    //__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
-    //**********************************************************
-    template<class T> inline __MySelfType& operator=(T& rhs) noexcept
-    {
-        __InheritanceType::operator=(rhs);
-        return *this;
-    }
-
-    template<class T> inline __MySelfType& operator=(T&& rhs) & noexcept
-    {
-        return operator=(rhs);
-    }
-}__TimeSimulateTest(0, "TimeSimulateTest", "TimeSimulateTest", "ƒ^ƒCƒ€ƒVƒ~ƒ…ƒŒ[ƒ^[");
-
-QtWidgetsApplication::SignalInstanceUpdateFunction* QtWidgetsApplication::SignalInstanceUpdateFunction::GetInstance()
-{
-    static SignalInstanceUpdateFunction instance; 
-    return &instance; 
-}
-void QtWidgetsApplication::SignalInstanceUpdateFunction::Registered(Simulator::BaseSimulator& rSignalInstance)
-{
-    QtWidgetsApplication::pSimulatorListDialog->AddElement(
-        reinterpret_cast<long long>(&rSignalInstance),
-        std::string(rSignalInstance.Name().data(), rSignalInstance.Name().size()),
-        std::string(rSignalInstance.Group().data(), rSignalInstance.Group().size()),
-        std::string(rSignalInstance.Comment().data(), rSignalInstance.Comment().size()),
-        static_cast<Simulator::BaseSimulator::__ValueType>(rSignalInstance)
-    );
-}
-
-void QtWidgetsApplication::SignalInstanceUpdateFunction::Delete(Simulator::BaseSimulator& rSignalInstance)
-{
-    QtWidgetsApplication::pSimulatorListDialog->RemovalElement(reinterpret_cast<long long>(&rSignalInstance));
-}
-
-void QtWidgetsApplication::SignalInstanceUpdateFunction::ValueUpdate(Simulator::BaseSimulator& rSignalInstance)
-{
-    QtWidgetsApplication::pSimulatorListDialog->ValueUpdate(
-        reinterpret_cast<long long>(&rSignalInstance),
-        static_cast<Simulator::BaseSimulator::__ValueType>(rSignalInstance)
-    );
-}
 
 QtWidgetsApplication::QtWidgetsApplication(QWidget *parent)
 : QMainWindow(parent)
 {
     ui.setupUi(this);
-    pSimulatorListDialog = new SimulatorListDialog();       //Ã“IƒŠƒ“ƒN
-    //pSimulatorListDialog = new SimulatorListDialogOfDLL();  //“®“IƒŠƒ“ƒN
-    Simulator::BaseSimulator::RegisterSignalListAcquisitionFunction(SignalInstanceUpdateFunction::GetInstance());
-
-    static Signal _Signal[10]=
-    {
-        {  1, "Test 1", "ƒeƒXƒg", "™š™œc" },
-        {  2, "Test 2", "ƒeƒXƒg", "™š™œc" },
-        {  3, "Test 3", "ƒeƒXƒg", "™š™œc" },
-        {  4, "Test 4", "ƒeƒXƒg", "™š™œc" },
-        {  5, "Test 5", "ƒeƒXƒg", "™š™œc" },
-        {  6, "Test 6", "ƒeƒXƒg", "™š™œc" },
-        {  7, "Test 7", "ƒeƒXƒg", "™š™œc" },
-        {  8, "Test 8", "ƒeƒXƒg", "™š™œc" },
-        {  9, "Test 9", "ƒeƒXƒg", "™š™œc" },
-        { 10, "Test10", "ƒeƒXƒg", "™š™œc" },
-    };
+    pSimulatorListDialog = new SimulatorListDialog();
 }
 
 QtWidgetsApplication::~QtWidgetsApplication()
 {
-    Simulator::BaseSimulator::DeleteSignalListAcquisitionFunction();
     delete pSimulatorListDialog;
 }
 

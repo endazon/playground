@@ -1,10 +1,10 @@
-#include <QtWidgets/QApplication>
+ï»¿#include <QtWidgets/QApplication>
 #include "QApplication_global.h"
 
 //QApplication
 namespace{
 
-// DLLƒCƒ“ƒ^[ƒtƒF[ƒXƒNƒ‰ƒX‚ÌÀ‘•
+// DLLã‚¤ãƒ³ã‚¿ãƒ¼ãƒ•ã‚§ãƒ¼ã‚¹ã‚¯ãƒ©ã‚¹ã®å®Ÿè£…
 class QApplicationOFDLL : public IQApplication
 {
 private:
@@ -31,8 +31,8 @@ public:
     }
 };
 
-// ƒGƒNƒXƒ|[ƒgŠÖ”‚ÌÀ‘•
-SIMULATORLISTDIALOG_EXPORT QApplicationOFDLL* load_QApplication_symbol(int argc, char* argv[])
+// ã‚¨ã‚¯ã‚¹ãƒãƒ¼ãƒˆé–¢æ•°ã®å®Ÿè£…
+SIMULATORLISTDIALOG_EXPORT QApplicationOFDLL* InstanceCreation(int argc, char* argv[])
 {
     return &QApplicationOFDLL::GetInstance(argc, argv);
 }

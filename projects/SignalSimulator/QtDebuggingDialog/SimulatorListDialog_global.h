@@ -1,4 +1,4 @@
-#pragma once
+Ôªø#pragma once
 
 class ISimulatorListDialog
 {
@@ -29,44 +29,41 @@ class SimulatorListDialogOfDLL : public ISimulatorListDialog
 private:
 	using __MySelfType = SimulatorListDialogOfDLL;
 
-	using load_SimulatorListDialog_symbol = ISimulatorListDialog * (*)();
-	using destroy_SimulatorListDialog_symbol = void(*)(ISimulatorListDialog*);
-
 	ISimulatorListDialog* _dialog;
 
 	inline Utility::DLLLoader& DLL()
 	{
 		return Utility::DLLLoader::GetInstance("SimulatorListDialog.dll");
 	}
-	inline ISimulatorListDialog* InstanceCreationForSimulatorListDialog()
+	inline ISimulatorListDialog* InstanceCreation()
 	{
-		return DLL().GetFunction<load_SimulatorListDialog_symbol>("load_SimulatorListDialog_symbol")();
+		return DLL().GetFunction<ISimulatorListDialog* (*)()>(__func__)();
 	}
 
-	inline void InstanceDestroyedForSimulatorListDialog(ISimulatorListDialog* p)
+	inline void InstanceDestroyed(ISimulatorListDialog* p)
 	{
-		DLL().GetFunction<destroy_SimulatorListDialog_symbol>("destroy_SimulatorListDialog_symbol")(p);
+		DLL().GetFunction<void(*)(ISimulatorListDialog*)>(__func__)(p);
 	}
 
 public:
 	//**********************************************************
-	//à√ñŸìIÇ…êÈåæÇ≥ÇÍÇÈ
+	//ÊöóÈªôÁöÑ„Å´ÂÆ£Ë®Ä„Åï„Çå„Çã
 	//SimulatorListDialogOfDLL() noexcept = delete;
 	SimulatorListDialogOfDLL(const __MySelfType&) noexcept = delete;
 	SimulatorListDialogOfDLL(__MySelfType&&) noexcept = delete;
 	//constexpr ~SimulatorListDialogOfDLL() noexcept = default;
 	//**********************************************************
-	SimulatorListDialogOfDLL() noexcept:_dialog(InstanceCreationForSimulatorListDialog())
+	SimulatorListDialogOfDLL() noexcept:_dialog(InstanceCreation())
 	{}
 
 	~SimulatorListDialogOfDLL() noexcept
 	{
-		InstanceDestroyedForSimulatorListDialog(_dialog);
+		InstanceDestroyed(_dialog);
 	}
 
-	//ë„ì¸ââéZéq(Assignment)
+	//‰ª£ÂÖ•ÊºîÁÆóÂ≠ê(Assignment)
 	//**********************************************************
-	//à√ñŸìIÇ…êÈåæÇ≥ÇÍÇÈ
+	//ÊöóÈªôÁöÑ„Å´ÂÆ£Ë®Ä„Åï„Çå„Çã
 	__MySelfType& operator=(const __MySelfType&) noexcept = delete;
 	__MySelfType& operator=(__MySelfType&&) &noexcept = delete;
 	//**********************************************************

@@ -1,10 +1,10 @@
-#include "SimulatorListDialog.h"
+Ôªø#include "SimulatorListDialog.h"
 #include "SimulatorListDialog_global.h"
 
 //SimulatorListDialog
 namespace{
 
-// DLLÉCÉìÉ^Å[ÉtÉFÅ[ÉXÉNÉâÉXÇÃé¿ëï
+// DLL„Ç§„É≥„Çø„Éº„Éï„Çß„Éº„Çπ„ÇØ„É©„Çπ„ÅÆÂÆüË£Ö
 class SimulatorListDialogOfDLL : public ISimulatorListDialog
 {
 public:
@@ -53,13 +53,13 @@ private:
     SimulatorListDialog dialog;
 };
 
-// ÉGÉNÉXÉ|Å[Égä÷êîÇÃé¿ëï
-SIMULATORLISTDIALOG_EXPORT SimulatorListDialogOfDLL* load_SimulatorListDialog_symbol()
+// „Ç®„ÇØ„Çπ„Éù„Éº„ÉàÈñ¢Êï∞„ÅÆÂÆüË£Ö
+SIMULATORLISTDIALOG_EXPORT SimulatorListDialogOfDLL* InstanceCreation()
 {
     return new SimulatorListDialogOfDLL();
 }
 
-SIMULATORLISTDIALOG_EXPORT void destroy_SimulatorListDialog_symbol(SimulatorListDialogOfDLL* p)
+SIMULATORLISTDIALOG_EXPORT void InstanceDestroyed(SimulatorListDialogOfDLL* p)
 {
     delete p;
 }

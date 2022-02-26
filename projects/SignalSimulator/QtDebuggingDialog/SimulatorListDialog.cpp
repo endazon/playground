@@ -1,4 +1,4 @@
-#include "SimulatorListDialog.h"
+ï»¿#include "SimulatorListDialog.h"
 
 SimulatorListDialog::SimulatorListDialog(QWidget *parent)
 : QWidget(parent)
@@ -11,7 +11,7 @@ void SimulatorListDialog::AddElement(long long key, std::string Name, std::strin
 {
     std::lock_guard<std::mutex> lock(_Mutex);
 
-    //‰Šúİ’è
+    //åˆæœŸè¨­å®š
     if (List.contains(key)) { return; }
     //Element element = Element(QString::fromStdString(Name), QString::fromStdString(Group), QString::fromStdString(Comment), Value);
     //Element element = Element(QString::fromUtf8(Name), QString::fromUtf8(Group), QString::fromUtf8(Comment), Value);
@@ -22,12 +22,12 @@ void SimulatorListDialog::AddElement(long long key, std::string Name, std::strin
     if (numberOfLists < 1) { return; }
     ui.TableWidget->setRowCount(numberOfLists);
 
-    //sƒwƒbƒ_’Ç‰Á
+    //è¡Œãƒ˜ãƒƒãƒ€è¿½åŠ 
     QTableWidgetItem* qtablewidgetverticalheaderitem = new QTableWidgetItem();
     qtablewidgetverticalheaderitem->setText(QString::number(List.indexOf(key) + 1));
     ui.TableWidget->setVerticalHeaderItem(addOffset, qtablewidgetverticalheaderitem);
 
-    //s—v‘f’Ç‰Á
+    //è¡Œè¦ç´ è¿½åŠ 
     const bool sortingEnabled = ui.TableWidget->isSortingEnabled();
     ui.TableWidget->setSortingEnabled(false);
     for (int i = 0; i < ui.TableWidget->columnCount(); i++)
@@ -43,7 +43,7 @@ void SimulatorListDialog::RemovalElement(long long key)
 {
     std::lock_guard<std::mutex> lock(_Mutex);
 
-    //‰Šúİ’è
+    //åˆæœŸè¨­å®š
     if (!List.contains(key)) { return; }
     qsizetype no = List.indexOf(key);
     List.remove(key);
@@ -51,7 +51,7 @@ void SimulatorListDialog::RemovalElement(long long key)
     const int addOffset = numberOfLists - 1;
     if (numberOfLists < 1) { return; }
 
-    //síœ
+    //è¡Œå‰Šé™¤
     delete ui.TableWidget->takeVerticalHeaderItem(no);
     for (int i = 0; i < ui.TableWidget->columnCount(); i++)
     {
@@ -60,12 +60,12 @@ void SimulatorListDialog::RemovalElement(long long key)
 
     for (qsizetype i = no + 1; i < numberOfLists + 1; i++)
     {
-        //sƒwƒbƒ_Ä”z’u
+        //è¡Œãƒ˜ãƒƒãƒ€å†é…ç½®
         QTableWidgetItem* qtablewidgetverticalheaderitem = ui.TableWidget->takeVerticalHeaderItem(i);
         qtablewidgetverticalheaderitem->setText(QString::number(i));
         ui.TableWidget->setVerticalHeaderItem(i - 1, qtablewidgetverticalheaderitem);
 
-        //s—v‘fÄ”z’u
+        //è¡Œè¦ç´ å†é…ç½®
         const bool sortingEnabled = ui.TableWidget->isSortingEnabled();
         ui.TableWidget->setSortingEnabled(false);
         for (int j = 0; j < ui.TableWidget->columnCount(); j++)
