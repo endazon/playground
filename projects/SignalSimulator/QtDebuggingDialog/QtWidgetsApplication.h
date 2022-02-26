@@ -35,11 +35,11 @@ public slots:
     void CloseSimulatorListDialog();
 
 protected:
-    inline SimulatorListDialog* InstanceCreationForSimulatorListDialog();
-    inline void InstanceDestroyedForSimulatorListDialog(SimulatorListDialog* p);
+    inline ISimulatorListDialog* InstanceCreationForSimulatorListDialog();
+    inline void InstanceDestroyedForSimulatorListDialog(ISimulatorListDialog* p);
 
 private:
     Ui::QtWidgetsApplicationClass ui;
     HMODULE hModuleSimulatorListDialog;
-    static inline SimulatorListDialog* pSimulatorListDialog;
+    static inline ISimulatorListDialog* pSimulatorListDialog;
 };

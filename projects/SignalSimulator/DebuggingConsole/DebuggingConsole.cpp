@@ -62,7 +62,7 @@ protected:
 	inline void UpdateIn1000msCycle()noexcept override{}
 
 public:
-	using __InheritanceType::__InheritanceType; //継承元のコンストラクタは使わない
+	using __InheritanceType::__InheritanceType;
 
 	//代入演算子(Assignment)
 	//**********************************************************
@@ -89,12 +89,95 @@ public:
 //	{1,"Test1", "テスト", "☆★☆彡"}
 //};
 
+class SimulatorListDialogOfDLL : public ISimulatorListDialog
+{
+private:
+	using __MySelfType = SimulatorListDialogOfDLL;
+
+	ISimulatorListDialog* _dialog;
+
+	inline Utility::DLLLoader& DLL()
+	{
+		return Utility::DLLLoader::GetInstance("SimulatorListDialog.dll");
+	}
+	inline ISimulatorListDialog* InstanceCreationForSimulatorListDialog()
+	{
+		return DLL().GetFunction<load_SimulatorListDialog_symbol>("load_SimulatorListDialog_symbol")();
+	}
+
+	inline void InstanceDestroyedForSimulatorListDialog(ISimulatorListDialog* p)
+	{
+		DLL().GetFunction<destroy_SimulatorListDialog_symbol>("destroy_SimulatorListDialog_symbol")(p);
+	}
+
+public:
+	//**********************************************************
+	//暗黙的に宣言される
+	//SimulatorListDialogOfDLL() noexcept = delete;
+	SimulatorListDialogOfDLL(const __MySelfType&) noexcept = delete;
+	SimulatorListDialogOfDLL(__MySelfType&&) noexcept = delete;
+	//constexpr ~SimulatorListDialogOfDLL() noexcept = default;
+	//**********************************************************
+	SimulatorListDialogOfDLL() noexcept:_dialog(InstanceCreationForSimulatorListDialog())
+	{}
+
+	~SimulatorListDialogOfDLL() noexcept
+	{
+		InstanceDestroyedForSimulatorListDialog(_dialog);
+	}
+
+	//代入演算子(Assignment)
+	//**********************************************************
+	//暗黙的に宣言される
+	__MySelfType& operator=(const __MySelfType&) noexcept = delete;
+	__MySelfType& operator=(__MySelfType&&) &noexcept = delete;
+	//**********************************************************
+
+	//Qt
+	bool isVisible() override
+	{
+		return _dialog->isVisible();
+	}
+	bool isHidden() override
+	{
+		return _dialog->isHidden();
+	}
+	void show() override
+	{
+		_dialog->show();
+	}
+	void showMaximized() override
+	{
+		_dialog->showMaximized();
+	}
+	void close() override
+	{
+		_dialog->close();
+	}
+
+	void AddElement(long long key, std::string Name, std::string Group, std::string Comment, long double Value) override
+	{
+		_dialog->AddElement(key, Name, Group, Comment, Value);
+	}
+
+	void RemovalElement(long long key) override
+	{
+		_dialog->RemovalElement(key);
+	}
+
+	void ValueUpdate(long long key, long double Value) override
+	{
+		_dialog->ValueUpdate(key, Value);
+	}
+};
+
 int main()
 {
 	auto timer = []()
 	{
 		GeneralPurposeTimer::Measurement::ElapsedTimeDetection<GeneralPurposeTimer::Measurement::MediumPrecision> timer = 1000 * 1000;
 		Signal time(1, "Test", "テスト", "☆★☆彡");
+		SimulatorListDialogOfDLL dialog;
 
 		while (true)
 		{

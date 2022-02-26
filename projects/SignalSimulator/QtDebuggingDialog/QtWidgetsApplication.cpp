@@ -117,16 +117,16 @@ QtWidgetsApplication::~QtWidgetsApplication()
     FreeLibrary(hModuleSimulatorListDialog);
 }
 
-SimulatorListDialog* QtWidgetsApplication::InstanceCreationForSimulatorListDialog()
+ISimulatorListDialog* QtWidgetsApplication::InstanceCreationForSimulatorListDialog()
 {
     if (hModuleSimulatorListDialog != nullptr) { return reinterpret_cast<load_SimulatorListDialog_symbol>(GetProcAddress(hModuleSimulatorListDialog, "load_SimulatorListDialog_symbol"))(); }
-    return new SimulatorListDialog();
+    //return nullptr;
 }
 
-void QtWidgetsApplication::InstanceDestroyedForSimulatorListDialog(SimulatorListDialog* p)
+void QtWidgetsApplication::InstanceDestroyedForSimulatorListDialog(ISimulatorListDialog* p)
 {
     if (hModuleSimulatorListDialog != nullptr) { reinterpret_cast<destroy_SimulatorListDialog_symbol>(GetProcAddress(hModuleSimulatorListDialog, "destroy_SimulatorListDialog_symbol"))(p); return; }
-    delete p;
+    //delete p;
 }
 
 void QtWidgetsApplication::ShowSimulatorListDialog()

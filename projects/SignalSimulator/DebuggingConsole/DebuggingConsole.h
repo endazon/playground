@@ -13,3 +13,4 @@
 #include "UnitOfNumber.hpp"
 #include "ScientificPostulates.hpp"
 #include "Simulator.hpp"
+#include "./../QtDebuggingDialog/SimulatorListDialog_global.h"

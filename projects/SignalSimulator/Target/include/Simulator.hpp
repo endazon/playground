@@ -2,7 +2,6 @@
 
 #include <mutex>
 #include <thread>
-#include "Utility.hpp"
 #include "UnitOfNumber.hpp"
 #include "GeneralPurposeTimer.hpp"
 
