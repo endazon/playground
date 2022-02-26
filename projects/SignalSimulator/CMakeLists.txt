@@ -9,6 +9,7 @@ enable_testing()
 
 include_directories (
         ${PROJECT_SOURCE_DIR}/Target/include
+        ${PROJECT_SOURCE_DIR}/QtDebuggingDialog
 )
 
 # サブディレクトリを登録

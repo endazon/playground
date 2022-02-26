@@ -88,11 +88,10 @@ void QtWidgetsApplication::SignalInstanceUpdateFunction::ValueUpdate(Simulator::
 
 QtWidgetsApplication::QtWidgetsApplication(QWidget *parent)
 : QMainWindow(parent)
-//, hModuleSimulatorListDialog(nullptr)                                   //静的リンク時
-, hModuleSimulatorListDialog(LoadLibrary(L"SimulatorListDialog.dll"))   //動的リンク時
 {
     ui.setupUi(this);
-    pSimulatorListDialog = InstanceCreationForSimulatorListDialog();
+    pSimulatorListDialog = new SimulatorListDialog();       //静的リンク時
+    //pSimulatorListDialog = new SimulatorListDialogOfDLL();  //動的リンク時
     Simulator::BaseSimulator::RegisterSignalListAcquisitionFunction(SignalInstanceUpdateFunction::GetInstance());
 
     static Signal _Signal[10]=
@@ -113,20 +112,7 @@ QtWidgetsApplication::QtWidgetsApplication(QWidget *parent)
 QtWidgetsApplication::~QtWidgetsApplication()
 {
     Simulator::BaseSimulator::DeleteSignalListAcquisitionFunction();
-    InstanceDestroyedForSimulatorListDialog(pSimulatorListDialog);
-    FreeLibrary(hModuleSimulatorListDialog);
-}
-
-ISimulatorListDialog* QtWidgetsApplication::InstanceCreationForSimulatorListDialog()
-{
-    if (hModuleSimulatorListDialog != nullptr) { return reinterpret_cast<load_SimulatorListDialog_symbol>(GetProcAddress(hModuleSimulatorListDialog, "load_SimulatorListDialog_symbol"))(); }
-    //return nullptr;
-}
-
-void QtWidgetsApplication::InstanceDestroyedForSimulatorListDialog(ISimulatorListDialog* p)
-{
-    if (hModuleSimulatorListDialog != nullptr) { reinterpret_cast<destroy_SimulatorListDialog_symbol>(GetProcAddress(hModuleSimulatorListDialog, "destroy_SimulatorListDialog_symbol"))(p); return; }
-    //delete p;
+    delete pSimulatorListDialog;
 }
 
 void QtWidgetsApplication::ShowSimulatorListDialog()

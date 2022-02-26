@@ -2,6 +2,7 @@
 
 #include <QtWidgets/QMainWindow>
 #include "ui_QtWidgetsApplication.h"
+#include "SimulatorListDialog.h"
 #include "SimulatorListDialog_global.h"
 
 #include "Utility.hpp"
@@ -34,12 +35,9 @@ public slots:
     void ShowSimulatorListDialog();
     void CloseSimulatorListDialog();
 
-protected:
-    inline ISimulatorListDialog* InstanceCreationForSimulatorListDialog();
-    inline void InstanceDestroyedForSimulatorListDialog(ISimulatorListDialog* p);
-
 private:
     Ui::QtWidgetsApplicationClass ui;
-    HMODULE hModuleSimulatorListDialog;
-    static inline ISimulatorListDialog* pSimulatorListDialog;
+    static inline SimulatorListDialog* pSimulatorListDialog;    //静的リンク時
+    //static inline ISimulatorListDialog* pSimulatorListDialog;   //動的リンク時
+   
 };

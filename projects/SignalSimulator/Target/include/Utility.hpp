@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <type_traits>
 #include <cassert>
+#include <codecvt>
+#include <map>
 
 namespace Utility
 {
@@ -12,6 +14,7 @@ namespace Utility
 	private:
 		using __MySelfType = DLLLoader;
 
+		static inline std::map<std::wstring, __MySelfType*> _ListOfEntities;
 		HMODULE _hModule;
 
 		//**********************************************************
@@ -21,12 +24,12 @@ namespace Utility
 		DLLLoader(__MySelfType&&) noexcept = delete;
 		//constexpr ~DLLLoader() noexcept = default;
 		//**********************************************************
-		DLLLoader(LPCSTR name) noexcept : _hModule(LoadLibraryA(name))
+		DLLLoader(std::string name) noexcept : _hModule(LoadLibraryA(name.c_str()))
 		{
 			assert(_hModule != nullptr);
 		}
 
-		DLLLoader(LPCWSTR name) noexcept : _hModule(LoadLibraryW(name))
+		DLLLoader(std::wstring name) noexcept : _hModule(LoadLibraryW(name.c_str()))
 		{
 			assert(_hModule != nullptr);
 		}
@@ -48,22 +51,41 @@ namespace Utility
 			return _hModule;
 		}
 
+		static __MySelfType& Instance(std::wstring name)
+		{
+			//まだロードしていない
+			if (_ListOfEntities.find(name) == _ListOfEntities.end())
+			{
+				_ListOfEntities[name] = new __MySelfType(name.c_str());
+			}
+			return *_ListOfEntities[name];
+		}
+
+		//文字列変換(UTF-8→UTF-16)
+		//※C++17では非推奨
+		static std::wstring convertStringToWString(const std::string& from)
+		{
+			//UTF-8とUTF-16の相互変換を行うコンバーター
+			std::wstring_convert<std::codecvt_utf8<std::wstring::value_type>, std::wstring::value_type> converter;
+
+			//UTF-8からUTF-16に変換
+			return converter.from_bytes(from);			
+		}
+
 	public:
-		inline static __MySelfType& GetInstance(LPCSTR name)
+		inline static __MySelfType& GetInstance(std::string name)
 		{
-			static __MySelfType instance(name);
-			return instance;
+			return Instance(convertStringToWString(name));
 		}
 
-		inline static __MySelfType& GetInstance(LPCWSTR name)
+		inline static __MySelfType& GetInstance(std::wstring name)
 		{
-			static __MySelfType instance(name);
-			return instance;
+			return Instance(name);
 		}
 
-		template<class T> inline T GetFunction(LPCSTR funcName)
+		template<class T> inline T GetFunction(std::string funcName)
 		{
-			return reinterpret_cast<T>(GetProcAddress(GetModule(), funcName));
+			return reinterpret_cast<T>(GetProcAddress(GetModule(), funcName.c_str()));
 		}
 	};
 }

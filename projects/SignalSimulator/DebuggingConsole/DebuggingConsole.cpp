@@ -82,6 +82,45 @@ public:
 	}
 };
 
+class SignalInstanceUpdateFunction : public Simulator::BaseSimulator::ISignalInstanceUpdateFunction
+{
+public:
+	SignalInstanceUpdateFunction(SimulatorListDialogOfDLL& d) :dialog(d) {}
+
+	static SignalInstanceUpdateFunction* GetInstance(SimulatorListDialogOfDLL& dialog)
+	{
+		static SignalInstanceUpdateFunction instance(dialog);
+		return &instance;
+	}
+
+	void Registered(Simulator::BaseSimulator& rSignalInstance) override
+	{
+		dialog.AddElement(
+			reinterpret_cast<long long>(&rSignalInstance),
+			std::string(rSignalInstance.Name().data(), rSignalInstance.Name().size()),
+			std::string(rSignalInstance.Group().data(), rSignalInstance.Group().size()),
+			std::string(rSignalInstance.Comment().data(), rSignalInstance.Comment().size()),
+			static_cast<Simulator::BaseSimulator::__ValueType>(rSignalInstance)
+		);
+	}
+
+	void Delete(Simulator::BaseSimulator& rSignalInstance) override
+	{
+		dialog.RemovalElement(reinterpret_cast<long long>(&rSignalInstance));
+	}
+
+	void ValueUpdate(Simulator::BaseSimulator& rSignalInstance) override
+	{
+		dialog.ValueUpdate(
+			reinterpret_cast<long long>(&rSignalInstance),
+			static_cast<Simulator::BaseSimulator::__ValueType>(rSignalInstance)
+		);
+	}
+
+private:
+	SimulatorListDialogOfDLL& dialog;
+};
+
 //static TimeSimulateTest timeSimulate = { 0,"Test0", "テスト", "☆★☆彡" };
 //static TimeSimulateTest timeSimulate[5000] = 
 //{ 
@@ -89,108 +128,39 @@ public:
 //	{1,"Test1", "テスト", "☆★☆彡"}
 //};
 
-class SimulatorListDialogOfDLL : public ISimulatorListDialog
+int main(int argc, char* argv[])
 {
-private:
-	using __MySelfType = SimulatorListDialogOfDLL;
+	QApplicationOfDLL ap(argc, argv);
+	SimulatorListDialogOfDLL dialog;
 
-	ISimulatorListDialog* _dialog;
-
-	inline Utility::DLLLoader& DLL()
-	{
-		return Utility::DLLLoader::GetInstance("SimulatorListDialog.dll");
-	}
-	inline ISimulatorListDialog* InstanceCreationForSimulatorListDialog()
-	{
-		return DLL().GetFunction<load_SimulatorListDialog_symbol>("load_SimulatorListDialog_symbol")();
-	}
-
-	inline void InstanceDestroyedForSimulatorListDialog(ISimulatorListDialog* p)
-	{
-		DLL().GetFunction<destroy_SimulatorListDialog_symbol>("destroy_SimulatorListDialog_symbol")(p);
-	}
-
-public:
-	//**********************************************************
-	//暗黙的に宣言される
-	//SimulatorListDialogOfDLL() noexcept = delete;
-	SimulatorListDialogOfDLL(const __MySelfType&) noexcept = delete;
-	SimulatorListDialogOfDLL(__MySelfType&&) noexcept = delete;
-	//constexpr ~SimulatorListDialogOfDLL() noexcept = default;
-	//**********************************************************
-	SimulatorListDialogOfDLL() noexcept:_dialog(InstanceCreationForSimulatorListDialog())
-	{}
-
-	~SimulatorListDialogOfDLL() noexcept
-	{
-		InstanceDestroyedForSimulatorListDialog(_dialog);
-	}
-
-	//代入演算子(Assignment)
-	//**********************************************************
-	//暗黙的に宣言される
-	__MySelfType& operator=(const __MySelfType&) noexcept = delete;
-	__MySelfType& operator=(__MySelfType&&) &noexcept = delete;
-	//**********************************************************
-
-	//Qt
-	bool isVisible() override
-	{
-		return _dialog->isVisible();
-	}
-	bool isHidden() override
-	{
-		return _dialog->isHidden();
-	}
-	void show() override
-	{
-		_dialog->show();
-	}
-	void showMaximized() override
-	{
-		_dialog->showMaximized();
-	}
-	void close() override
-	{
-		_dialog->close();
-	}
-
-	void AddElement(long long key, std::string Name, std::string Group, std::string Comment, long double Value) override
-	{
-		_dialog->AddElement(key, Name, Group, Comment, Value);
-	}
-
-	void RemovalElement(long long key) override
-	{
-		_dialog->RemovalElement(key);
-	}
-
-	void ValueUpdate(long long key, long double Value) override
-	{
-		_dialog->ValueUpdate(key, Value);
-	}
-};
-
-int main()
-{
+	Simulator::BaseSimulator::RegisterSignalListAcquisitionFunction(SignalInstanceUpdateFunction::GetInstance(dialog));
+	dialog.show();
 	auto timer = []()
 	{
 		GeneralPurposeTimer::Measurement::ElapsedTimeDetection<GeneralPurposeTimer::Measurement::MediumPrecision> timer = 1000 * 1000;
 		Signal time(1, "Test", "テスト", "☆★☆彡");
-		SimulatorListDialogOfDLL dialog;
+		Signal* temporary = nullptr;
 
 		while (true)
 		{
 			if (timer.isElapsed() )
 			{
 				time++;
+
+				if (temporary == nullptr) {
+					temporary = new Signal(time * 2, "temporary", "TimeSimulateTest");
+				}
+				else {
+					delete temporary;
+					temporary = nullptr;
+				}
 			}
 		}
 
 	};
 
 	std::thread thread(timer);
-	thread.join();
+	thread.detach();
 
-	return 0;
+	return ap.exec();
 }
