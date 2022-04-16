@@ -25,9 +25,9 @@ public:
             switch (i)
             {
             case 0:  return Name;
-            case 1:  return Group;
+            case 1:  return QString::number(Value);
             case 2:  return Comment;
-            case 3:  return QString::number(Value);
+            case 3:  return Group;
             default: return QString();
             }
         }

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>826</width>
-    <height>270</height>
+    <width>794</width>
+    <height>397</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -31,6 +31,12 @@
    </property>
    <item>
     <widget class="QTableWidget" name="TableWidget">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="sizeAdjustPolicy">
       <enum>QAbstractScrollArea::AdjustToContents</enum>
      </property>
@@ -44,7 +50,7 @@
      </column>
      <column>
       <property name="text">
-       <string>Group</string>
+       <string>Value</string>
       </property>
      </column>
      <column>
@@ -54,7 +60,7 @@
      </column>
      <column>
       <property name="text">
-       <string>Value</string>
+       <string>Group</string>
       </property>
      </column>
     </widget>

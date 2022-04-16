@@ -86,6 +86,6 @@ void SimulatorListDialog::ValueUpdate(long long key, long double Value)
     Element& element = List[key];
     element.Value = Value;
 
-    QTableWidgetItem* qtablewidgetitem = ui.TableWidget->item(List.indexOf(key), 3);
-    qtablewidgetitem->setText(element.toQString(3));
+    QTableWidgetItem* qtablewidgetitem = ui.TableWidget->item(List.indexOf(key), 1);
+    qtablewidgetitem->setText(element.toQString(1));
 }
