@@ -85,9 +85,9 @@ public:
 class SignalInstanceUpdateFunction : public Simulator::BaseSimulator::ISignalInstanceUpdateFunction
 {
 public:
-	SignalInstanceUpdateFunction(SimulatorListDialogOfDLL& d) :dialog(d) {}
+	SignalInstanceUpdateFunction(SimulatorListDialogForDLL& d) :dialog(d) {}
 
-	static SignalInstanceUpdateFunction* GetInstance(SimulatorListDialogOfDLL& dialog)
+	static SignalInstanceUpdateFunction* GetInstance(SimulatorListDialogForDLL& dialog)
 	{
 		static SignalInstanceUpdateFunction instance(dialog);
 		return &instance;
@@ -118,7 +118,7 @@ public:
 	}
 
 private:
-	SimulatorListDialogOfDLL& dialog;
+	SimulatorListDialogForDLL& dialog;
 };
 
 //static TimeSimulateTest timeSimulate = { 0,"Test0", "テスト", "☆★☆彡" };
@@ -130,8 +130,8 @@ private:
 
 int main(int argc, char* argv[])
 {
-	QApplicationOfDLL ap(argc, argv);
-	SimulatorListDialogOfDLL dialog;
+	QApplicationForDLL ap(argc, argv);
+	SimulatorListDialogForDLL dialog;
 
 	Simulator::BaseSimulator::RegisterSignalListAcquisitionFunction(SignalInstanceUpdateFunction::GetInstance(dialog));
 	dialog.show();

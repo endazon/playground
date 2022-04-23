@@ -13,5 +13,5 @@
 #include "UnitOfNumber.hpp"
 #include "ScientificPostulates.hpp"
 #include "Simulator.hpp"
-#include "QApplication_global.h"
-#include "SimulatorListDialog_global.h"
+#include "./QApplication/QApplication_global.h"
+#include "./QSimulatorList/SimulatorListDialog_global.h"

@@ -1,14 +1,14 @@
 ﻿#include "SimulatorListDialog.h"
 #include "SimulatorListDialog_global.h"
 
-//SimulatorListDialog
-namespace{
+namespace {
 
+//SimulatorListDialog
 // DLLインターフェースクラスの実装
-class SimulatorListDialogOfDLL : public ISimulatorListDialog
+class SimulatorListDialogForDLL : public ISimulatorListDialog
 {
 public:
-    SimulatorListDialogOfDLL()
+    SimulatorListDialogForDLL()
     : dialog(Q_NULLPTR)
     {}
 
@@ -54,12 +54,12 @@ private:
 };
 
 // エクスポート関数の実装
-SIMULATORLISTDIALOG_EXPORT SimulatorListDialogOfDLL* InstanceCreation()
+SIMULATORLISTDIALOG_EXPORT SimulatorListDialogForDLL* InstanceCreation()
 {
-    return new SimulatorListDialogOfDLL();
+    return new SimulatorListDialogForDLL();
 }
 
-SIMULATORLISTDIALOG_EXPORT void InstanceDestroyed(SimulatorListDialogOfDLL* p)
+SIMULATORLISTDIALOG_EXPORT void InstanceDestroyed(SimulatorListDialogForDLL* p)
 {
     delete p;
 }

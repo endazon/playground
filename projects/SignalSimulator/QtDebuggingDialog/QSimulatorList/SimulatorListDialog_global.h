@@ -1,5 +1,19 @@
 ﻿#pragma once
 
+//struct SimulatorListAttribute
+//{
+//	std::string Name;
+//	std::string Group;
+//	std::string Comment;
+//	long double Value;
+//};
+//
+//struct SimulatorListElement
+//{
+//	long long key;
+//	SimulatorListAttribute& attribute;
+//};
+
 class ISimulatorListDialog
 {
 public:
@@ -24,10 +38,10 @@ public:
 
 #  define SIMULATORLISTDIALOG_EXPORT extern "C" __declspec(dllimport)
 
-class SimulatorListDialogOfDLL : public ISimulatorListDialog
+class SimulatorListDialogForDLL : public ISimulatorListDialog
 {
 private:
-	using __MySelfType = SimulatorListDialogOfDLL;
+	using __MySelfType = SimulatorListDialogForDLL;
 
 	ISimulatorListDialog* _dialog;
 
@@ -48,15 +62,15 @@ private:
 public:
 	//**********************************************************
 	//暗黙的に宣言される
-	//SimulatorListDialogOfDLL() noexcept = delete;
-	SimulatorListDialogOfDLL(const __MySelfType&) noexcept = delete;
-	SimulatorListDialogOfDLL(__MySelfType&&) noexcept = delete;
-	//constexpr ~SimulatorListDialogOfDLL() noexcept = default;
+	//SimulatorListDialogForDLL() noexcept = delete;
+	SimulatorListDialogForDLL(const __MySelfType&) noexcept = delete;
+	SimulatorListDialogForDLL(__MySelfType&&) noexcept = delete;
+	//constexpr ~SimulatorListDialogForDLL() noexcept = default;
 	//**********************************************************
-	SimulatorListDialogOfDLL() noexcept:_dialog(InstanceCreation())
+	SimulatorListDialogForDLL() noexcept:_dialog(InstanceCreation())
 	{}
 
-	~SimulatorListDialogOfDLL() noexcept
+	~SimulatorListDialogForDLL() noexcept
 	{
 		InstanceDestroyed(_dialog);
 	}

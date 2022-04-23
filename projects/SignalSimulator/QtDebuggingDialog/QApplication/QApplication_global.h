@@ -16,10 +16,10 @@ public:
 
 #  define SIMULATORLISTDIALOG_EXPORT extern "C" __declspec(dllimport)
 
-class QApplicationOfDLL : public IQApplication
+class QApplicationForDLL : public IQApplication
 {
 private:
-	using __MySelfType = QApplicationOfDLL;
+	using __MySelfType = QApplicationForDLL;
 
 	IQApplication* _ap;
 
@@ -35,12 +35,12 @@ private:
 public:
 	//**********************************************************
 	//暗黙的に宣言される
-	//QApplicationOfDLL() noexcept = delete;
-	QApplicationOfDLL(const __MySelfType&) noexcept = delete;
-	QApplicationOfDLL(__MySelfType&&) noexcept = delete;
-	constexpr ~QApplicationOfDLL() noexcept = default;
+	//QApplicationForDLL() noexcept = delete;
+	QApplicationForDLL(const __MySelfType&) noexcept = delete;
+	QApplicationForDLL(__MySelfType&&) noexcept = delete;
+	constexpr ~QApplicationForDLL() noexcept = default;
 	//**********************************************************
-	QApplicationOfDLL(int argc, char* argv[]) noexcept:_ap(InstanceCreation(argc, argv))
+	QApplicationForDLL(int argc, char* argv[]) noexcept:_ap(InstanceCreation(argc, argv))
 	{}
 
 	//代入演算子(Assignment)

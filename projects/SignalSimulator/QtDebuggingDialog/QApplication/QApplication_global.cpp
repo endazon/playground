@@ -2,17 +2,17 @@
 #include "QApplication_global.h"
 
 //QApplication
-namespace{
+namespace {
 
 // DLLインターフェースクラスの実装
-class QApplicationOFDLL : public IQApplication
+class QApplicationForDLL : public IQApplication
 {
 private:
-    using __MySelfType = QApplicationOFDLL;
+    using __MySelfType = QApplicationForDLL;
 
     QApplication ap;
 
-    QApplicationOFDLL(int argc, char* argv[])
+    QApplicationForDLL(int argc, char* argv[])
     : ap(argc, argv)
     {}
 
@@ -32,9 +32,9 @@ public:
 };
 
 // エクスポート関数の実装
-SIMULATORLISTDIALOG_EXPORT QApplicationOFDLL* InstanceCreation(int argc, char* argv[])
+SIMULATORLISTDIALOG_EXPORT QApplicationForDLL* InstanceCreation(int argc, char* argv[])
 {
-    return &QApplicationOFDLL::GetInstance(argc, argv);
+    return &QApplicationForDLL::GetInstance(argc, argv);
 }
 
 }
