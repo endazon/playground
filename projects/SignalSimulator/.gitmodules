@@ -1,3 +1,6 @@
 [submodule "cmake/DownloadProject"]
 	path = cmake/DownloadProject
 	url = https://github.com/Crascit/DownloadProject.git
+[submodule "BinaryEditorBz"]
+	path = BinaryEditorBz
+	url = https://gitlab.com/devill.tamachan/binaryeditorbz.git
