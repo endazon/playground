@@ -160,17 +160,24 @@ void SimulatorListDialog::AddElement(long long key, std::string Name, std::strin
     std::lock_guard<std::mutex> lock(_Mutex);
 
     if (List.contains(key)) { return; }
+
+    //準備
     auto table = ui.TableWidget;
     auto element = new SimulatorListDialog::Element(Name, Group, Comment, Value);
     List[key] = element;
     const qsizetype rowCount = List.size();
     if (rowCount < 1) { return; }
 
+    //前処理
     table->setRowCount(rowCount);
-    const bool sortingEnabled = table->isSortingEnabled();
-    table->setSortingEnabled(false);
-    element->setupItem(*table);
-    table->setSortingEnabled(sortingEnabled);
+
+    //リスト処理
+    {
+        const bool sortingEnabled = table->isSortingEnabled();
+        table->setSortingEnabled(false);
+        element->setupItem(*table);
+        table->setSortingEnabled(sortingEnabled);
+    }
 }
 
 void SimulatorListDialog::RemovalElement(long long key)
@@ -178,15 +185,23 @@ void SimulatorListDialog::RemovalElement(long long key)
     std::lock_guard<std::mutex> lock(_Mutex);
 
     if (!List.contains(key)) { return; }
+
+    //準備
     auto table = ui.TableWidget;
-    auto element = static_cast<SimulatorListDialog::Element*>(List.take(key)->pop());
+    auto element = static_cast<SimulatorListDialog::Element*>(List.value(key)->pop());
+    List.remove(key);
     const qsizetype rowCount = List.size();
     if (rowCount < 1) { return; }
 
-    const bool sortingEnabled = table->isSortingEnabled();
-    table->setSortingEnabled(false);
-    element->relocationItem(*table);
-    table->setSortingEnabled(sortingEnabled);
+    //リスト処理
+    {
+        const bool sortingEnabled = table->isSortingEnabled();
+        table->setSortingEnabled(false);
+        element->relocationItem(*table);
+        table->setSortingEnabled(sortingEnabled);
+    }
+
+    //後始末
     delete element;
     table->setRowCount(rowCount);
 }
@@ -196,6 +211,10 @@ void SimulatorListDialog::ValueUpdate(long long key, long double Value)
     std::lock_guard<std::mutex> lock(_Mutex);
 
     if (!List.contains(key)) { return; }
-    auto element = List[key];
-    element->setValue(Value);
+
+    //リスト処理
+    {
+        auto element = List[key];
+        element->setValue(Value);
+    }
 }
