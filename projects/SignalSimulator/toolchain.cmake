@@ -15,8 +15,16 @@ set(QTDIR "C:/03_liblary/Qt/6.2.3/msvc2019_64")
 
 # Qtƒ‰ƒCƒuƒ‰ƒŠŒQ
 set(QT_LIBRARY_DIR "C:/03_liblary/Bat/Qt/output")
+#set(ZLIB_LIBRARY "C:/03_liblary/zlib/lib/Debug/zlibd.lib")
+set(ZLIB_LIBRARY "C:/03_liblary/zlib/lib/Release/zlib.lib")
+set(ZLIB_INCLUDE_DIR "C:/03_liblary/zlib/include")
+
+include_directories (
+	"C:/03_liblary/WTL/Include"
+)
 
 message(STATUS "CMAKE_CXX_FLAGS_DEBUG = ${CMAKE_CXX_FLAGS_DEBUG}")
 message(STATUS "CMAKE_CXX_FLAGS_RELEASE = ${CMAKE_CXX_FLAGS_RELEASE}")
 message(STATUS "QTDIR = ${QTDIR}")
 message(STATUS "QT_LIBRARY_DIR = ${QT_LIBRARY_DIR}")
+message(STATUS "CMAKE_MODULE_PATH = ${CMAKE_MODULE_PATH}")
