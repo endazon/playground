@@ -1,5 +1,4 @@
-﻿
-#pragma once
+﻿#pragma once
 
 #include <iostream>
 #include <stdint.h>
@@ -350,7 +349,6 @@ namespace GeneralPurposeTimer
 				time.day         = tm.tm_mday;
 				time.month       = tm.tm_mon  + 1;
 				time.year        = tm.tm_year + 1900;
-				tz.get_info().abbrev.c_str();
 
 				return standardDisplay(time);
 			}
