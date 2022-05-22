@@ -1,7 +1,6 @@
 #pragma once
 
 #include <mutex>
-#include <thread>
 #include <QtWidgets/QWidget>
 #include "ui_SimulatorListDialog.h"
 

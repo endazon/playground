@@ -3,6 +3,7 @@
 #include <QtWidgets/QMainWindow>
 #include "ui_QtWidgetsApplication.h"
 #include "SimulatorListDialog.h"
+#include "CommunicationHistoryListDialog.h"
 
 class QtWidgetsApplication : public QMainWindow
 {
@@ -15,6 +16,8 @@ public:
 public slots:
     void ShowSimulatorListDialog();
     void CloseSimulatorListDialog();
+    void ShowCommunicationHistoryListDialog();
+    void CloseCommunicationHistoryListDialog();
 
 protected:
     void timerEvent(QTimerEvent* event) override;
@@ -22,5 +25,5 @@ protected:
 private:
     Ui::QtWidgetsApplicationClass ui;
     SimulatorListDialog Dialog;
-   
+    CommunicationHistoryListDialog Dialog2;
 };

@@ -19,17 +19,20 @@ option(QT_BUILD_SHARED_LIBS "build Qt as a shared library" OFF)
 include_directories (
         ./QApplication
         ./QSimulatorList
+		./QCommunicationHistoryList
 )
 
 # サブディレクトリを登録
 add_subdirectory(QApplication)
 add_subdirectory(QSimulatorList)
+add_subdirectory(QCommunicationHistoryList)
 
 # QtDebuggingDialog
 add_executable(QtDebuggingDialog 
 	QtDebuggingDialog.cpp
 	QtWidgetsApplication QtWidgetsApplication.cpp QtWidgetsApplication.ui QtWidgetsApplication.qrc
 	./QSimulatorList/SimulatorListDialog  ./QSimulatorList/SimulatorListDialog.cpp  ./QSimulatorList/SimulatorListDialog.ui  ./QSimulatorList/SimulatorListDialog.qrc
+	./QCommunicationHistoryList/CommunicationHistoryListDialog  ./QCommunicationHistoryList/CommunicationHistoryListDialog.cpp  ./QCommunicationHistoryList/CommunicationHistoryListDialog.ui  ./QCommunicationHistoryList/CommunicationHistoryListDialog.qrc
 )
 target_link_libraries(QtDebuggingDialog Qt6::Core Qt6::Gui Qt6::Widgets)
 target_compile_features(QtDebuggingDialog PUBLIC cxx_std_20)

@@ -287,14 +287,24 @@ namespace GeneralPurposeTimer
 
 		private:
 			const std::string_view TimeZone;
+			struct sTime
+			{
+				uint32_t year;
+				uint32_t month;
+				uint32_t day;
+				uint32_t hour;
+				uint32_t minute;
+				uint32_t second;
+				uint64_t millisecond;
+			};
 
 		public:
 			UTC(std::string_view _tz = std::chrono::current_zone()->name()) :TimeZone(_tz) {}
 
 			inline auto now()
 			{
-				// local_timeは、システム時間のエポックからの経過時間によって構築できる
-				return std::chrono::local_time<std::chrono::system_clock::duration>(std::chrono::system_clock::now().time_since_epoch());
+				// sys_timeは、システム時間のエポックからの経過時間によって構築できる
+				return std::chrono::sys_time<std::chrono::system_clock::duration>(std::chrono::system_clock::now().time_since_epoch());
 			}
 
 			inline auto timezone()
@@ -302,20 +312,47 @@ namespace GeneralPurposeTimer
 				return std::chrono::zoned_time(TimeZone, now());
 			}
 
+			inline auto standardDisplay(const sTime& time)
+			{
+				char str[sizeof("YYYY-MM-DD hh:mm:ss.fff XXX")];
+				assert(sprintf_s(str, "%04d-%02d-%02d %02d:%02d:%02d.%03I64d %s"
+					, time.year
+					, time.month
+					, time.day
+					, time.hour
+					, time.minute
+					, time.second
+					, time.millisecond
+					, std::chrono::zoned_time(TimeZone).get_info().abbrev.c_str()
+				) == 27);
+				return std::string(str);
+			}
+
+			inline auto _standardDisplay(const sTime& time)
+			{
+				char str[sizeof("YYYY-MM-DDThh:mm:ss.fff(XXX+hh:mm)")];
+				assert(sprintf_s(str, "%04d-%02d-%02dT%02d:%02d:%02d.%03I64d", time.year, time.month, time.day, time.hour, time.minute, time.second, time.millisecond) == 23);
+				assert(sprintf_s(str, "%s(%s%s%02d:%02d)", str, TimeZone.data(), "+", 0, 0) == 34);
+				return std::string(str);
+			}
+
 			inline auto format()
 			{
-				auto tz     = timezone();
-				auto time   = std::chrono::duration_cast<std::chrono::milliseconds>(tz.get_local_time().time_since_epoch()).count();
-				auto msec   = time % 1000;
-				auto sec    = time / 1000;
-				tm lt = {}; localtime_s(&lt, &sec);
-				lt.tm_mon  += 1;
-				lt.tm_year += 1900;
+				auto tz    = timezone();
+				auto epoch = std::chrono::floor<std::chrono::seconds>(tz.get_local_time().time_since_epoch()).count();
+				auto tm    = *gmtime(&epoch);
 
-				char str[sizeof("[YYYY-MM-DDThh:mm:ss.fff XXX]")];
-				assert(sprintf_s(str, "[%04d-%02d-%02dT%02d:%02d:%02d", lt.tm_year, lt.tm_mon, lt.tm_mday, lt.tm_hour, lt.tm_min, lt.tm_sec) == 20);
-				assert(sprintf_s(str, "%s.%03I64d %s]", str, msec, tz.get_info().abbrev.c_str()) == 29);
-				return std::string(str);
+				sTime time = {};
+				time.millisecond = std::chrono::floor<std::chrono::milliseconds>(tz.get_local_time().time_since_epoch()).count() % 1000;
+				time.second      = tm.tm_sec;
+				time.minute      = tm.tm_min;
+				time.hour        = tm.tm_hour;
+				time.day         = tm.tm_mday;
+				time.month       = tm.tm_mon  + 1;
+				time.year        = tm.tm_year + 1900;
+				tz.get_info().abbrev.c_str();
+
+				return standardDisplay(time);
 			}
 
 			void print()

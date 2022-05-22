@@ -22,8 +22,7 @@
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "cmakeToolchain": "${projectDir}\\toolchain.cmake",
-      "inheritEnvironments": [ "msvc_x64" ],
-      "variables": []
+      "inheritEnvironments": [ "msvc_x64" ]
     }
   ]
 }

@@ -4,6 +4,7 @@
 QtWidgetsApplication::QtWidgetsApplication(QWidget *parent)
 : QMainWindow(parent)
 , Dialog(parent)
+, Dialog2(parent)
 {
     ui.setupUi(this);
 
@@ -27,6 +28,19 @@ void QtWidgetsApplication::CloseSimulatorListDialog()
     Dialog.close();
 }
 
+void QtWidgetsApplication::ShowCommunicationHistoryListDialog()
+{
+    if (Dialog2.isVisible()) { return; }
+    Dialog2.show();
+    //Dialog2.showMaximized();
+}
+
+void QtWidgetsApplication::CloseCommunicationHistoryListDialog()
+{
+    if (Dialog2.isHidden()) { return; }
+    Dialog2.close();
+}
+
 void QtWidgetsApplication::timerEvent(QTimerEvent* event)
 {
     static int time = 0;
@@ -39,6 +53,7 @@ void QtWidgetsApplication::timerEvent(QTimerEvent* event)
         break;
     case 999:
         Dialog.RemovalElement(1);
+        Dialog2.AddMessage("MSG", QString::number(time).toStdString());
         break;
     }
 
