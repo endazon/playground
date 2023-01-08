@@ -306,43 +306,77 @@ namespace GeneralPurposeTimer
 				return std::chrono::sys_time<std::chrono::system_clock::duration>(std::chrono::system_clock::now().time_since_epoch());
 			}
 
-			inline auto timezone()
+			inline auto localtime()
 			{
-				return std::chrono::zoned_time(TimeZone, now());
+				return std::chrono::zoned_time(TimeZone, now()).get_local_time().time_since_epoch();
 			}
 
-			inline auto standardDisplay(const sTime& time)
+			inline auto timezone()
 			{
-				char str[sizeof("YYYY-MM-DD hh:mm:ss.fff XXX")];
-				assert(sprintf_s(str, "%04d-%02d-%02d %02d:%02d:%02d.%03I64d %s"
+				return std::chrono::zoned_time(TimeZone);
+			}
+
+			inline auto dateDisplay(const sTime& time)
+			{
+				char str[sizeof("YYYY-MM-DD")];
+				assert(sprintf_s(str, "%04d-%02d-%02d"
 					, time.year
 					, time.month
 					, time.day
+				) == 10);
+				return std::string(str);
+			}
+
+			inline auto timeDisplay(const sTime& time)
+			{
+				char str[sizeof("hh:mm:ss.fff")];
+				assert(sprintf_s(str, "%02d:%02d:%02d.%03I64d"
 					, time.hour
 					, time.minute
 					, time.second
 					, time.millisecond
-					, std::chrono::zoned_time(TimeZone).get_info().abbrev.c_str()
-				) == 27);
+				) == 12);
 				return std::string(str);
 			}
 
-			inline auto _standardDisplay(const sTime& time)
+			inline auto timezoneDisplayForAbbrev()
 			{
-				char str[sizeof("YYYY-MM-DDThh:mm:ss.fff(XXX+hh:mm)")];
-				assert(sprintf_s(str, "%04d-%02d-%02dT%02d:%02d:%02d.%03I64d", time.year, time.month, time.day, time.hour, time.minute, time.second, time.millisecond) == 23);
-				assert(sprintf_s(str, "%s(%s%s%02d:%02d)", str, TimeZone.data(), "+", 0, 0) == 34);
-				return std::string(str);
+				return timezone().get_info().abbrev;
+			}
+
+			inline auto timezoneDisplayForOffset()
+			{
+				auto offset = timezone().get_info().offset;
+				auto hour   = std::chrono::floor<std::chrono::hours>(offset).count();
+				auto minute = std::chrono::floor<std::chrono::minutes>(offset).count() % 60;
+				char str[sizeof("hh:mm")];
+				assert(sprintf_s(str, "%02d:%02d"
+					, hour
+					, minute
+				) == 5);
+				if      (0 < offset.count()) { return std::string("+") + std::string(str); }
+				else if (offset.count() < 0) { return std::string("-") + std::string(str); }
+				else						 { return std::string("Z"); }
+			}
+
+			inline auto standardDisplay(const sTime& time)
+			{
+				return dateDisplay(time) + std::string(" ") + timeDisplay(time) + std::string(" ") + timezoneDisplayForAbbrev();
+			}
+
+			inline auto iso8601Display(const sTime& time)
+			{
+				return dateDisplay(time) + std::string("T") + timeDisplay(time) + timezoneDisplayForOffset();
 			}
 
 			inline auto format()
 			{
-				auto tz    = timezone();
-				auto epoch = std::chrono::floor<std::chrono::seconds>(tz.get_local_time().time_since_epoch()).count();
+				auto lt    = localtime();
+				auto epoch = std::chrono::floor<std::chrono::seconds>(lt).count();
 				auto tm    = *gmtime(&epoch);
 
 				sTime time = {};
-				time.millisecond = std::chrono::floor<std::chrono::milliseconds>(tz.get_local_time().time_since_epoch()).count() % 1000;
+				time.millisecond = std::chrono::floor<std::chrono::milliseconds>(lt).count() % 1000;
 				time.second      = tm.tm_sec;
 				time.minute      = tm.tm_min;
 				time.hour        = tm.tm_hour;

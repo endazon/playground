@@ -53,7 +53,7 @@ void QtWidgetsApplication::timerEvent(QTimerEvent* event)
         break;
     case 999:
         Dialog.RemovalElement(1);
-        Dialog2.AddMessage("MSG", QString::number(time).toStdString());
+        Dialog2.AddMessage("MSG", QString::number(time/1000).toStdString());
         break;
     }
 
