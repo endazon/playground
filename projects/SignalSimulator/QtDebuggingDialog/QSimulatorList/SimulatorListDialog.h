@@ -9,6 +9,7 @@ class DoublyLinkedList
 protected:
     static DoublyLinkedList* head;
     static DoublyLinkedList* tail;
+    static size_t            size;
 
     DoublyLinkedList* prev;
     DoublyLinkedList* next;
@@ -52,6 +53,7 @@ private:
          
         void setupItem(QTableWidget& table);
         void removeItem(QTableWidget& table);
+        void removeTailItem(QTableWidget& table);
         void relocationItem(QTableWidget& table);
     };
 

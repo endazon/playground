@@ -2,6 +2,7 @@
 
 DoublyLinkedList* DoublyLinkedList::head = nullptr;
 DoublyLinkedList* DoublyLinkedList::tail = nullptr;
+size_t            DoublyLinkedList::size = 0;
 DoublyLinkedList::DoublyLinkedList()
 : prev(nullptr)
 , next(nullptr)
@@ -34,6 +35,7 @@ void DoublyLinkedList::pushFront(DoublyLinkedList* list)
         current->serialNumber = number;
         number++;
     }
+    size = number;
 }
 
 void DoublyLinkedList::pushBack(DoublyLinkedList* list)
@@ -59,6 +61,7 @@ void DoublyLinkedList::pushBack(DoublyLinkedList* list)
         current->serialNumber = number;
         number++;
     }
+    size = number;
 }
 
 DoublyLinkedList* DoublyLinkedList::pop()
@@ -77,6 +80,10 @@ DoublyLinkedList* DoublyLinkedList::pop()
         current->serialNumber = number;
         number++;
     }
+    size = number;
+    //serialNumber = 0;
+    //prev         = nullptr;
+    //next         = nullptr;
 
     return this;
 }
@@ -138,13 +145,32 @@ void SimulatorListDialog::Element::removeItem(QTableWidget& table)
     table.takeItem(row, column++);
 }
 
+void SimulatorListDialog::Element::removeTailItem(QTableWidget& table)
+{
+    const int row = size;
+    int column = 0;
+
+    //初期設定
+
+    //行削除
+    table.takeVerticalHeaderItem(row);
+
+    //行要素削除
+    table.takeItem(row, column++);
+    table.takeItem(row, column++);
+    table.takeItem(row, column++);
+    table.takeItem(row, column++);
+}
+
 void SimulatorListDialog::Element::relocationItem(QTableWidget& table)
 {
+    //for (Element* current = reinterpret_cast<Element*>(head); current != nullptr; current = reinterpret_cast<Element*>(current->next))
     for (Element* current = reinterpret_cast<Element*>(prev); current != nullptr; current = reinterpret_cast<Element*>(current->next))
     {
         current->removeItem(table);
         current->setupItem(table);
     }
+    removeTailItem(table);
 }
 
 std::mutex SimulatorListDialog::_Mutex;

@@ -128,6 +128,14 @@ private:
 //	{1,"Test1", "テスト", "☆★☆彡"}
 //};
 
+template<typename F, typename ... Ts>
+inline auto reallyAsync(F&& f, Ts&&... params)
+{
+	return std::async(std::launch::async /*| std::launch::deferred*/,
+					  std::forward<F>(f),
+					  std::forward<Ts>(params)...);
+}
+
 int main(int argc, char* argv[])
 {
 	QApplicationForDLL ap(argc, argv);
@@ -159,8 +167,14 @@ int main(int argc, char* argv[])
 
 	};
 
-	std::thread thread(timer);
-	thread.detach();
+	//std::thread thread(timer);
+	//thread.detach();
+
+	for (size_t i = 0; i < 10; i++)
+	{
+		std::thread* pThread = new std::thread(timer);
+		pThread->detach();
+	}
 
 	return ap.exec();
 }
