@@ -28,23 +28,23 @@
         /// </summary>
         private void InitializeComponent()
         {
-            userControl11 = new GeometryControl.GeometricDrawing();
+            geometricDrawing1 = new Geometrical.GeometricDrawing();
             SuspendLayout();
             // 
-            // userControl11
+            // geometricDrawing1
             // 
-            userControl11.Dock = DockStyle.Fill;
-            userControl11.Location = new Point(0, 0);
-            userControl11.Name = "userControl11";
-            userControl11.Size = new Size(800, 450);
-            userControl11.TabIndex = 0;
+            geometricDrawing1.Dock = DockStyle.Fill;
+            geometricDrawing1.Location = new Point(0, 0);
+            geometricDrawing1.Name = "geometricDrawing1";
+            geometricDrawing1.Size = new Size(800, 450);
+            geometricDrawing1.TabIndex = 0;
             // 
             // DebuggingForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
-            Controls.Add(userControl11);
+            Controls.Add(geometricDrawing1);
             Name = "DebuggingForm";
             Text = "DebuggingForm";
             ResumeLayout(false);
@@ -52,6 +52,6 @@
 
         #endregion
 
-        private GeometryControl.GeometricDrawing userControl11;
+        private Geometrical.GeometricDrawing geometricDrawing1;
     }
 }

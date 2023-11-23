@@ -1,0 +1,34 @@
+namespace Geometrical
+{
+    namespace Figure
+    {
+        public class EllipseFillFigure : BasicFigure
+        {
+            protected override void Draw(Graphics g, IConvertTo? f = null)
+            {
+                var _Rectangle = f is null ? Rectangle : f.ConvertToScale(Rectangle);
+                g.FillEllipse(Color, _Rectangle);
+            }
+        }
+        public class EllipseLineFigure : BasicFigure, ILineFigure
+        {
+            public float LineSize { get; set; } = 1.0f;
+            public Pen Pen
+            {
+                get => new(Color, LineSize);
+                set
+                {
+                    Color    = value.Brush;
+                    LineSize = value.Width;
+                }
+            }      
+
+            protected override void Draw(Graphics g, IConvertTo? f = null)
+            {
+                var _Pen       = f is null ? Pen       : f.ConvertToScale(Pen      );
+                var _Rectangle = f is null ? Rectangle : f.ConvertToScale(Rectangle);
+                g.DrawEllipse(_Pen, _Rectangle.X, _Rectangle.Y, _Rectangle.Width, _Rectangle.Height);
+            }
+        }
+    }
+}
