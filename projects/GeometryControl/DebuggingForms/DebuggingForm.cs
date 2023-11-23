@@ -15,11 +15,27 @@ namespace DebuggingForms
             System.MagnificationRate = 5;
             geometricDrawing1.System = System;
 
-            var Figure = new RectangleFillFigure();
-            Figure.Location = new(50, 50);
-            Figure.Size = new(10, 10);
-            Figure.Color = Brushes.Black;
-            geometricDrawing1.Add(Figure);
+            var Figure1 = FigureOperation.CreateCompositeRectangleFigure();
+            Figure1.Location = new(50, 50);
+            Figure1.Size = new(10, 10);
+            Figure1.Line.Color = Brushes.Orange;
+            Figure1.Fill.Color = Brushes.Red;
+            Figure1.String.Text = "aaa";
+            Figure1.String.Color = Brushes.Black;
+            geometricDrawing1.Add(Figure1);
+
+            var Figure2 = FigureOperation.CreateCompositeEllipseFigure();
+            Figure2.Location = new(100, 50);
+            Figure2.Size = new(10, 10);
+            Figure2.Line.Color = Brushes.Lime;
+            Figure2.Fill.Color = Brushes.Green;
+            Figure2.String.Text = "bbb";
+            Figure2.String.Color = Brushes.Black;
+            geometricDrawing1.Add(Figure2);
+
+            var Figure3 = new CoordinateAxisDraw();
+            Figure3.Location = new(100, 100);
+            geometricDrawing1.Add(Figure3);
         }
     }
 }

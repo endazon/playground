@@ -33,7 +33,42 @@ namespace Geometrical
 
             public PointF ConvertToScale(PointF value, PointF offset)
             {
-                return new (ConvertToScale(value.X + offset.X), ConvertToScale(value.Y + offset.Y));
+                switch(Direction)
+                {
+                    case CoordinateDirections.RightHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                return new(ConvertToScale(value.X + offset.X), ConvertToScale(value.Y + offset.Y));
+                            case CoordinateRotates.Angle090:
+                                break;
+                            case CoordinateRotates.Angle180:
+                                break;
+                            case CoordinateRotates.Angle270:
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                    case CoordinateDirections.LeftHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                break;
+                            case CoordinateRotates.Angle090:
+                                break;
+                            case CoordinateRotates.Angle180:
+                                break;
+                            case CoordinateRotates.Angle270:
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                throw new Exception("CoordinateSystem Parameter Error");
             }
 
             public PointF ConvertToScale(PointF value)
@@ -75,7 +110,42 @@ namespace Geometrical
 
             public PointF ConvertFromScale(PointF value, PointF offset)
             {
-                return new(ConvertFromScale(value.X) - offset.X, ConvertFromScale(value.Y) - offset.Y);
+                switch (Direction)
+                {
+                    case CoordinateDirections.RightHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                return new(ConvertFromScale(value.X) - offset.X, ConvertFromScale(value.Y) - offset.Y);
+                            case CoordinateRotates.Angle090:
+                                break;
+                            case CoordinateRotates.Angle180:
+                                break;
+                            case CoordinateRotates.Angle270:
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                    case CoordinateDirections.LeftHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                break;
+                            case CoordinateRotates.Angle090:
+                                break;
+                            case CoordinateRotates.Angle180:
+                                break;
+                            case CoordinateRotates.Angle270:
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                throw new Exception("CoordinateSystem Parameter Error");
             }
 
             public PointF ConvertFromScale(PointF value)

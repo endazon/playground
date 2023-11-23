@@ -262,15 +262,21 @@ namespace Geometrical
 
                         ILineFigure selectFigure = new RectangleLineFigure();
                         var type = figure.GetType();
-                        if (type == typeof(EllipseLineFigure))
+                        if (FigureOperation.IsTypeMatchEllipse(type))
                         {
                             selectFigure = new EllipseLineFigure();
+                        }
+                        if (FigureOperation.IsTypeMatchCompositeRectangleFigure(type))
+                        {
+                            selectFigure.LineSize = FigureOperation.CastCompositeRectangleFigure(figure).Line.LineSize;
+                        }
+                        else if (FigureOperation.IsTypeMatchCompositeEllipseFigure(type))
+                        {
+                            selectFigure.LineSize = FigureOperation.CastCompositeEllipseFigure(figure).Line.LineSize;
                         }
                         selectFigure.Location = figure.Location;
                         selectFigure.Size = figure.Size;
                         selectFigure.Color = Brushes.Cyan;
-                        //selectFigure.LineSize = figure.LineSize;
-                        selectFigure.LineSize = 1.0f;
                         selectFigure.Tag = figure;
                         SelectionItems.Add(selectFigure);
                         FigureList.Add(selectFigure);

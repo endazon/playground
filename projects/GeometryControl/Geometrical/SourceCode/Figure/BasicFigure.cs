@@ -36,6 +36,11 @@ namespace Geometrical
 
             void Drawing(Graphics g, IConvertTo? f = null);
         }
+        public interface ILineFigure : IBasicFigure
+        {
+            float LineSize { get; set; }
+            Pen Pen { get; set; }
+        }
         public interface IStringFigure : IBasicFigure
         {
             string Text { get; set; }
@@ -45,11 +50,6 @@ namespace Geometrical
             GraphicsUnit Unit { get; set; }
             StringFormat? Format { get; set; }
             Font Font { get; set; }
-        }
-        public interface ILineFigure : IBasicFigure
-        {
-            float LineSize { get; set; }
-            Pen Pen { get; set; }
         }
 
         public abstract class BasicFigure : IBasicFigure
@@ -78,6 +78,13 @@ namespace Geometrical
                 }
             }
 
+            public BasicFigure() { }
+            public BasicFigure(PointF l, SizeF s, Brush c)
+            {
+                Location = l;
+                Size     = s;
+                Color    = c;
+            }
         }
     }
 }

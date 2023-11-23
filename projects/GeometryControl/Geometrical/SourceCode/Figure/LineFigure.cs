@@ -4,44 +4,7 @@ namespace Geometrical
     {
         public class StraightLineFigure : BasicFigure, ILineFigure
         {
-            public override  PointF Location
-            {
-                get => base.Location; 
-                set
-                {
-                    var z1Location = base.Location;
-                    base.Location = value;
-
-                    _StartPoint = new(
-                        /* X = */_StartPoint.X + (base.Location.X - z1Location.X),
-                        /* Y = */_StartPoint.Y + (base.Location.Y - z1Location.Y)
-                        );
-
-                    _EndPoint = new(
-                        /* X = */_EndPoint.X + (base.Location.X - z1Location.X),
-                        /* Y = */_EndPoint.Y + (base.Location.Y - z1Location.Y)
-                        );
-                }
-            }
-            public override SizeF Size
-            {
-                get => base.Size;
-                set
-                {
-                    base.Size = value;
-
-                    _StartPoint = new(
-                        /* X = */base.Location.X == _StartPoint.X ? base.Location.X : base.Location.X + base.Size.Width,
-                        /* Y = */base.Location.Y == _StartPoint.Y ? base.Location.Y : base.Location.Y + base.Size.Height
-                        );
-
-                    _EndPoint = new(
-                        /* X = */base.Location.X == _EndPoint.X ? base.Location.X : base.Location.X + base.Size.Width,
-                        /* Y = */base.Location.Y == _EndPoint.Y ? base.Location.Y : base.Location.Y + base.Size.Height
-                        );
-                }
-            }
-
+            #region ILineFigure
             public float LineSize { get; set; } = 1.0f;
             public Pen Pen
             {
@@ -51,7 +14,8 @@ namespace Geometrical
                     Color    = value.Brush;
                     LineSize = value.Width;
                 }
-            }      
+            }
+            #endregion
 
             private PointF _StartPoint = new();
             public virtual PointF StartPoint
@@ -90,12 +54,60 @@ namespace Geometrical
                 }
             }
 
+            #region BasicFigure
+            public override PointF Location
+            {
+                get => base.Location;
+                set
+                {
+                    var z1Location = base.Location;
+                    base.Location = value;
+
+                    _StartPoint = new(
+                        /* X = */_StartPoint.X + (base.Location.X - z1Location.X),
+                        /* Y = */_StartPoint.Y + (base.Location.Y - z1Location.Y)
+                        );
+
+                    _EndPoint = new(
+                        /* X = */_EndPoint.X + (base.Location.X - z1Location.X),
+                        /* Y = */_EndPoint.Y + (base.Location.Y - z1Location.Y)
+                        );
+                }
+            }
+            public override SizeF Size
+            {
+                get => base.Size;
+                set
+                {
+                    base.Size = value;
+
+                    _StartPoint = new(
+                        /* X = */base.Location.X == _StartPoint.X ? base.Location.X : base.Location.X + base.Size.Width,
+                        /* Y = */base.Location.Y == _StartPoint.Y ? base.Location.Y : base.Location.Y + base.Size.Height
+                        );
+
+                    _EndPoint = new(
+                        /* X = */base.Location.X == _EndPoint.X ? base.Location.X : base.Location.X + base.Size.Width,
+                        /* Y = */base.Location.Y == _EndPoint.Y ? base.Location.Y : base.Location.Y + base.Size.Height
+                        );
+                }
+            }
             protected override void Draw(Graphics g, IConvertTo? f = null)
             {
                 var _Pen        = f is null ? Pen        : f.ConvertToScale(Pen       );
                 var _StartPoint = f is null ? StartPoint : f.ConvertToScale(StartPoint);
                 var _EndPoint   = f is null ? EndPoint   : f.ConvertToScale(EndPoint  );
                 g.DrawLine(_Pen, _StartPoint, _EndPoint);
+            }
+            #endregion
+
+            public StraightLineFigure() { }
+            public StraightLineFigure(PointF sp, PointF ep, Brush c, float ls)
+            {
+                StartPoint = sp;
+                EndPoint   = ep;
+                Color      = c;
+                LineSize   = ls;
             }
         }
     }

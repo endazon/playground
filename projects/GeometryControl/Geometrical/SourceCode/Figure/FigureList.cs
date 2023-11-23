@@ -121,6 +121,7 @@ namespace Geometrical
             public void Add(IBasicFigure item)
             {
                 Items.Add(item);
+                item.Visible = Visible;
                 UpdateItems();
             }
 
