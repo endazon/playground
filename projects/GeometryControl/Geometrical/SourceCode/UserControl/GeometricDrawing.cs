@@ -10,7 +10,11 @@ namespace Geometrical
     public partial class GeometricDrawing : UserControl, ICoordinateSystem, IList<IBasicFigure>
     {
         #region EventHandler
-        public event Plane.SelectFigureChangedEvent SelectFigureChanged
+        [Browsable(true)]
+        [Localizable(true)]
+        [Category("Geometrical.Plane")]
+        [Description("図面選択イベント")]
+        public event SelectFigureChangedEvent SelectFigureChanged
         {
             add => Plane1.SelectFigureChanged += value;
             remove => Plane1.SelectFigureChanged -= value;

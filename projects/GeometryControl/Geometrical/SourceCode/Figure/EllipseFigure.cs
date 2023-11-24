@@ -60,12 +60,12 @@ namespace Geometrical
         public class PointFillFigure : CircleFillFigure
         {
             public PointFillFigure() { }
-            public PointFillFigure(PointF l, float s, Brush c) : base(new(l.X - s / 2, l.Y - s / 2), s, c) { }
+            public PointFillFigure(PointF l, float s, Brush c) : base(new(l.X - s, l.Y - s), s * 2, c) { }
         }
         public class PointLineFigure : CircleLineFigure
         {
             public PointLineFigure() { }
-            public PointLineFigure(PointF l, float s, Brush c, float ls) : base(new(l.X - s / 2, l.Y - s / 2), s, c, ls) { }
+            public PointLineFigure(PointF l, float s, Brush c, float ls) : base(new(l.X - s , l.Y - s), s * 2, c, ls) { }
         }
     }
 }

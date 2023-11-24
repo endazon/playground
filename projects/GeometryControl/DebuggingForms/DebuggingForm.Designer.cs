@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(DebuggingForm));
             geometricDrawing1 = new Geometrical.GeometricDrawing();
             SuspendLayout();
             // 
@@ -35,7 +36,9 @@
             // 
             geometricDrawing1.Dock = DockStyle.Fill;
             geometricDrawing1.Location = new Point(0, 0);
+            geometricDrawing1.MagnificationRate = 5F;
             geometricDrawing1.Name = "geometricDrawing1";
+            geometricDrawing1.Origin = (PointF)resources.GetObject("geometricDrawing1.Origin");
             geometricDrawing1.Size = new Size(800, 450);
             geometricDrawing1.TabIndex = 0;
             // 

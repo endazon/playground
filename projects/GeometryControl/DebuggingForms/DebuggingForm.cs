@@ -10,9 +10,6 @@ namespace DebuggingForms
         {
             InitializeComponent();
 
-            //geometricDrawing1.Scale = 1000;
-            geometricDrawing1.MagnificationRate = 5;
-
             var Figure1 = new RectangleFigure();
             Figure1.Location = new(50, 50);
             Figure1.Size = new(10, 10);

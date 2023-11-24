@@ -184,6 +184,10 @@ namespace Geometrical
             #endregion
 
             #region EventHandler
+            [Browsable(true)]
+            [Localizable(true)]
+            [Category("Geometrical.Plane")]
+            [Description("図面選択イベント")]
             public event SelectFigureChangedEvent? SelectFigureChanged = null;
             #endregion
 

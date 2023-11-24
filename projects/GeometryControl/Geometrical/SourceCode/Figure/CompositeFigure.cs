@@ -9,10 +9,25 @@ namespace Geometrical
             public RectangleFigure() { }
             public RectangleFigure(PointF l, SizeF s, Brush c, float ls, string t, float ts) : base(l, s, c, ls, t, ts) { }
         }
+        public class SquareFigure : BasicTemplateFillAndLineAndStringFigure<SquareFillFigure, SquareLineFigure, StringFigure>
+        {
+            public SquareFigure() { }
+            public SquareFigure(PointF l, float s, Brush c, float ls, string t, float ts) : base(l, new(s, s), c, ls, t, ts) { }
+        }
         public class EllipseFigure : BasicTemplateFillAndLineAndStringFigure<EllipseFillFigure, EllipseLineFigure, StringFigure>
         {
             public EllipseFigure() { }
             public EllipseFigure(PointF l, SizeF s, Brush c, float ls, string t, float ts) : base(l, s, c, ls, t, ts) { }
+        }
+        public class CircleFigure : BasicTemplateFillAndLineAndStringFigure<CircleFillFigure, CircleLineFigure, StringFigure>
+        {
+            public CircleFigure() { }
+            public CircleFigure(PointF l, float s, Brush c, float ls, string t, float ts) : base(l, new(s, s), c, ls, t, ts) { }
+        }
+        public class PointFigure : BasicTemplateFillAndLineAndStringFigure<PointFillFigure, PointLineFigure, StringFigure>
+        {
+            public PointFigure() { }
+            public PointFigure(PointF l, float s, Brush c, float ls, string t, float ts) : base(new(l.X - s, l.Y - s), new(s * 2, s * 2), c, ls, t, ts) { }
         }
 
         public class CoordinateAxisDraw : FigureList
@@ -122,7 +137,7 @@ namespace Geometrical
                 }
 
                 /*Œ´“_*/
-                Add(CreatePointFigure(new(0, 0), system.ConvertFromScale(5f), Brushes.Black));
+                Add(CreatePointFigure(new(0, 0), system.ConvertFromScale(2.5f), Brushes.Black));
                 Add(CreateStraightLineFigure(new(0, top), new(0, bottom), Brushes.Black, lineSize));
                 Add(CreateStraightLineFigure(new(left, 0), new(right, 0), Brushes.Black, lineSize));
 
