@@ -16,19 +16,27 @@ namespace Geometrical
             Angle180 = 180,
             Angle270 = 270,
         }
+        public interface ICoordinateSystem
+        {
+            PointF Origin { get; set; }
+            CoordinateDirections Direction { get; set; }
+            CoordinateRotates Rotation { get; set; }
+            float ReducedScale { get; set; }
+            float MagnificationRate { get; set; }
+        }
 
-        public class CoordinateSystem : IConvertTo, IConvertFrom
+        public class CoordinateSystem : ICoordinateSystem, IConvertTo, IConvertFrom
         {
             public PointF Origin { get; set; }
             public CoordinateDirections Direction { get; set; }
             public CoordinateRotates Rotation { get; set; }
-            public float Scale { get; set; }
+            public float ReducedScale { get; set; }
             public float MagnificationRate { get; set; }
 
             #region IConvertTo
             public float ConvertToScale(float value)
             {
-                return (value / Scale) * MagnificationRate;
+                return (value / ReducedScale) * MagnificationRate;
             }
 
             public PointF ConvertToScale(PointF value, PointF offset)
@@ -105,7 +113,7 @@ namespace Geometrical
             #region IConvertFrom
             public float ConvertFromScale(float value)
             {
-                return (value * Scale) / MagnificationRate;
+                return (value * ReducedScale) / MagnificationRate;
             }
 
             public PointF ConvertFromScale(PointF value, PointF offset)
@@ -196,7 +204,7 @@ namespace Geometrical
                 Origin            = p;
                 Direction         = d;
                 Rotation          = r;
-                Scale             = s;
+                ReducedScale      = s;
                 MagnificationRate = m;
             }
             public CoordinateSystem() : this(

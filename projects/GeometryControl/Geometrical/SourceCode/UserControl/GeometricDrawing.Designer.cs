@@ -28,17 +28,45 @@
         /// </summary>
         private void InitializeComponent()
         {
-            Plane.CoordinateSystem coordinateSystem2 = new Plane.CoordinateSystem();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(GeometricDrawing));
-            splitContainer1 = new SplitContainer();
             statusStrip1 = new StatusStrip();
-            Plane1 = new Plane.BasicPlane();
+            toolStripStatusLabel1 = new ToolStripStatusLabel();
+            Plane1 = new Plane.GridPlane();
+            splitContainer1 = new SplitContainer();
+            statusStrip1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)Plane1).BeginInit();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
             splitContainer1.Panel2.SuspendLayout();
             splitContainer1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)Plane1).BeginInit();
             SuspendLayout();
+            // 
+            // statusStrip1
+            // 
+            statusStrip1.Dock = DockStyle.Fill;
+            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabel1 });
+            statusStrip1.Location = new Point(0, 0);
+            statusStrip1.Name = "statusStrip1";
+            statusStrip1.Size = new Size(800, 25);
+            statusStrip1.TabIndex = 0;
+            statusStrip1.Text = "statusStrip1";
+            // 
+            // toolStripStatusLabel1
+            // 
+            toolStripStatusLabel1.Name = "toolStripStatusLabel1";
+            toolStripStatusLabel1.Size = new Size(53, 20);
+            toolStripStatusLabel1.Text = "Location";
+            // 
+            // Plane1
+            // 
+            Plane1.Dock = DockStyle.Fill;
+            Plane1.Location = new Point(0, 0);
+            Plane1.Name = "Plane1";
+            Plane1.Origin = (PointF)resources.GetObject("Plane1.Origin");
+            Plane1.Size = new Size(800, 421);
+            Plane1.TabIndex = 0;
+            Plane1.TabStop = false;
+            Plane1.MouseMove += Plane1_MouseMove;
             // 
             // splitContainer1
             // 
@@ -56,31 +84,9 @@
             // 
             splitContainer1.Panel2.Controls.Add(statusStrip1);
             splitContainer1.Size = new Size(800, 450);
-            splitContainer1.SplitterDistance = 420;
-            splitContainer1.TabIndex = 0;
-            // 
-            // statusStrip1
-            // 
-            statusStrip1.Location = new Point(0, 4);
-            statusStrip1.Name = "statusStrip1";
-            statusStrip1.Size = new Size(800, 22);
-            statusStrip1.TabIndex = 0;
-            statusStrip1.Text = "statusStrip1";
-            // 
-            // Plane1
-            // 
-            Plane1.Dock = DockStyle.Fill;
-            Plane1.Location = new Point(0, 0);
-            Plane1.Name = "Plane1";
-            Plane1.Size = new Size(800, 420);
-            coordinateSystem2.Direction = Plane.CoordinateDirections.RightHanded;
-            coordinateSystem2.MagnificationRate = 1F;
-            coordinateSystem2.Origin = (PointF)resources.GetObject("coordinateSystem2.Origin");
-            coordinateSystem2.Rotation = Plane.CoordinateRotates.Angle000;
-            coordinateSystem2.Scale = 1F;
-            Plane1.System = coordinateSystem2;
-            Plane1.TabIndex = 0;
-            Plane1.TabStop = false;
+            splitContainer1.SplitterDistance = 421;
+            splitContainer1.TabIndex = 1;
+            splitContainer1.Resize += splitContainer1_Resize;
             // 
             // GeometricDrawing
             // 
@@ -89,19 +95,21 @@
             Controls.Add(splitContainer1);
             Name = "GeometricDrawing";
             Size = new Size(800, 450);
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)Plane1).EndInit();
             splitContainer1.Panel1.ResumeLayout(false);
             splitContainer1.Panel2.ResumeLayout(false);
             splitContainer1.Panel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).EndInit();
             splitContainer1.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)Plane1).EndInit();
             ResumeLayout(false);
         }
 
         #endregion
-
-        private SplitContainer splitContainer1;
         private StatusStrip statusStrip1;
-        private Plane.BasicPlane Plane1;
+        private Plane.GridPlane Plane1;
+        private ToolStripStatusLabel toolStripStatusLabel1;
+        private SplitContainer splitContainer1;
     }
 }

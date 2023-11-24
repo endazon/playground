@@ -86,5 +86,66 @@ namespace Geometrical
                 Color    = c;
             }
         }
+        
+        public class BasicTemplateFillAndLineAndStringFigure<FillClass, LineClass, StringClass> : BasicFigure
+            where FillClass   : IBasicFigure , new()
+            where LineClass   : ILineFigure  , new()
+            where StringClass : IStringFigure, new()
+        {
+            public FillClass Fill { get; set; } = new();
+            public LineClass Line { get; set; } = new();
+            public StringClass String { get; set; } = new();
+
+            #region BasicFigure
+            public override bool Visible
+            {
+                get => base.Visible;
+                set
+                {
+                    base.Visible   = value;
+                    Fill.Visible   = base.Visible;
+                    Line.Visible   = base.Visible;
+                    String.Visible = base.Visible;
+                }
+            }
+            public override PointF Location
+            {
+                get => base.Location;
+                set
+                {
+                    base.Location   = value;
+                    Fill.Location   = base.Location;
+                    Line.Location   = base.Location;
+                    String.Location = base.Location;
+                }
+            }
+            public override SizeF Size
+            {
+                get => base.Size;
+                set
+                {
+                    base.Size   = value;
+                    Fill.Size   = base.Size;
+                    Line.Size   = base.Size;
+                    String.Size = base.Size;
+                }
+            }
+
+            protected override void Draw(Graphics g, IConvertTo? f = null)
+            {
+                Fill.Drawing(g, f);
+                Line.Drawing(g, f);
+                String.Drawing(g, f);
+            }
+            #endregion
+
+            public BasicTemplateFillAndLineAndStringFigure() { }
+            public BasicTemplateFillAndLineAndStringFigure(PointF l, SizeF s, Brush c, float ls, string t, float ts) : base(l, s, c)
+            {
+                Line.LineSize   = ls;
+                String.Text     = t;
+                String.TextSize = ts;
+            }
+        }
     }
 }

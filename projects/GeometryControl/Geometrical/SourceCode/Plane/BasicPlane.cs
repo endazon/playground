@@ -19,14 +19,14 @@ namespace Geometrical
         public delegate void SelectFigureChangedEvent(object sender, SelectFigureChangedEventArgs e);
         #endregion
 
-        public class BasicPlane : PictureBox
+        public class BasicPlane : PictureBox, ICoordinateSystem
         {
             #region Win32 Constants
             private const int WH_KEYBOARD_LL = 0x000D;
-            private const int WM_KEYDOWN     = 0x0100;
-            private const int WM_KEYUP       = 0x0101;
-            private const int WM_SYSKEYDOWN  = 0x0104;
-            private const int WM_SYSKEYUP    = 0x0105;
+            private const int WM_KEYDOWN = 0x0100;
+            private const int WM_KEYUP = 0x0101;
+            private const int WM_SYSKEYDOWN = 0x0104;
+            private const int WM_SYSKEYUP = 0x0105;
             #endregion
 
             #region Win32API Structures
@@ -42,9 +42,9 @@ namespace Geometrical
             private enum KBDLLHOOKSTRUCTFlags : uint
             {
                 KEYEVENTF_EXTENDEDKEY = 0x0001,
-                KEYEVENTF_KEYUP       = 0x0002,
-                KEYEVENTF_SCANCODE    = 0x0003,
-                KEYEVENTF_UNICODE     = 0x0004,
+                KEYEVENTF_KEYUP = 0x0002,
+                KEYEVENTF_SCANCODE = 0x0003,
+                KEYEVENTF_UNICODE = 0x0004,
             }
             #endregion
 
@@ -97,14 +97,14 @@ namespace Geometrical
 
                 public void Update(MouseEventArgs me)
                 {
-                    Button   = me.Button;
-                    Clicks   = me.Clicks;
+                    Button = me.Button;
+                    Clicks = me.Clicks;
                     Location = me.Location;
                 }
                 public void Clear()
                 {
-                    Button   = MouseButtons.None;
-                    Clicks   = 0;
+                    Button = MouseButtons.None;
+                    Clicks = 0;
                     Location = new();
                 }
             }
@@ -116,12 +116,12 @@ namespace Geometrical
 
             #region Readonly
             private readonly KeyboardStatus keyboardStatus = new();
-            private readonly MouseStatus    mouseStatus    = new();
+            private readonly MouseStatus mouseStatus = new();
             #endregion
 
             #region Fields
             private KeyboardProc? proc = null;
-            private IntPtr hookId      = IntPtr.Zero;
+            private IntPtr hookId = IntPtr.Zero;
             #endregion
 
             #region Hook
@@ -130,9 +130,9 @@ namespace Geometrical
                 using (Process curProcess = Process.GetCurrentProcess())
                 using (ProcessModule? curModule = curProcess.MainModule)
                 {
-                    if (curModule            == null)       { return; }
-                    if (curModule.ModuleName == null)       { return; }
-                    if (hookId               != IntPtr.Zero){ return; }
+                    if (curModule == null) { return; }
+                    if (curModule.ModuleName == null) { return; }
+                    if (hookId != IntPtr.Zero) { return; }
 
                     //GC対策
                     proc = HookProcedure;
@@ -188,9 +188,103 @@ namespace Geometrical
             #endregion
 
             #region Properties
-            public CoordinateSystem System { get; set; } = new();
+            [Browsable(false)]
+            protected CoordinateSystem System { get; set; } = new();
+
+            [Browsable(true)]
+            [Localizable(true)]
+            [Category("CoordinateSystem")]
+            [Description("2次元平面上の原点")]
+            [TypeConverter(typeof(PointFConverter))]
+            public PointF Origin
+            {
+                get => System.Origin;
+                set
+                {
+                    System.Origin = value;
+                }
+            }
+
+            [Browsable(true)]
+            [Localizable(true)]
+            [Category("CoordinateSystem")]
+            [Description("2次元平面上の座標系")]
+            [DefaultValue(typeof(CoordinateDirections), "RightHanded")]
+            public CoordinateDirections Direction
+            {
+                get => System.Direction;
+                set
+                {
+                    System.Direction = value;
+                }
+            }
+
+            [Browsable(true)]
+            [Localizable(true)]
+            [Category("CoordinateSystem")]
+            [Description("2次元平面上の向き")]
+            [DefaultValue(typeof(CoordinateRotates), "Angle000")]
+            public CoordinateRotates Rotation
+            {
+                get => System.Rotation;
+                set
+                {
+                    System.Rotation = value;
+                }
+            }
+
+            [Browsable(true)]
+            [Localizable(true)]
+            [Category("CoordinateSystem")]
+            [Description("2次元平面上の縮尺")]
+            [DefaultValue(1.0f)]
+            public float ReducedScale
+            {
+                get => System.ReducedScale;
+                set
+                {
+                    System.ReducedScale = value;
+                }
+            }
+
+            [Browsable(true)]
+            [Localizable(true)]
+            [Category("CoordinateSystem")]
+            [Description("2次元平面上の拡大率")]
+            [DefaultValue(1.0f)]
+            public float MagnificationRate
+            {
+                get => System.MagnificationRate;
+                set
+                {
+                    System.MagnificationRate = value;
+                }
+            }
+
+            [Browsable(false)]
             public FigureList FigureList { get; } = new();
+
+            [Browsable(false)]
             public List<IBasicFigure> SelectionItems { get; } = new();
+            #endregion
+
+            #region OnEventDefinition
+            protected virtual void OnPreDrawing(PaintEventArgs pe)
+            {
+
+            }
+            protected virtual void OnDrawing(PaintEventArgs pe)
+            {
+                FigureList.Drawing(pe.Graphics, System);
+            }
+            protected virtual void OnPostDrawing(PaintEventArgs pe)
+            {
+
+            }
+            protected virtual void OnSelectFigureChanged(SelectFigureChangedEventArgs e)
+            {
+                SelectFigureChanged?.Invoke(this, e);
+            }
             #endregion
 
             #region OnEvent
@@ -198,11 +292,6 @@ namespace Geometrical
             {
                 FigureList.Color = new SolidBrush(BackColor);
                 base.OnBackColorChanged(e);
-            }
-            protected override void OnResize(EventArgs e)
-            {
-                //グリッド更新
-                base.OnResize(e);
             }
             protected override void OnKeyDown(KeyEventArgs ke)
             {
@@ -216,7 +305,9 @@ namespace Geometrical
             }
             protected override void OnPaint(PaintEventArgs pe)
             {
-                FigureList.Drawing(pe.Graphics, System);
+                OnPreDrawing(pe);
+                OnDrawing(pe);
+                OnPostDrawing(pe);
                 base.OnPaint(pe);
             }
             protected override void OnMouseEnter(EventArgs e)
@@ -262,17 +353,17 @@ namespace Geometrical
 
                         ILineFigure selectFigure = new RectangleLineFigure();
                         var type = figure.GetType();
-                        if (FigureOperation.IsTypeMatchEllipse(type))
+                        if (FigureOperation.IsTypeMatchAnyEllipse(type))
                         {
                             selectFigure = new EllipseLineFigure();
                         }
-                        if (FigureOperation.IsTypeMatchCompositeRectangleFigure(type))
+                        if (FigureOperation.IsTypeMatchRectangleFigure(type))
                         {
-                            selectFigure.LineSize = FigureOperation.CastCompositeRectangleFigure(figure).Line.LineSize;
+                            selectFigure.LineSize = FigureOperation.CastRectangleFigure(figure).Line.LineSize;
                         }
-                        else if (FigureOperation.IsTypeMatchCompositeEllipseFigure(type))
+                        else if (FigureOperation.IsTypeMatchEllipseFigure(type))
                         {
-                            selectFigure.LineSize = FigureOperation.CastCompositeEllipseFigure(figure).Line.LineSize;
+                            selectFigure.LineSize = FigureOperation.CastEllipseFigure(figure).Line.LineSize;
                         }
                         selectFigure.Location = figure.Location;
                         selectFigure.Size = figure.Size;
@@ -281,16 +372,13 @@ namespace Geometrical
                         SelectionItems.Add(selectFigure);
                         FigureList.Add(selectFigure);
 
-                        if(SelectFigureChanged != null)
+                        var list = new List<IBasicFigure>();
+                        foreach (var item in SelectionItems)
                         {
-                            var list = new List<IBasicFigure>();
-                            foreach (var item in SelectionItems)
-                            {
-                                if(item.Tag == null) { continue; }
-                                list.Add((IBasicFigure)item.Tag);
-                            }
-                            SelectFigureChanged(this, new SelectFigureChangedEventArgs(list));
+                            if (item.Tag == null) { continue; }
+                            list.Add((IBasicFigure)item.Tag);
                         }
+                        OnSelectFigureChanged(new SelectFigureChangedEventArgs(list));
                     }
                     else
                     {
@@ -299,10 +387,7 @@ namespace Geometrical
                             FigureList.Remove(item);
                         }
 
-                        if (SelectFigureChanged != null)
-                        {
-                            SelectFigureChanged(this, new SelectFigureChangedEventArgs(new()));
-                        }
+                        OnSelectFigureChanged(new SelectFigureChangedEventArgs(new()));
                     }
                 }
                 Refresh();

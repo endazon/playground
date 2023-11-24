@@ -10,12 +10,10 @@ namespace DebuggingForms
         {
             InitializeComponent();
 
-            var System = new CoordinateSystem();
-            //System.Scale = 1000;
-            System.MagnificationRate = 5;
-            geometricDrawing1.System = System;
+            //geometricDrawing1.Scale = 1000;
+            geometricDrawing1.MagnificationRate = 5;
 
-            var Figure1 = FigureOperation.CreateCompositeRectangleFigure();
+            var Figure1 = new RectangleFigure();
             Figure1.Location = new(50, 50);
             Figure1.Size = new(10, 10);
             Figure1.Line.Color = Brushes.Orange;
@@ -24,7 +22,7 @@ namespace DebuggingForms
             Figure1.String.Color = Brushes.Black;
             geometricDrawing1.Add(Figure1);
 
-            var Figure2 = FigureOperation.CreateCompositeEllipseFigure();
+            var Figure2 = new EllipseFigure();
             Figure2.Location = new(100, 50);
             Figure2.Size = new(10, 10);
             Figure2.Line.Color = Brushes.Lime;
@@ -32,10 +30,6 @@ namespace DebuggingForms
             Figure2.String.Text = "bbb";
             Figure2.String.Color = Brushes.Black;
             geometricDrawing1.Add(Figure2);
-
-            var Figure3 = new CoordinateAxisDraw();
-            Figure3.Location = new(100, 100);
-            geometricDrawing1.Add(Figure3);
         }
     }
 }

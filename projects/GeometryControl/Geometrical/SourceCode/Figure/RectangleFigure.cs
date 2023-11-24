@@ -17,7 +17,7 @@ namespace Geometrical
         }
         public class RectangleLineFigure : BasicFigure, ILineFigure
         {
-            #region BasicFigure
+            #region ILineFigure
             public float LineSize { get; set; } = 1.0f;
             public Pen Pen
             {

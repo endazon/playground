@@ -2,21 +2,91 @@
 using Geometrical.Plane;
 using System.Collections;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Windows.Forms;
 
 namespace Geometrical
 {
-    public partial class GeometricDrawing : UserControl, IList<IBasicFigure>
+    public partial class GeometricDrawing : UserControl, ICoordinateSystem, IList<IBasicFigure>
     {
         #region EventHandler
         public event Plane.SelectFigureChangedEvent SelectFigureChanged
         {
-            add    => Plane1.SelectFigureChanged += value;
+            add => Plane1.SelectFigureChanged += value;
             remove => Plane1.SelectFigureChanged -= value;
         }
         #endregion
 
-        #region Properties
-        public CoordinateSystem System { get => Plane1.System; set => Plane1.System = value; }
+        #region ICoordinateSystem
+        [Browsable(true)]
+        [Localizable(true)]
+        [Category("CoordinateSystem")]
+        [Description("2次元平面上の原点")]
+        [TypeConverter(typeof(PointFConverter))]
+        public PointF Origin
+        {
+            get => Plane1.Origin;
+            set
+            {
+                Plane1.Origin = value;
+            }
+        }
+
+        [Browsable(true)]
+        [Localizable(true)]
+        [Category("CoordinateSystem")]
+        [Description("2次元平面上の座標系")]
+        [DefaultValue(typeof(CoordinateDirections), "RightHanded")]
+        public CoordinateDirections Direction
+        {
+            get => Plane1.Direction;
+            set
+            {
+                Plane1.Direction = value;
+            }
+        }
+
+        [Browsable(true)]
+        [Localizable(true)]
+        [Category("CoordinateSystem")]
+        [Description("2次元平面上の向き")]
+        [DefaultValue(typeof(CoordinateRotates), "Angle000")]
+        public CoordinateRotates Rotation
+        {
+            get => Plane1.Rotation;
+            set
+            {
+                Plane1.Rotation = value;
+            }
+        }
+
+        [Browsable(true)]
+        [Localizable(true)]
+        [Category("CoordinateSystem")]
+        [Description("2次元平面上の縮尺")]
+        [DefaultValue(1.0f)]
+        public float ReducedScale
+        {
+            get => Plane1.ReducedScale;
+            set
+            {
+                Plane1.ReducedScale = value;
+            }
+        }
+
+        [Browsable(true)]
+        [Localizable(true)]
+        [Category("CoordinateSystem")]
+        [Description("2次元平面上の拡大率")]
+        [DefaultValue(1.0f)]
+        public float MagnificationRate
+        {
+            get => Plane1.MagnificationRate;
+            set
+            {
+                Plane1.MagnificationRate = value;
+            }
+        }
         #endregion
 
         #region IList<IBasicFigure>
@@ -50,9 +120,30 @@ namespace Geometrical
         public GeometricDrawing()
         {
             InitializeComponent();
+        }
 
-            splitContainer1.SplitterDistance = splitContainer1.Height - statusStrip1.Height;
-            splitContainer1.IsSplitterFixed = true;
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+        }
+
+        private void Plane1_MouseMove(object sender, MouseEventArgs me)
+        {
+            float Convert(int value)
+            {
+                return (value * ReducedScale) / MagnificationRate;
+            }
+            var location = new PointF(Convert(me.X) - Origin.X, Convert(me.Y) - Origin.Y);
+            toolStripStatusLabel1.Text = $"Location:X={location.X} ,Y={location.Y}";
+        }
+
+        private void splitContainer1_Resize(object sender, EventArgs e)
+        {
+            var s = sender as SplitContainer;
+            var z1IsSplitterFixed = s.IsSplitterFixed;
+            s.IsSplitterFixed = false;
+            s.SplitterDistance = s.Height - statusStrip1.Height;
+            s.IsSplitterFixed = z1IsSplitterFixed;
         }
     }
 }
