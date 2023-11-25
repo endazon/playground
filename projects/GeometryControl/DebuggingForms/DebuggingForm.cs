@@ -27,6 +27,9 @@ namespace DebuggingForms
             Figure2.String.Text = "bbb";
             Figure2.String.Color = Brushes.Black;
             geometricDrawing1.Add(Figure2);
+
+            geometricDrawing1.Direction = CoordinateDirections.LeftHanded;
+            geometricDrawing1.Rotation = CoordinateRotates.Angle180;
         }
     }
 }

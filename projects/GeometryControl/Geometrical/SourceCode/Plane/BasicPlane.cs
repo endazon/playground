@@ -16,7 +16,21 @@ namespace Geometrical
             }
             public List<IBasicFigure> SelectionItems { get; }
         }
-        public delegate void SelectFigureChangedEvent(object sender, SelectFigureChangedEventArgs e);
+        public delegate void SelectFigureChangedEventHandler(object sender, SelectFigureChangedEventArgs e);
+
+        public class MouseMouseMoveForPlaneEventArgs : MouseEventArgs
+        {
+            public MouseMouseMoveForPlaneEventArgs(MouseButtons button, int clicks, float x, float y, int delta)
+                : base(button, clicks, Convert.ToInt32(x), Convert.ToInt32(x), delta)
+            {
+                XF = x;
+                YF = y;
+            }
+            public float XF { get; }
+            public float YF { get; }
+            public PointF LocationF => new PointF(XF, YF);
+        }
+        public delegate void MouseMouseMoveForPlaneEventHandler(object sender, MouseMouseMoveForPlaneEventArgs e);
         #endregion
 
         public class BasicPlane : PictureBox, ICoordinateSystem
@@ -188,7 +202,13 @@ namespace Geometrical
             [Localizable(true)]
             [Category("Geometrical.Plane")]
             [Description("図面選択イベント")]
-            public event SelectFigureChangedEvent? SelectFigureChanged = null;
+            public event SelectFigureChangedEventHandler? SelectFigureChanged = null;
+
+            [Browsable(true)]
+            [Localizable(true)]
+            [Category("Geometrical.Plane")]
+            [Description("平面上のマウス移動イベント")]
+            public event MouseMouseMoveForPlaneEventHandler? MouseMouseMoveForPlane = null;
             #endregion
 
             #region Properties
@@ -275,7 +295,8 @@ namespace Geometrical
             #region OnEventDefinition
             protected virtual void OnPreDrawing(PaintEventArgs pe)
             {
-
+                var unit = System.GetUnitCoordinateSystem();
+                pe.Graphics.TranslateTransform(unit.X * Width, unit.Y * Height);
             }
             protected virtual void OnDrawing(PaintEventArgs pe)
             {
@@ -283,7 +304,11 @@ namespace Geometrical
             }
             protected virtual void OnPostDrawing(PaintEventArgs pe)
             {
-
+                pe.Graphics.ResetTransform();
+            }
+            protected virtual void OnMouseMouseMoveForPlane(MouseMouseMoveForPlaneEventArgs me)
+            {
+                MouseMouseMoveForPlane?.Invoke(this, me);
             }
             protected virtual void OnSelectFigureChanged(SelectFigureChangedEventArgs e)
             {
@@ -343,7 +368,8 @@ namespace Geometrical
                 if (me.Button == MouseButtons.Left)
                 {
                     //図形選択
-                    var figure = FigureList.SelectFigure(System, me.Location, SelectionItems);
+                    var unit = System.GetUnitCoordinateSystem();
+                    var figure = FigureList.SelectFigure(System, new PointF(me.X - unit.X * Width, me.Y - unit.Y * Height), SelectionItems);
                     if (figure != null)
                     {
                         if (!keyboardStatus.Control)
@@ -413,6 +439,13 @@ namespace Geometrical
                 else
                 {
                     ReleaseCapture();
+                }
+
+                //OnMouseMouseMoveForPlane
+                {
+                    var unit = System.GetUnitCoordinateSystem();
+                    var location = System.ConvertFromScale(new PointF(me.X - unit.X * Width, me.Y - unit.Y * Height));
+                    OnMouseMouseMoveForPlane(new MouseMouseMoveForPlaneEventArgs(me.Button, me.Clicks, location.X, location.Y, me.Delta));
                 }
                 base.OnMouseMove(me);
             }

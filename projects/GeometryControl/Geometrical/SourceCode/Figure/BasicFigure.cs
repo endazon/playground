@@ -12,6 +12,7 @@ namespace Geometrical
             RectangleF ConvertToScale(RectangleF value);
             Pen ConvertToScale(Pen value);
             Font ConvertToScale(Font value);
+            StringFormat ConvertToScale(StringFormat value);
         }
         public interface IConvertFrom
         {
@@ -23,6 +24,7 @@ namespace Geometrical
             RectangleF ConvertFromScale(RectangleF value);
             Pen ConvertFromScale(Pen value);
             Font ConvertFromScale(Font value);
+            StringFormat ConvertFromScale(StringFormat value);
         }
 
         public interface IBasicFigure
@@ -48,7 +50,7 @@ namespace Geometrical
             FontFamily FontFamily { get; set; }
             FontStyle Style { get; set; }
             GraphicsUnit Unit { get; set; }
-            StringFormat? Format { get; set; }
+            StringFormat Format { get; set; }
             Font Font { get; set; }
         }
 

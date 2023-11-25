@@ -77,6 +77,29 @@ namespace Geometrical
 
                 return line;
             }
+#if false//デバッグ用
+            private RectangleFigure CreateStringFigure(PointF location, SizeF size, string text, float textSize, Brush color, StringAlignment alignment, StringAlignment lineAlignment)
+            {
+                var str   = new RectangleFigure();
+
+                var format           = new StringFormat();
+                format.Alignment     = alignment;
+                format.LineAlignment = lineAlignment;
+
+                str.Location         = location;
+                str.Size             = size;
+                str.Fill.Color       = Brushes.Transparent;
+                str.Line.Color       = Brushes.Cyan;
+                str.Line.LineSize    = 0.1f;
+                str.String.Color     = color;
+                str.String.Text      = text;
+                str.String.TextSize  = textSize;
+                str.String.Format    = format;
+                str.String.Style     = FontStyle.Bold;
+
+                return str;
+            }
+#else
             private StringFigure CreateStringFigure(PointF location, SizeF size, string text, float textSize, Brush color, StringAlignment alignment, StringAlignment lineAlignment)
             {
                 var str   = new StringFigure(location, size, color, text, textSize);
@@ -89,6 +112,7 @@ namespace Geometrical
 
                 return str;
             }
+#endif
 
             #region BasicFigure
             public override Brush Color { get => Brushes.Transparent; }
@@ -104,8 +128,8 @@ namespace Geometrical
                 var right    = left + system.ConvertFromScale(areaSize.Width);
                 var bottom   = top  + system.ConvertFromScale(areaSize.Height);
                 var lineSize = system.ConvertFromScale(1.0f);
-                var strO     = system.ConvertFromScale(new RectangleF(-50f, -50f, 50f, 50f), default);
-                var strR     = system.ConvertFromScale(new RectangleF(30f, 0f, 50f, 16f), default);
+                var strO     = new RectangleF(-5f * scale, -5f * scale, 5f * scale, 5f * scale);
+                var strR     = new RectangleF( 3f * scale,  0f * scale, 5f * scale, 5f * scale);
                 var strSize  = system.ConvertFromScale(12.0f);
 
                 Clear();
@@ -150,15 +174,15 @@ namespace Geometrical
                     if ((pos % separat) != 0) { continue; }
                     if (0 < top + strR.Height)
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, top                 ), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strR.Width / 2, top                 ), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else if (bottom < 0)
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, bottom - strR.Height), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strR.Width / 2, bottom - strR.Height), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, -strR.Height        ), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strR.Width / 2, -strR.Height        ), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                 }
                 //X軸 負の方向
@@ -168,15 +192,15 @@ namespace Geometrical
                     if ((pos % separat) != 0) { continue; }
                     if (0 < top + strR.Height)
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, top                 ), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strR.Width / 2, top                 ), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else if (bottom < 0)
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, bottom - strR.Height), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strR.Width / 2, bottom - strR.Height), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, -strR.Height        ), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strR.Width / 2, -strR.Height        ), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                 }
                 //Y軸 正の方向
@@ -186,15 +210,15 @@ namespace Geometrical
                     if ((pos % separat) != 0) { continue; }
                     if (0 < left + strR.X)
                     {
-                        Add(CreateStringFigure(new(left - (strR.Width - strR.X), pos - strR.Height / 2), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(left - (strR.Width - strR.X), pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else if (right < 0)
                     {
-                        Add(CreateStringFigure(new(right - strR.Width          , pos - strR.Height / 2), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(right - strR.Width          , pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(-strR.Width                 , pos - strR.Height / 2), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(-strR.Width                 , pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                 }
                 //Y軸 負の方向
@@ -204,15 +228,15 @@ namespace Geometrical
                     if ((pos % separat) != 0) { continue; }
                     if (0 < left + strR.X)
                     {
-                        Add(CreateStringFigure(new(left - (strR.Width - strR.X), pos - strR.Height / 2), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(left - (strR.Width - strR.X), pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else if (right < 0)
                     {
-                        Add(CreateStringFigure(new(right - strR.Width          , pos - strR.Height / 2), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(right - strR.Width          , pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(-strR.Width                 , pos - strR.Height / 2), strR.Size, Convert.ToInt32(pos / separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(-strR.Width                 , pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                 }
             }

@@ -14,10 +14,20 @@ namespace Geometrical
         [Localizable(true)]
         [Category("Geometrical.Plane")]
         [Description("図面選択イベント")]
-        public event SelectFigureChangedEvent SelectFigureChanged
+        public event SelectFigureChangedEventHandler SelectFigureChanged
         {
             add => Plane1.SelectFigureChanged += value;
             remove => Plane1.SelectFigureChanged -= value;
+        }
+
+        [Browsable(true)]
+        [Localizable(true)]
+        [Category("Geometrical.Plane")]
+        [Description("平面上のマウス移動イベント")]
+        public event MouseMouseMoveForPlaneEventHandler MouseMouseMoveForPlane
+        {
+            add => Plane1.MouseMouseMoveForPlane += value;
+            remove => Plane1.MouseMouseMoveForPlane -= value;
         }
         #endregion
 
@@ -131,14 +141,9 @@ namespace Geometrical
             base.OnResize(e);
         }
 
-        private void Plane1_MouseMove(object sender, MouseEventArgs me)
+        private void Plane1_MouseMouseMoveForPlane(object sender, MouseMouseMoveForPlaneEventArgs me)
         {
-            float Convert(int value)
-            {
-                return (value * ReducedScale) / MagnificationRate;
-            }
-            var location = new PointF(Convert(me.X) - Origin.X, Convert(me.Y) - Origin.Y);
-            toolStripStatusLabel1.Text = $"Location:X={location.X} ,Y={location.Y}";
+            toolStripStatusLabel1.Text = $"Location:X={me.XF} ,Y={me.YF}";
         }
 
         private void splitContainer1_Resize(object sender, EventArgs e)

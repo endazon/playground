@@ -66,7 +66,7 @@
             Plane1.Size = new Size(800, 421);
             Plane1.TabIndex = 0;
             Plane1.TabStop = false;
-            Plane1.MouseMove += Plane1_MouseMove;
+            Plane1.MouseMouseMoveForPlane += Plane1_MouseMouseMoveForPlane;
             // 
             // splitContainer1
             // 

@@ -10,7 +10,7 @@ namespace Geometrical
             public FontFamily FontFamily { get; set; } = new("MS UI Gothic");
             public FontStyle Style { get; set; } = FontStyle.Regular;
             public GraphicsUnit Unit { get; set; } = GraphicsUnit.Pixel;
-            public StringFormat? Format { get; set; } = null;
+            public StringFormat Format { get; set; } = new();
             public Font Font
             {
                 get => new(FontFamily, TextSize, Style, Unit);
@@ -29,7 +29,8 @@ namespace Geometrical
             {
                 var _Font      = f is null ? Font      : f.ConvertToScale(Font     );
                 var _Rectangle = f is null ? Rectangle : f.ConvertToScale(Rectangle);
-                g.DrawString(Text, _Font, Color, _Rectangle, Format);
+                var _Format    = f is null ? Format    : f.ConvertToScale(Format   );
+                g.DrawString(Text, _Font, Color, _Rectangle, _Format);
             }
             #endregion
 

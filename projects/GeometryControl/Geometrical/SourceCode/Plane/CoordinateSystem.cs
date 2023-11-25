@@ -41,13 +41,29 @@ namespace Geometrical
 
             public PointF ConvertToScale(PointF value, PointF offset)
             {
-                switch(Direction)
+                var direction = GetUnitDirection();
+                return new(direction.X * ConvertToScale(value.X + offset.X), direction.Y * ConvertToScale(value.Y + offset.Y));
+            }
+
+            public PointF ConvertToScale(PointF value)
+            {
+                return ConvertToScale(value, Origin);
+            }
+
+            public SizeF ConvertToScale(SizeF value)
+            {
+                return new(ConvertToScale(value.Width), ConvertToScale(value.Height));
+            }
+
+            public RectangleF ConvertToScale(RectangleF value, PointF offset)
+            {
+                switch (Direction)
                 {
                     case CoordinateDirections.RightHanded:
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                return new(ConvertToScale(value.X + offset.X), ConvertToScale(value.Y + offset.Y));
+                                return new(ConvertToScale(value.Location, offset), ConvertToScale(value.Size));
                             case CoordinateRotates.Angle090:
                                 break;
                             case CoordinateRotates.Angle180:
@@ -66,7 +82,7 @@ namespace Geometrical
                             case CoordinateRotates.Angle090:
                                 break;
                             case CoordinateRotates.Angle180:
-                                break;
+                                return new(ConvertToScale(new PointF(value.Location.X, value.Location.Y + value.Height), offset), ConvertToScale(value.Size));
                             case CoordinateRotates.Angle270:
                                 break;
                             default:
@@ -77,21 +93,6 @@ namespace Geometrical
                         break;
                 }
                 throw new Exception("CoordinateSystem Parameter Error");
-            }
-
-            public PointF ConvertToScale(PointF value)
-            {
-                return ConvertToScale(value, Origin);
-            }
-
-            public SizeF ConvertToScale(SizeF value)
-            {
-                return new(ConvertToScale(value.Width), ConvertToScale(value.Height));
-            }
-
-            public RectangleF ConvertToScale(RectangleF value, PointF offset)
-            {
-                return new(ConvertToScale(value.Location, offset), ConvertToScale(value.Size));
             }
 
             public RectangleF ConvertToScale(RectangleF value)
@@ -108,6 +109,51 @@ namespace Geometrical
             {
                 return new(value.FontFamily, ConvertToScale(value.Size), value.Style, value.Unit);
             }
+
+            public StringFormat ConvertToScale(StringFormat value)
+            {
+                var unit = GetUnitCoordinateSystem();
+                var format = new StringFormat();
+                if (unit.X == 0) { format.Alignment = value.Alignment; }
+                else
+                {
+                    switch (value.Alignment)
+                    {
+                        case StringAlignment.Near:
+                            format.Alignment = StringAlignment.Far;
+                            break;
+                        case StringAlignment.Far:
+                            format.Alignment = StringAlignment.Near;
+                            break;
+                        case StringAlignment.Center:
+                            format.Alignment = StringAlignment.Center;
+                            break;
+                        default:
+                            format.Alignment = value.Alignment;
+                            break;
+                    }
+                }
+                if (unit.Y == 0) { format.LineAlignment = value.LineAlignment; }
+                else
+                {
+                    switch (value.LineAlignment)
+                    {
+                        case StringAlignment.Near:
+                            format.LineAlignment = StringAlignment.Far;
+                            break;
+                        case StringAlignment.Far:
+                            format.LineAlignment = StringAlignment.Near;
+                            break;
+                        case StringAlignment.Center:
+                            format.LineAlignment = StringAlignment.Center;
+                            break;
+                        default:
+                            format.LineAlignment = value.LineAlignment;
+                            break;
+                    }
+                }
+                return format;
+            }
             #endregion
 
             #region IConvertFrom
@@ -118,13 +164,29 @@ namespace Geometrical
 
             public PointF ConvertFromScale(PointF value, PointF offset)
             {
+                var direction = GetUnitDirection();
+                return new(direction.X * ConvertFromScale(value.X - offset.X), direction.Y * ConvertFromScale(value.Y - offset.Y));
+            }
+
+            public PointF ConvertFromScale(PointF value)
+            {
+                return ConvertFromScale(value, ConvertToScale(Origin, default));
+            }
+
+            public SizeF ConvertFromScale(SizeF value)
+            {
+                return new(ConvertFromScale(value.Width), ConvertFromScale(value.Height));
+            }
+
+            public RectangleF ConvertFromScale(RectangleF value, PointF offset)
+            {
                 switch (Direction)
                 {
                     case CoordinateDirections.RightHanded:
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                return new(ConvertFromScale(value.X) - offset.X, ConvertFromScale(value.Y) - offset.Y);
+                                return new(ConvertFromScale(value.Location, offset), ConvertFromScale(value.Size));
                             case CoordinateRotates.Angle090:
                                 break;
                             case CoordinateRotates.Angle180:
@@ -143,7 +205,7 @@ namespace Geometrical
                             case CoordinateRotates.Angle090:
                                 break;
                             case CoordinateRotates.Angle180:
-                                break;
+                                return new(ConvertFromScale(new PointF(value.Location.X, value.Location.Y - value.Height), offset), ConvertFromScale(value.Size));
                             case CoordinateRotates.Angle270:
                                 break;
                             default:
@@ -156,24 +218,9 @@ namespace Geometrical
                 throw new Exception("CoordinateSystem Parameter Error");
             }
 
-            public PointF ConvertFromScale(PointF value)
-            {
-                return ConvertFromScale(value, Origin);
-            }
-
-            public SizeF ConvertFromScale(SizeF value)
-            {
-                return new(ConvertFromScale(value.Width), ConvertFromScale(value.Height));
-            }
-
-            public RectangleF ConvertFromScale(RectangleF value, PointF offset)
-            {
-                return new(ConvertFromScale(value.Location, offset), ConvertFromScale(value.Size));
-            }
-
             public RectangleF ConvertFromScale(RectangleF value)
             {
-                return ConvertFromScale(value, Origin);
+                return ConvertFromScale(value, ConvertToScale(Origin, default));
             }
 
             public Pen ConvertFromScale(Pen value)
@@ -185,7 +232,64 @@ namespace Geometrical
             {
                 return new(value.FontFamily, ConvertFromScale(value.Size), value.Style, value.Unit);
             }
+
+            public StringFormat ConvertFromScale(StringFormat value)
+            {
+                var unit = GetUnitCoordinateSystem();
+                var format = new StringFormat();
+                if (unit.X == 0) { format.Alignment     = value.Alignment     == StringAlignment.Far  ? StringAlignment.Near : value.Alignment    ; }
+                else             { format.Alignment     = value.Alignment     == StringAlignment.Near ? StringAlignment.Far  : value.Alignment    ; }
+                if (unit.Y == 0) { format.LineAlignment = value.LineAlignment == StringAlignment.Far  ? StringAlignment.Near : value.LineAlignment; }
+                else             { format.LineAlignment = value.LineAlignment == StringAlignment.Near ? StringAlignment.Far  : value.LineAlignment; }
+                return format;
+            }
             #endregion
+
+            public Point GetUnitCoordinateSystem()
+            {
+                switch (Direction)
+                {
+                    case CoordinateDirections.RightHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                return new(0, 0);//右下
+                            case CoordinateRotates.Angle090:
+                                return new(1, 0);//右上
+                            case CoordinateRotates.Angle180:
+                                return new(1, 1);//右下
+                            case CoordinateRotates.Angle270:
+                                return new(0, 1);//左下
+                            default:
+                                break;
+                        }
+                        break;
+                    case CoordinateDirections.LeftHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                return new(1, 0);//右上
+                            case CoordinateRotates.Angle090:
+                                return new(0, 0);//左上
+                            case CoordinateRotates.Angle180:
+                                return new(0, 1);//左下
+                            case CoordinateRotates.Angle270:
+                                return new(0, 0);//右下
+                            default:
+                                break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                throw new Exception("CoordinateSystem Parameter Error");
+            }
+
+            public Point GetUnitDirection()
+            {
+                var unit = GetUnitCoordinateSystem();
+                return new Point(unit.X == 0 ? +1 : -1, unit.Y == 0 ? +1 : -1);
+            }
 
             public void ChangeMagnificationRate(float rate)
             {
