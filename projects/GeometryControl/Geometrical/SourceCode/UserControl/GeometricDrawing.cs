@@ -149,10 +149,13 @@ namespace Geometrical
         private void splitContainer1_Resize(object sender, EventArgs e)
         {
             var s = sender as SplitContainer;
-            var z1IsSplitterFixed = s.IsSplitterFixed;
-            s.IsSplitterFixed = false;
-            s.SplitterDistance = s.Height - statusStrip1.Height;
-            s.IsSplitterFixed = z1IsSplitterFixed;
+            if (s != null)
+            {
+                var z1IsSplitterFixed = s.IsSplitterFixed;
+                s.IsSplitterFixed = false;
+                s.SplitterDistance = s.Height - statusStrip1.Height;
+                s.IsSplitterFixed = z1IsSplitterFixed;
+            }
         }
     }
 }

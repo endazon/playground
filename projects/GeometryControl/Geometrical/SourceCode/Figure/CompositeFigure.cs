@@ -120,17 +120,19 @@ namespace Geometrical
 
             public void UpdateGrid(Size areaSize, CoordinateSystem system, uint breakInterval)
             {
-                var origin   = system.Origin;
-                var scale    = system.ReducedScale;
-                var separat  = breakInterval * scale;
-                var left     = -origin.X;
-                var top      = -origin.Y;
-                var right    = left + system.ConvertFromScale(areaSize.Width);
-                var bottom   = top  + system.ConvertFromScale(areaSize.Height);
-                var lineSize = system.ConvertFromScale(1.0f);
-                var strO     = new RectangleF(-5f * scale, -5f * scale, 5f * scale, 5f * scale);
-                var strR     = new RectangleF( 3f * scale,  0f * scale, 5f * scale, 5f * scale);
-                var strSize  = system.ConvertFromScale(12.0f);
+                var origin       = system.Origin;
+                var scale        = system.ReducedScale;
+                var separat      = breakInterval * scale;
+                var _areaSize    = system.ConvertSizeDirection(areaSize);
+                var left         = -origin.X;
+                var top          = -origin.Y;
+                var right        = left + system.ConvertFromScale(_areaSize.Width);
+                var bottom       = top  + system.ConvertFromScale(_areaSize.Height);
+                var lineSize     = system.ConvertFromScale(1.0f);
+                var strLocationO = new PointF(system.ConvertFromScale(-16), system.ConvertFromScale(-16));
+                var strSizeO     = system.ConvertFromScale(new SizeF(16f, 16f));
+                var strSize      = system.ConvertFromScale(new SizeF(40f, 16f));
+                var fontSize     = system.ConvertFromScale(12.0f);
 
                 Clear();
 
@@ -166,23 +168,23 @@ namespace Geometrical
                 Add(CreateStraightLineFigure(new(left, 0), new(right, 0), Brushes.Black, lineSize));
 
                 /*ï∂éöï\é¶*/
-                Add(CreateStringFigure(strO.Location, strO.Size, "O", strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Far));
+                Add(CreateStringFigure(strLocationO, strSizeO, "O", fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Far));
                 //Xé≤ ê≥ÇÃï˚å¸
                 for (var pos = left < 0 ? +1 : Convert.ToInt32(left); pos < right; pos++)
                 {
                     if ((pos % scale  ) != 0) { continue; }
                     if ((pos % separat) != 0) { continue; }
-                    if (0 < top + strR.Height)
+                    if (0 < top + strSize.Height)
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, top                 ), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strSize.Width / 2, top                 ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else if (bottom < 0)
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, bottom - strR.Height), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strSize.Width / 2, bottom - strSize.Height), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, -strR.Height        ), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strSize.Width / 2, -strSize.Height        ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                 }
                 //Xé≤ ïâÇÃï˚å¸
@@ -190,17 +192,17 @@ namespace Geometrical
                 {
                     if ((pos % scale  ) != 0) { continue; }
                     if ((pos % separat) != 0) { continue; }
-                    if (0 < top + strR.Height)
+                    if (0 < top + strSize.Height)
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, top                 ), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strSize.Width / 2, top                 ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else if (bottom < 0)
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, bottom - strR.Height), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strSize.Width / 2, bottom - strSize.Height), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(pos - strR.Width / 2, -strR.Height        ), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strSize.Width / 2, -strSize.Height        ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                 }
                 //Yé≤ ê≥ÇÃï˚å¸
@@ -208,17 +210,17 @@ namespace Geometrical
                 {
                     if ((pos % scale  ) != 0) { continue; }
                     if ((pos % separat) != 0) { continue; }
-                    if (0 < left + strR.X)
+                    if (0 < left + strSize.Width)
                     {
-                        Add(CreateStringFigure(new(left - (strR.Width - strR.X), pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(left - (strSize.Width - strSize.Width), pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else if (right < 0)
                     {
-                        Add(CreateStringFigure(new(right - strR.Width          , pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(right - strSize.Width              , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(-strR.Width                 , pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(-strSize.Width                     , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                 }
                 //Yé≤ ïâÇÃï˚å¸
@@ -226,17 +228,17 @@ namespace Geometrical
                 {
                     if ((pos % scale  ) != 0) { continue; }
                     if ((pos % separat) != 0) { continue; }
-                    if (0 < left + strR.X)
+                    if (0 < left + strSize.Width)
                     {
-                        Add(CreateStringFigure(new(left - (strR.Width - strR.X), pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(left - (strSize.Width - strSize.Width), pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else if (right < 0)
                     {
-                        Add(CreateStringFigure(new(right - strR.Width          , pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(right - strSize.Width              , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(-strR.Width                 , pos - strR.Height / 2), strR.Size, (Convert.ToInt32(pos / separat) * separat).ToString(), strSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(-strSize.Width                     , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                 }
             }
