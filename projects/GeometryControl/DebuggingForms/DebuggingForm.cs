@@ -12,7 +12,7 @@ namespace DebuggingForms
 
             var Figure1 = new RectangleFigure();
             Figure1.Location = new(50, 50);
-            Figure1.Size = new(10, 10);
+            Figure1.Size = new(10, 20);
             Figure1.Line.Color = Brushes.Orange;
             Figure1.Fill.Color = Brushes.Red;
             Figure1.String.Text = "aaa";
@@ -27,9 +27,6 @@ namespace DebuggingForms
             Figure2.String.Text = "bbb";
             Figure2.String.Color = Brushes.Black;
             geometricDrawing1.Add(Figure2);
-
-            geometricDrawing1.Direction = CoordinateDirections.LeftHanded;
-            geometricDrawing1.Rotation = CoordinateRotates.Angle180;
         }
     }
 }

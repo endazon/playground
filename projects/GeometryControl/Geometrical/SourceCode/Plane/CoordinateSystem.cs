@@ -1,4 +1,5 @@
 using Geometrical.Figure;
+using System.Drawing;
 
 namespace Geometrical
 {
@@ -34,15 +35,57 @@ namespace Geometrical
             public float MagnificationRate { get; set; }
 
             #region IConvertTo
+            public PointF ConvertToCoordinateDirection(PointF location)
+            {
+                switch (Direction)
+                {
+                    case CoordinateDirections.RightHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                return new(+location.X, +location.Y);
+                            case CoordinateRotates.Angle090:
+                                return new(-location.Y, +location.X);
+                            case CoordinateRotates.Angle180:
+                                return new(-location.X, -location.Y);
+                            case CoordinateRotates.Angle270:
+                                return new(+location.Y, -location.X);
+                            default:
+                                break;
+                        }
+                        break;
+                    case CoordinateDirections.LeftHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                return new(-location.X, +location.Y);
+                            case CoordinateRotates.Angle090:
+                                return new(+location.Y, +location.X);
+                            case CoordinateRotates.Angle180:
+                                return new(+location.X, -location.Y);
+                            case CoordinateRotates.Angle270:
+                                return new(-location.Y, -location.X);
+                            default:
+                                break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                throw new Exception("CoordinateSystem Parameter Error");
+            }
+            public SizeF ConvertToSizeDirection(SizeF size)
+            {
+                var convert = ConvertToCoordinateDirection(new(size.Width, size.Height));
+                return new(Math.Abs(convert.X), Math.Abs(convert.Y));
+            }
             public float ConvertToScale(float value)
             {
                 return (value / ReducedScale) * MagnificationRate;
             }
-
             public PointF ConvertToScale(PointF value, PointF offset)
             {
-                var direction = GetUnitDirection();
-                return new(direction.X * ConvertToScale(value.X + offset.X), direction.Y * ConvertToScale(value.Y + offset.Y));
+                return ConvertToCoordinateDirection(new(ConvertToScale(value.X + offset.X), ConvertToScale(value.Y + offset.Y)));
             }
 
             public PointF ConvertToScale(PointF value)
@@ -52,24 +95,26 @@ namespace Geometrical
 
             public SizeF ConvertToScale(SizeF value)
             {
-                return new(ConvertToScale(value.Width), ConvertToScale(value.Height));
+                return ConvertToSizeDirection(new(ConvertToScale(value.Width), ConvertToScale(value.Height)));
             }
 
             public RectangleF ConvertToScale(RectangleF value, PointF offset)
             {
+                var location = ConvertToScale(value.Location, offset);
+                var size = ConvertToScale(value.Size);
                 switch (Direction)
                 {
                     case CoordinateDirections.RightHanded:
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                return new(ConvertToScale(value.Location, offset), ConvertToScale(value.Size));
+                                return new(location.X             , location.Y              , size.Width, size.Height);
                             case CoordinateRotates.Angle090:
-                                break;
+                                return new(location.X - size.Width, location.Y              , size.Width, size.Height);
                             case CoordinateRotates.Angle180:
-                                break;
+                                return new(location.X - size.Width, location.Y - size.Height, size.Width, size.Height);
                             case CoordinateRotates.Angle270:
-                                break;
+                                return new(location.X             , location.Y - size.Height, size.Width, size.Height);
                             default:
                                 break;
                         }
@@ -78,13 +123,13 @@ namespace Geometrical
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                break;
+                                return new(location.X - size.Width, location.Y              , size.Width, size.Height);
                             case CoordinateRotates.Angle090:
-                                break;
+                                return new(location.X             , location.Y              , size.Width, size.Height);
                             case CoordinateRotates.Angle180:
-                                return new(ConvertToScale(new PointF(value.Location.X, value.Location.Y + value.Height), offset), ConvertToScale(value.Size));
+                                return new(location.X             , location.Y - size.Height, size.Width, size.Height);
                             case CoordinateRotates.Angle270:
-                                break;
+                                return new(location.X - size.Width, location.Y - size.Height, size.Width, size.Height);
                             default:
                                 break;
                         }
@@ -113,11 +158,13 @@ namespace Geometrical
             public StringFormat ConvertToScale(StringFormat value)
             {
                 var unit = GetUnitCoordinateSystem();
-                var format = new StringFormat();
-                if (unit.X == 0) { format.Alignment = value.Alignment; }
-                else
+                var convert = ConvertToSizeDirection(new(Convert.ToInt32(value.Alignment), Convert.ToInt32(value.LineAlignment)));
+                var format = (StringFormat)value.Clone();
+                format.Alignment     = (StringAlignment)convert.Width;
+                format.LineAlignment = (StringAlignment)convert.Height;
+                if (unit.X != 0)
                 {
-                    switch (value.Alignment)
+                    switch (format.Alignment)
                     {
                         case StringAlignment.Near:
                             format.Alignment = StringAlignment.Far;
@@ -129,14 +176,12 @@ namespace Geometrical
                             format.Alignment = StringAlignment.Center;
                             break;
                         default:
-                            format.Alignment = value.Alignment;
                             break;
                     }
                 }
-                if (unit.Y == 0) { format.LineAlignment = value.LineAlignment; }
-                else
+                if (unit.Y != 0)
                 {
-                    switch (value.LineAlignment)
+                    switch (format.LineAlignment)
                     {
                         case StringAlignment.Near:
                             format.LineAlignment = StringAlignment.Far;
@@ -148,37 +193,15 @@ namespace Geometrical
                             format.LineAlignment = StringAlignment.Center;
                             break;
                         default:
-                            format.LineAlignment = value.LineAlignment;
                             break;
                     }
                 }
-                return format;
+                return value;
             }
             #endregion
 
             #region IConvertFrom
-            public float ConvertFromScale(float value)
-            {
-                return (value * ReducedScale) / MagnificationRate;
-            }
-
-            public PointF ConvertFromScale(PointF value, PointF offset)
-            {
-                var direction = GetUnitDirection();
-                return new(direction.X * ConvertFromScale(value.X - offset.X), direction.Y * ConvertFromScale(value.Y - offset.Y));
-            }
-
-            public PointF ConvertFromScale(PointF value)
-            {
-                return ConvertFromScale(value, ConvertToScale(Origin, default));
-            }
-
-            public SizeF ConvertFromScale(SizeF value)
-            {
-                return new(ConvertFromScale(value.Width), ConvertFromScale(value.Height));
-            }
-
-            public RectangleF ConvertFromScale(RectangleF value, PointF offset)
+            public PointF ConvertFromCoordinateDirection(PointF location)
             {
                 switch (Direction)
                 {
@@ -186,13 +209,13 @@ namespace Geometrical
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                return new(ConvertFromScale(value.Location, offset), ConvertFromScale(value.Size));
+                                return new(+location.X, +location.Y);
                             case CoordinateRotates.Angle090:
-                                break;
+                                return new(+location.Y, -location.X);
                             case CoordinateRotates.Angle180:
-                                break;
+                                return new(-location.X, -location.Y);
                             case CoordinateRotates.Angle270:
-                                break;
+                                return new(-location.Y, +location.X);
                             default:
                                 break;
                         }
@@ -201,13 +224,80 @@ namespace Geometrical
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                break;
+                                return new(-location.X, +location.Y);
                             case CoordinateRotates.Angle090:
-                                break;
+                                return new(+location.Y, +location.X);
                             case CoordinateRotates.Angle180:
-                                return new(ConvertFromScale(new PointF(value.Location.X, value.Location.Y - value.Height), offset), ConvertFromScale(value.Size));
+                                return new(+location.X, -location.Y);
                             case CoordinateRotates.Angle270:
+                                return new(-location.Y, -location.X);
+                            default:
                                 break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                throw new Exception("CoordinateSystem Parameter Error");
+            }
+            public SizeF ConvertFromSizeDirection(SizeF size)
+            {
+                var convert = ConvertFromCoordinateDirection(new(size.Width, size.Height));
+                return new(Math.Abs(convert.X), Math.Abs(convert.Y));
+            }
+            public float ConvertFromScale(float value)
+            {
+                return (value * ReducedScale) / MagnificationRate;
+            }
+
+            public PointF ConvertFromScale(PointF value, PointF offset)
+            {
+                var _value = ConvertFromCoordinateDirection(value);
+                return new(ConvertFromScale(_value.X - offset.X), ConvertFromScale(_value.Y - offset.Y));
+            }
+
+            public PointF ConvertFromScale(PointF value)
+            {
+                return ConvertFromScale(value, new(ConvertToScale(Origin.X), ConvertToScale(Origin.Y)));
+            }
+
+            public SizeF ConvertFromScale(SizeF value)
+            {
+                return ConvertFromSizeDirection(new(ConvertFromScale(value.Width), ConvertFromScale(value.Height)));
+            }
+
+            public RectangleF ConvertFromScale(RectangleF value, PointF offset)
+            {
+                var location = ConvertFromScale(value.Location, offset);
+                var size = ConvertFromScale(value.Size);
+                switch (Direction)
+                {
+                    case CoordinateDirections.RightHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                return new(location.X             , location.Y              , size.Width, size.Height);
+                            case CoordinateRotates.Angle090:
+                                return new(location.X             , location.Y - size.Height, size.Width, size.Height);
+                            case CoordinateRotates.Angle180:
+                                return new(location.X - size.Width, location.Y - size.Height, size.Width, size.Height);
+                            case CoordinateRotates.Angle270:
+                                return new(location.X             , location.Y - size.Height, size.Width, size.Height);
+                            default:
+                                break;
+                        }
+                        break;
+                    case CoordinateDirections.LeftHanded:
+                        switch (Rotation)
+                        {
+                            case CoordinateRotates.Angle000:
+                                return new(location.X - size.Width, location.Y              , size.Width, size.Height);
+                            case CoordinateRotates.Angle090:
+                                return new(location.X             , location.Y              , size.Width, size.Height);
+                            case CoordinateRotates.Angle180:
+                                return new(location.X             , location.Y - size.Height, size.Width, size.Height);
+                            case CoordinateRotates.Angle270:
+                                return new(location.X - size.Width, location.Y - size.Height, size.Width, size.Height);
                             default:
                                 break;
                         }
@@ -220,7 +310,7 @@ namespace Geometrical
 
             public RectangleF ConvertFromScale(RectangleF value)
             {
-                return ConvertFromScale(value, ConvertToScale(Origin, default));
+                return ConvertFromScale(value, new(ConvertToScale(Origin.X), ConvertToScale(Origin.Y)));
             }
 
             public Pen ConvertFromScale(Pen value)
@@ -235,13 +325,50 @@ namespace Geometrical
 
             public StringFormat ConvertFromScale(StringFormat value)
             {
+
                 var unit = GetUnitCoordinateSystem();
-                var format = new StringFormat();
-                if (unit.X == 0) { format.Alignment     = value.Alignment     == StringAlignment.Far  ? StringAlignment.Near : value.Alignment    ; }
-                else             { format.Alignment     = value.Alignment     == StringAlignment.Near ? StringAlignment.Far  : value.Alignment    ; }
-                if (unit.Y == 0) { format.LineAlignment = value.LineAlignment == StringAlignment.Far  ? StringAlignment.Near : value.LineAlignment; }
-                else             { format.LineAlignment = value.LineAlignment == StringAlignment.Near ? StringAlignment.Far  : value.LineAlignment; }
-                return format;
+                var convert = ConvertFromSizeDirection(new(Convert.ToInt32(value.Alignment), Convert.ToInt32(value.LineAlignment)));
+                var alignment = (StringAlignment)convert.Width;
+                var lineAlignment = (StringAlignment)convert.Height;
+                if (unit.X == 0) { value.Alignment = alignment; }
+                else
+                {
+                    switch (alignment)
+                    {
+                        case StringAlignment.Near:
+                            value.Alignment = StringAlignment.Far;
+                            break;
+                        case StringAlignment.Far:
+                            value.Alignment = StringAlignment.Near;
+                            break;
+                        case StringAlignment.Center:
+                            value.Alignment = StringAlignment.Center;
+                            break;
+                        default:
+                            value.Alignment = alignment;
+                            break;
+                    }
+                }
+                if (unit.Y == 0) { value.LineAlignment = lineAlignment; }
+                else
+                {
+                    switch (lineAlignment)
+                    {
+                        case StringAlignment.Near:
+                            value.LineAlignment = StringAlignment.Far;
+                            break;
+                        case StringAlignment.Far:
+                            value.LineAlignment = StringAlignment.Near;
+                            break;
+                        case StringAlignment.Center:
+                            value.LineAlignment = StringAlignment.Center;
+                            break;
+                        default:
+                            value.LineAlignment = lineAlignment;
+                            break;
+                    }
+                }
+                return value;
             }
             #endregion
 
@@ -253,7 +380,7 @@ namespace Geometrical
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                return new(0, 0);//右下
+                                return new(0, 0);//左上
                             case CoordinateRotates.Angle090:
                                 return new(1, 0);//右上
                             case CoordinateRotates.Angle180:
@@ -274,7 +401,7 @@ namespace Geometrical
                             case CoordinateRotates.Angle180:
                                 return new(0, 1);//左下
                             case CoordinateRotates.Angle270:
-                                return new(0, 0);//右下
+                                return new(1, 1);//右下
                             default:
                                 break;
                         }
@@ -283,12 +410,6 @@ namespace Geometrical
                         break;
                 }
                 throw new Exception("CoordinateSystem Parameter Error");
-            }
-
-            public Point GetUnitDirection()
-            {
-                var unit = GetUnitCoordinateSystem();
-                return new Point(unit.X == 0 ? +1 : -1, unit.Y == 0 ? +1 : -1);
             }
 
             public void ChangeMagnificationRate(float rate)

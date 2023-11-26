@@ -447,6 +447,17 @@ namespace Geometrical
                     var location = System.ConvertFromScale(new PointF(me.X - unit.X * Width, me.Y - unit.Y * Height));
                     OnMouseMouseMoveForPlane(new MouseMouseMoveForPlaneEventArgs(me.Button, me.Clicks, location.X, location.Y, me.Delta));
                 }
+
+#if false//デバッグ用
+                {
+                    var a = System.ConvertToScale(new PointF(10, 20));
+                    var b = System.ConvertFromScale(a);
+                    var c = System.ConvertToScale(new SizeF(10, 20));
+                    var d = System.ConvertFromScale(c);
+                    var e = System.ConvertToScale(new RectangleF(10, 20, 10, 20));
+                    var f = System.ConvertFromScale(e);
+                }
+#endif
                 base.OnMouseMove(me);
             }
             protected override void OnMouseUp(MouseEventArgs me)

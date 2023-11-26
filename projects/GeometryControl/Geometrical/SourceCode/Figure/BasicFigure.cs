@@ -4,6 +4,8 @@ namespace Geometrical
     {
         public interface IConvertTo
         {
+            public PointF ConvertToCoordinateDirection(PointF location);
+            public SizeF ConvertToSizeDirection(SizeF size);
             float ConvertToScale(float value);
             PointF ConvertToScale(PointF value, PointF offset);
             PointF ConvertToScale(PointF value);
@@ -16,6 +18,8 @@ namespace Geometrical
         }
         public interface IConvertFrom
         {
+            public PointF ConvertFromCoordinateDirection(PointF location);
+            public SizeF ConvertFromSizeDirection(SizeF size);
             float ConvertFromScale(float value);
             PointF ConvertFromScale(PointF value, PointF offset);
             PointF ConvertFromScale(PointF value);

@@ -123,7 +123,7 @@ namespace Geometrical
                 var origin       = system.Origin;
                 var scale        = system.ReducedScale;
                 var separat      = breakInterval * scale;
-                var _areaSize    = system.ConvertSizeDirection(areaSize);
+                var _areaSize    = system.ConvertToSizeDirection(areaSize);
                 var left         = -origin.X;
                 var top          = -origin.Y;
                 var right        = left + system.ConvertFromScale(_areaSize.Width);
