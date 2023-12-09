@@ -196,7 +196,7 @@ namespace Geometrical
                             break;
                     }
                 }
-                return value;
+                return format;
             }
             #endregion
 

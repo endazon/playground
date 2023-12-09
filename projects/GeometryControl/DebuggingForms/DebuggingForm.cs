@@ -16,6 +16,8 @@ namespace DebuggingForms
             Figure1.Line.Color = Brushes.Orange;
             Figure1.Fill.Color = Brushes.Red;
             Figure1.String.Text = "aaa";
+            Figure1.String.Format.Alignment = StringAlignment.Far;
+            Figure1.String.Format.LineAlignment = StringAlignment.Far;
             Figure1.String.Color = Brushes.Black;
             geometricDrawing1.Add(Figure1);
 
@@ -26,6 +28,9 @@ namespace DebuggingForms
             Figure2.Fill.Color = Brushes.Green;
             Figure2.String.Text = "bbb";
             Figure2.String.Color = Brushes.Black;
+            Figure2.String.Format.Alignment = StringAlignment.Center;
+            Figure2.String.Format.LineAlignment = StringAlignment.Center;
+            Figure2.String.AutoFontSizeAdjustment = true;
             geometricDrawing1.Add(Figure2);
 
             var Figure3 = new CoordinateAxisDraw();

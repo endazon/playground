@@ -29,7 +29,7 @@ namespace Geometrical
             protected override void Draw(Graphics g, IConvertTo? f = null)
             {
                 var _Font      = AutoFontSizeAdjustment ? AdjustFontSize(g, Font) : Font;
-                    _Font      = f is null ? Font      : f.ConvertToScale(Font     );
+                    _Font      = f is null ? _Font     : f.ConvertToScale(_Font    );
                 var _Rectangle = f is null ? Rectangle : f.ConvertToScale(Rectangle);
                 var _Format    = f is null ? Format    : f.ConvertToScale(Format   );
                 g.DrawString(Text, _Font, Color, _Rectangle, _Format);
@@ -49,7 +49,7 @@ namespace Geometrical
                 if (!string.IsNullOrEmpty(Text))
                 {
                     var s1 = g.MeasureString(Text, new Font(font.Name, font.Size + 0.0f));
-                    var s2 = g.MeasureString(Text, new Font(font.Name, font.Size + 0.1f));
+                    var s2 = g.MeasureString(Text, new Font(font.Name, font.Size + 1.0f));
                     var s  = new SizeF(s2.Width - s1.Width, s2.Height - s1.Height);
                     var a  = (Size.Width  / s.Width ) - 0.001f;
                     var b  = (Size.Height / s.Height) - 0.001f;
@@ -57,7 +57,6 @@ namespace Geometrical
                 }
                 return new(font.FontFamily, fontSize, font.Style, font.Unit);
             }
-
 
             public StringFigure() { }
             public StringFigure(PointF l, SizeF s, Brush c, string t, float ts) : base(l, s, c)
