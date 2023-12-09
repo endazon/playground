@@ -1,22 +1,9 @@
-namespace Geometrical
+﻿namespace Geometrical
 {
     namespace Figure
     {
-        public class StraightLineFigure : BasicFigure, ILineFigure
+        public class StraightLineFigure : BasicLineFigure
         {
-            #region ILineFigure
-            public float LineSize { get; set; } = 1.0f;
-            public Pen Pen
-            {
-                get => new(Color, LineSize);
-                set
-                {
-                    Color    = value.Brush;
-                    LineSize = value.Width;
-                }
-            }
-            #endregion
-
             private PointF _StartPoint = new();
             public virtual PointF StartPoint
             {

@@ -5,7 +5,7 @@ namespace Geometrical
 {
     namespace Plane
     {
-        public class GridPlane : BasicPlane
+        public class GridFigurePlane : FigurePlane
         {
 
             #region Properties

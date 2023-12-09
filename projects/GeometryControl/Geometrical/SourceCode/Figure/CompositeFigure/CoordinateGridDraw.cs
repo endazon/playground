@@ -1,74 +1,9 @@
-using Geometrical.Plane;
+Ôªøusing Geometrical.Plane;
 
 namespace Geometrical
 {
     namespace Figure
     {
-        public class RectangleFigure : BasicTemplateFillAndLineAndStringFigure<RectangleFillFigure, RectangleLineFigure, StringFigure>
-        {
-            public RectangleFigure() { }
-            public RectangleFigure(PointF l, SizeF s, Brush c, float ls, string t, float ts) : base(l, s, c, ls, t, ts) { }
-        }
-        public class SquareFigure : BasicTemplateFillAndLineAndStringFigure<SquareFillFigure, SquareLineFigure, StringFigure>
-        {
-            public SquareFigure() { }
-            public SquareFigure(PointF l, float s, Brush c, float ls, string t, float ts) : base(l, new(s, s), c, ls, t, ts) { }
-        }
-        public class EllipseFigure : BasicTemplateFillAndLineAndStringFigure<EllipseFillFigure, EllipseLineFigure, StringFigure>
-        {
-            public EllipseFigure() { }
-            public EllipseFigure(PointF l, SizeF s, Brush c, float ls, string t, float ts) : base(l, s, c, ls, t, ts) { }
-        }
-        public class CircleFigure : BasicTemplateFillAndLineAndStringFigure<CircleFillFigure, CircleLineFigure, StringFigure>
-        {
-            public CircleFigure() { }
-            public CircleFigure(PointF l, float s, Brush c, float ls, string t, float ts) : base(l, new(s, s), c, ls, t, ts) { }
-        }
-        public class PointFigure : BasicTemplateFillAndLineAndStringFigure<PointFillFigure, PointLineFigure, StringFigure>
-        {
-            public PointFigure() { }
-            public PointFigure(PointF l, float s, Brush c, float ls, string t, float ts) : base(new(l.X - s, l.Y - s), new(s * 2, s * 2), c, ls, t, ts) { }
-        }
-
-        public class PolygonFigure : BasicTemplatePolygonFillAndLineAndStringFigure<PolygonFillFigure, PolygonLineFigure, StringFigure>
-        {
-            public PolygonFigure() { }
-            public PolygonFigure(PointF[] v, PointF l, SizeF s, Brush c, float ls, string t, float ts) : base(v, l, s, c, ls, t, ts) { }
-        }
-
-        public class CoordinateAxisDraw : FigureList
-        {
-            private StraightLineFigure CreateStraightLineFigure(PointF start, PointF end, Brush color)
-            {
-                var line = new StraightLineFigure(start, end, color, 3);
-
-                return line;
-            }
-            private StringFigure CreateStringFigure(PointF location, SizeF size, string text, Brush color)
-            {
-                var str   = new StringFigure(location, size, color, text, 12.0f);
-                str.Style = FontStyle.Bold;
-
-                var format           = new StringFormat();
-                format.Alignment     = StringAlignment.Center;
-                format.LineAlignment = StringAlignment.Center;
-                str.Format           = format;
-
-                return str;
-            }
-
-            public CoordinateAxisDraw()
-            {
-                Add(CreateStringFigure(      new(60, 00), new(20, 20), "+X", Brushes.Red));
-                Add(CreateStraightLineFigure(new(10, 10), new(60, 10),       Brushes.Red));
-                Add(CreateStraightLineFigure(new(60, 10), new(50, 00),       Brushes.Red));
-                Add(CreateStraightLineFigure(new(60, 10), new(50, 20),       Brushes.Red));
-                Add(CreateStringFigure(      new(00, 60), new(20, 20), "+Y", Brushes.LimeGreen));
-                Add(CreateStraightLineFigure(new(10, 10), new(10, 60),       Brushes.LimeGreen));
-                Add(CreateStraightLineFigure(new(10, 60), new(00, 50),       Brushes.LimeGreen));
-                Add(CreateStraightLineFigure(new(10, 60), new(20, 50),       Brushes.LimeGreen));
-            }
-        }
         public class CoordinateGridDraw : FigureList
         {
             private PointFillFigure CreatePointFigure(PointF location, float size, Brush color)
@@ -83,7 +18,7 @@ namespace Geometrical
 
                 return line;
             }
-#if false//ÉfÉoÉbÉOóp
+#if false//„Éá„Éê„ÉÉ„Ç∞Áî®
             private RectangleFigure CreateStringFigure(PointF location, SizeF size, string text, float textSize, Brush color, StringAlignment alignment, StringAlignment lineAlignment)
             {
                 var str   = new RectangleFigure();
@@ -142,47 +77,47 @@ namespace Geometrical
 
                 Clear();
 
-                /*ÉOÉäÉbÉh*/
-                //Xé≤ ê≥ÇÃï˚å¸
+                /*„Ç∞„É™„ÉÉ„Éâ*/
+                //XËª∏ Ê≠£„ÅÆÊñπÂêë
                 for (var pos = left < 0 ? +1 : Convert.ToInt32(left); pos < right; pos++)
                 {
                     if ((pos % scale) != 0) { continue; }
                     Add(CreateStraightLineFigure(new(pos, top), new(pos, bottom), (pos % separat) == 0 ? Brushes.DarkGray : Brushes.LightGray, lineSize));
                 }
-                //Xé≤ ïâÇÃï˚å¸
+                //XËª∏ Ë≤†„ÅÆÊñπÂêë
                 for (var pos = 0 < right ? -1 : Convert.ToInt32(right); left < pos; pos--)
                 {
                     if ((pos % scale) != 0) { continue; }
                     Add(CreateStraightLineFigure(new(pos, top), new(pos, bottom), (pos % separat) == 0 ? Brushes.DarkGray : Brushes.LightGray, lineSize));
                 }
-                //Yé≤ ê≥ÇÃï˚å¸
+                //YËª∏ Ê≠£„ÅÆÊñπÂêë
                 for (var pos = top < 0 ? +1 : Convert.ToInt32(top); pos < bottom; pos++)
                 {
                     if ((pos % scale) != 0) { continue; }
                     Add(CreateStraightLineFigure(new(left, pos), new(right, pos), (pos % separat) == 0 ? Brushes.DarkGray : Brushes.LightGray, lineSize));
                 }
-                //Yé≤ ïâÇÃï˚å¸
+                //YËª∏ Ë≤†„ÅÆÊñπÂêë
                 for (var pos = 0 < bottom ? -1 : Convert.ToInt32(bottom); top < pos; pos--)
                 {
                     if ((pos % scale) != 0) { continue; }
                     Add(CreateStraightLineFigure(new(left, pos), new(right, pos), (pos % separat) == 0 ? Brushes.DarkGray : Brushes.LightGray, lineSize));
                 }
 
-                /*å¥ì_*/
+                /*ÂéüÁÇπ*/
                 Add(CreatePointFigure(new(0, 0), system.ConvertFromScale(2.5f), Brushes.Black));
                 Add(CreateStraightLineFigure(new(0, top), new(0, bottom), Brushes.Black, lineSize));
                 Add(CreateStraightLineFigure(new(left, 0), new(right, 0), Brushes.Black, lineSize));
 
-                /*ï∂éöï\é¶*/
+                /*ÊñáÂ≠óË°®Á§∫*/
                 Add(CreateStringFigure(strLocationO, strSizeO, "O", fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Far));
-                //Xé≤ ê≥ÇÃï˚å¸
+                //XËª∏ Ê≠£„ÅÆÊñπÂêë
                 for (var pos = left < 0 ? +1 : Convert.ToInt32(left); pos < right; pos++)
                 {
                     if ((pos % scale  ) != 0) { continue; }
                     if ((pos % separat) != 0) { continue; }
                     if (0 < top + strSize.Height)
                     {
-                        Add(CreateStringFigure(new(pos - strSize.Width / 2, top                 ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strSize.Width / 2, top                    ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else if (bottom < 0)
                     {
@@ -193,14 +128,14 @@ namespace Geometrical
                         Add(CreateStringFigure(new(pos - strSize.Width / 2, -strSize.Height        ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                 }
-                //Xé≤ ïâÇÃï˚å¸
+                //XËª∏ Ë≤†„ÅÆÊñπÂêë
                 for (var pos = 0 < right ? -1 : Convert.ToInt32(right); left < pos; pos--)
                 {
                     if ((pos % scale  ) != 0) { continue; }
                     if ((pos % separat) != 0) { continue; }
                     if (0 < top + strSize.Height)
                     {
-                        Add(CreateStringFigure(new(pos - strSize.Width / 2, top                 ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
+                        Add(CreateStringFigure(new(pos - strSize.Width / 2, top                    ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                     else if (bottom < 0)
                     {
@@ -211,7 +146,7 @@ namespace Geometrical
                         Add(CreateStringFigure(new(pos - strSize.Width / 2, -strSize.Height        ), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Center, StringAlignment.Far));
                     }
                 }
-                //Yé≤ ê≥ÇÃï˚å¸
+                //YËª∏ Ê≠£„ÅÆÊñπÂêë
                 for (var pos = top < 0 ? +1 : Convert.ToInt32(top); pos < bottom; pos++)
                 {
                     if ((pos % scale  ) != 0) { continue; }
@@ -222,14 +157,14 @@ namespace Geometrical
                     }
                     else if (right < 0)
                     {
-                        Add(CreateStringFigure(new(right - strSize.Width              , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(right - strSize.Width                 , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(-strSize.Width                     , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(-strSize.Width                        , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                 }
-                //Yé≤ ïâÇÃï˚å¸
+                //YËª∏ Ë≤†„ÅÆÊñπÂêë
                 for (var pos = 0 < bottom ? -1 : Convert.ToInt32(bottom); top < pos; pos--)
                 {
                     if ((pos % scale  ) != 0) { continue; }
@@ -240,11 +175,11 @@ namespace Geometrical
                     }
                     else if (right < 0)
                     {
-                        Add(CreateStringFigure(new(right - strSize.Width              , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(right - strSize.Width                 , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                     else
                     {
-                        Add(CreateStringFigure(new(-strSize.Width                     , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
+                        Add(CreateStringFigure(new(-strSize.Width                        , pos - strSize.Height / 2), strSize, (Convert.ToInt32(pos / separat) * separat).ToString(), fontSize, Brushes.Black, StringAlignment.Far, StringAlignment.Center));
                     }
                 }
             }

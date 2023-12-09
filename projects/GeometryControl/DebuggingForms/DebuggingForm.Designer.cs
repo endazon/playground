@@ -35,6 +35,7 @@
             // geometricDrawing1
             // 
             geometricDrawing1.Dock = DockStyle.Fill;
+            geometricDrawing1.EditingProhibited = true;
             geometricDrawing1.Location = new Point(0, 0);
             geometricDrawing1.MagnificationRate = 5F;
             geometricDrawing1.Name = "geometricDrawing1";

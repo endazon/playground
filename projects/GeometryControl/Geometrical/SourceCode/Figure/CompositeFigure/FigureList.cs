@@ -5,9 +5,9 @@ namespace Geometrical
 {
     namespace Figure
     {
-        public class FigureList : RectangleFigure, IList<IBasicFigure>
+        public class FigureList : RectangleFigure, IList<IFigure>
         {
-            private List<IBasicFigure> Items { get; } = new();
+            private List<IFigure> Items { get; } = new();
 
             public FigureList() 
             {
@@ -41,7 +41,7 @@ namespace Geometrical
                 base.Size     = new(Math.Abs(R - L), Math.Abs(B - T));
             }
 
-            public IBasicFigure? SelectFigure(CoordinateSystem system, PointF point, List<IBasicFigure>? ignore)
+            public IFigure? SelectFigure(CoordinateSystem system, PointF point, FigureList? ignore)
             {
                 foreach (var item in this.Reverse())
                 {
@@ -111,22 +111,24 @@ namespace Geometrical
             }
             protected override void Draw(Graphics g, IConvertTo? f = null)
             {
-                base.Draw(g, f);
+                Fill.Drawing(g, f);
                 foreach (var item in Items)
                 {
                     item.Drawing(g, f);
                 }
+                Line.Drawing(g, f);
+                String.Drawing(g, f);
             }
             #endregion
 
-            #region IList<IBasicFigure>
-            public IBasicFigure this[int index] { get => Items[index]; set => Items[index] = value; }
+            #region IList<IFigure>
+            public IFigure this[int index] { get => Items[index]; set => Items[index] = value; }
 
             public int Count => Items.Count;
 
             public bool IsReadOnly => false;
 
-            public void Add(IBasicFigure item)
+            public void Add(IFigure item)
             {
                 Items.Add(item);
                 UpdateItems();
@@ -138,21 +140,21 @@ namespace Geometrical
                 UpdateItems();
             }
 
-            public bool Contains(IBasicFigure item) => Items.Contains(item);
+            public bool Contains(IFigure item) => Items.Contains(item);
 
-            public void CopyTo(IBasicFigure[] array, int arrayIndex) => Items.CopyTo(array, arrayIndex);
+            public void CopyTo(IFigure[] array, int arrayIndex) => Items.CopyTo(array, arrayIndex);
 
-            public IEnumerator<IBasicFigure> GetEnumerator() => Items.GetEnumerator();
+            public IEnumerator<IFigure> GetEnumerator() => Items.GetEnumerator();
 
-            public int IndexOf(IBasicFigure item) => Items.IndexOf(item);
+            public int IndexOf(IFigure item) => Items.IndexOf(item);
 
-            public void Insert(int index, IBasicFigure item)
+            public void Insert(int index, IFigure item)
             {
                 Items.Insert(index, item);
                 UpdateItems();
             }
 
-            public bool Remove(IBasicFigure item)
+            public bool Remove(IFigure item)
             {
                 var ret = Items.Remove(item);
                 UpdateItems();

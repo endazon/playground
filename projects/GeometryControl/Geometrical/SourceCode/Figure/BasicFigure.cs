@@ -4,66 +4,8 @@ namespace Geometrical
 {
     namespace Figure
     {
-        #region IConvert
-        public interface IConvertTo
-        {
-            public PointF ConvertToCoordinateDirection(PointF location);
-            public SizeF ConvertToSizeDirection(SizeF size);
-            float ConvertToScale(float value);
-            PointF ConvertToScale(PointF value, PointF offset);
-            PointF ConvertToScale(PointF value);
-            SizeF ConvertToScale(SizeF value);
-            RectangleF ConvertToScale(RectangleF value, PointF offset);
-            RectangleF ConvertToScale(RectangleF value);
-            Pen ConvertToScale(Pen value);
-            Font ConvertToScale(Font value);
-            StringFormat ConvertToScale(StringFormat value);
-        }
-        public interface IConvertFrom
-        {
-            public PointF ConvertFromCoordinateDirection(PointF location);
-            public SizeF ConvertFromSizeDirection(SizeF size);
-            float ConvertFromScale(float value);
-            PointF ConvertFromScale(PointF value, PointF offset);
-            PointF ConvertFromScale(PointF value);
-            SizeF ConvertFromScale(SizeF value);
-            RectangleF ConvertFromScale(RectangleF value, PointF offset);
-            RectangleF ConvertFromScale(RectangleF value);
-            Pen ConvertFromScale(Pen value);
-            Font ConvertFromScale(Font value);
-            StringFormat ConvertFromScale(StringFormat value);
-        }
-        #endregion
-
         #region BasicFigure
-        public interface IBasicFigure
-        {
-            bool Visible { get; set; }
-            PointF Location { get; set; }
-            SizeF Size { get; set; }
-            RectangleF Rectangle { get; set; }
-            Brush Color { get; set; }
-            object? Tag { get; set; }
-
-            void Drawing(Graphics g, IConvertTo? f = null);
-        }
-        public interface ILineFigure : IBasicFigure
-        {
-            float LineSize { get; set; }
-            Pen Pen { get; set; }
-        }
-        public interface IStringFigure : IBasicFigure
-        {
-            string Text { get; set; }
-            float TextSize { get; set; }
-            FontFamily FontFamily { get; set; }
-            FontStyle Style { get; set; }
-            GraphicsUnit Unit { get; set; }
-            StringFormat Format { get; set; }
-            Font Font { get; set; }
-            bool AutoFontSizeAdjustment { get; set; }
-        }
-        public abstract class BasicFigure : IBasicFigure
+        public abstract class BasicFigure : IFigure
         {
             public virtual bool Visible { get; set; } = true;
             public virtual PointF Location { get; set; } = new();
@@ -78,7 +20,10 @@ namespace Geometrical
                 }
             }
             public virtual Brush Color { get; set; } = Brushes.White;
+            public string Name { get; set; } = "";
             public virtual object? Tag { get; set; } = null;
+
+            public override string ToString() => Name;
 
             protected abstract void Draw(Graphics g, IConvertTo? f = null);
             public void Drawing(Graphics g, IConvertTo? f = null)
@@ -97,15 +42,83 @@ namespace Geometrical
                 Color    = c;
             }
         }
+        public abstract class BasicLineFigure : BasicFigure, ILineFigure
+        {
+            #region ILineFigure
+            public virtual float LineSize { get; set; } = 1.0f;
+            public virtual Pen Pen
+            {
+                get => new(Color, LineSize);
+                set
+                {
+                    Color    = value.Brush;
+                    LineSize = value.Width;
+                }
+            }
+            #endregion
+
+            public BasicLineFigure() { }
+            public BasicLineFigure(PointF l, SizeF s, Brush c, float ls) : base(l, s, c)
+            {
+                LineSize = ls;
+            }
+        }        
+        public abstract class BasicStringFigure : BasicFigure, IStringFigure
+        {
+            #region ILineFigure
+            public string Text { get; set; } = "";
+            public float TextSize { get; set; } = 1.0f;
+            public FontFamily FontFamily { get; set; } = new("MS UI Gothic");
+            public FontStyle Style { get; set; } = FontStyle.Regular;
+            public GraphicsUnit Unit { get; set; } = GraphicsUnit.Pixel;
+            public StringFormat Format { get; set; } = new();
+            public Font Font
+            {
+                get => new(FontFamily, TextSize, Style, Unit);
+                set
+                {
+                    FontFamily = value.FontFamily;
+                    TextSize   = value.Size      ;
+                    Style      = value.Style     ;
+                    Unit       = value.Unit      ;
+                }
+            }
+            public bool AutoFontSizeAdjustment { get; set; } = false;
+            #endregion
+
+            /// <summary>
+            /// 引数で指定されたグラフィックオブジェクトに描画する最適なフォントサイズを算出します。
+            /// </summary>
+            /// <param name="str">出力する文字列</param>
+            /// <param name="size">サイズ</param>
+            /// <param name="g">グラフィックオブジェクト</param>
+            /// <returns>フォントサイズ</returns>
+            protected Font AdjustFontSize(Graphics g, Font font)
+            {
+                var fontSize = font.Size;
+                if (!string.IsNullOrEmpty(Text))
+                {
+                    var s1 = g.MeasureString(Text, new Font(font.Name, font.Size + 0.0f));
+                    var s2 = g.MeasureString(Text, new Font(font.Name, font.Size + 1.0f));
+                    var s  = new SizeF(s2.Width - s1.Width, s2.Height - s1.Height);
+                    var a  = (Size.Width  / s.Width ) - 0.001f;
+                    var b  = (Size.Height / s.Height) - 0.001f;
+                    fontSize = (a < b) ? a : b;
+                }
+                return new(font.FontFamily, fontSize, font.Style, font.Unit);
+            }
+
+            public BasicStringFigure() { }
+            public BasicStringFigure(PointF l, SizeF s, Brush c, string t, float ts) : base(l, s, c)
+            {
+                Text     = t;
+                TextSize = ts;
+            }
+        }
         #endregion
 
-        #region BasePalygonFigure
-        public interface IPolygonFigure : IBasicFigure
-        {
-            PointF[] Vertex { get; set; }
-        }
-        public interface IPolygonLineFigure : IPolygonFigure, ILineFigure { }
-        public abstract class BasePalygonFigure : BasicFigure, IPolygonFigure
+        #region BasicPalygonFigure
+        public abstract class BasicPalygonFigure : BasicFigure, IPolygonFigure
         {
             #region IPolygonFigure
             private PointF[] _Vertex = new PointF[0];
@@ -180,22 +193,37 @@ namespace Geometrical
                     base.Size = value;
                 }
             }
-
-            public BasePalygonFigure() { }
-            public BasePalygonFigure(PointF[] v, PointF l, SizeF s, Brush c) : base(l, s, c) { Vertex = v; }
             #endregion
+
+            public BasicPalygonFigure() { }
+            public BasicPalygonFigure(PointF[] v, PointF l, SizeF s, Brush c) : base(l, s, c) { Vertex = v; }
+        }
+        public abstract class BasicPalygonLineFigure : BasicPalygonFigure, IPolygonLineFigure
+        {
+            #region ILineFigure
+            public float LineSize { get; set; } = 1.0f;
+            public Pen Pen
+            {
+                get => new(Color, LineSize);
+                set
+                {
+                    Color = value.Brush;
+                    LineSize = value.Width;
+                }
+            }
+            #endregion
+
+            public BasicPalygonLineFigure() { }
+            public BasicPalygonLineFigure(PointF[] v, PointF l, SizeF s, Brush c, float ls) : base(v, l, s, c) 
+            {
+                LineSize = ls;
+            }
         }
         #endregion
 
         #region TemplateFillAndLineAndStringFigure
-        public interface ITemplateFillAndLineAndStringFigure<FillClass, LineClass, StringClass> : IBasicFigure
-        {
-            FillClass Fill { get; set; }
-            LineClass Line { get; set; }
-            StringClass String { get; set; }
-        }        
         public class BasicTemplateFillAndLineAndStringFigure<FillClass, LineClass, StringClass> : BasicFigure, ITemplateFillAndLineAndStringFigure<FillClass, LineClass, StringClass>
-            where FillClass   : IBasicFigure , new()
+            where FillClass   : IFigure      , new()
             where LineClass   : ILineFigure  , new()
             where StringClass : IStringFigure, new()
         {
@@ -203,7 +231,7 @@ namespace Geometrical
             public LineClass Line { get; set; } = new();
             public StringClass String { get; set; } = new();
 
-            #region IBasicFigure
+            #region IFigure
             public override bool Visible
             {
                 get => base.Visible;

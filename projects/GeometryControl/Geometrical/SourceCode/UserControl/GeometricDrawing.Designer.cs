@@ -31,7 +31,9 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(GeometricDrawing));
             statusStrip1 = new StatusStrip();
             toolStripStatusLabel1 = new ToolStripStatusLabel();
-            Plane1 = new Plane.GridPlane();
+            toolStripStatusLabel2 = new ToolStripStatusLabel();
+            toolStripStatusLabel3 = new ToolStripStatusLabel();
+            Plane1 = new Plane.GridFigurePlane();
             splitContainer1 = new SplitContainer();
             statusStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)Plane1).BeginInit();
@@ -44,7 +46,7 @@
             // statusStrip1
             // 
             statusStrip1.Dock = DockStyle.Fill;
-            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabel1 });
+            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabel1, toolStripStatusLabel2, toolStripStatusLabel3 });
             statusStrip1.Location = new Point(0, 0);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Size = new Size(800, 25);
@@ -57,6 +59,18 @@
             toolStripStatusLabel1.Size = new Size(53, 20);
             toolStripStatusLabel1.Text = "Location";
             // 
+            // toolStripStatusLabel2
+            // 
+            toolStripStatusLabel2.Name = "toolStripStatusLabel2";
+            toolStripStatusLabel2.Size = new Size(34, 20);
+            toolStripStatusLabel2.Text = "Scale";
+            // 
+            // toolStripStatusLabel3
+            // 
+            toolStripStatusLabel3.Name = "toolStripStatusLabel3";
+            toolStripStatusLabel3.Size = new Size(30, 20);
+            toolStripStatusLabel3.Text = "Rate";
+            // 
             // Plane1
             // 
             Plane1.Dock = DockStyle.Fill;
@@ -67,6 +81,7 @@
             Plane1.TabIndex = 0;
             Plane1.TabStop = false;
             Plane1.MouseMouseMoveForPlane += Plane1_MouseMouseMoveForPlane;
+            Plane1.Paint += Plane1_Paint;
             // 
             // splitContainer1
             // 
@@ -108,8 +123,10 @@
 
         #endregion
         private StatusStrip statusStrip1;
-        private Plane.GridPlane Plane1;
+        private Plane.GridFigurePlane Plane1;
         private ToolStripStatusLabel toolStripStatusLabel1;
         private SplitContainer splitContainer1;
+        private ToolStripStatusLabel toolStripStatusLabel2;
+        private ToolStripStatusLabel toolStripStatusLabel3;
     }
 }

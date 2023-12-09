@@ -420,8 +420,7 @@ namespace Geometrical
 
             public void MovingOrigin(PointF offset)
             {
-                var _offset = ConvertFromScale(offset, default);
-                Origin = new(Origin.X + _offset.X, Origin.Y + _offset.Y);
+                Origin = new(Origin.X + offset.X, Origin.Y + offset.Y);
             }
 
             public CoordinateSystem(PointF p, CoordinateDirections d, CoordinateRotates r, float s, float m)

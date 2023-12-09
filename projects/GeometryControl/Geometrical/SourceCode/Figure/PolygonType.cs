@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 namespace Geometrical
 {
     namespace Figure
@@ -56,62 +49,6 @@ namespace Geometrical
             public static PointF[] Chiliagon   (float angle = 0, float radius = 0.5f) => PolygonVertexCalculation(1000   , angle, radius);//千角形   Chiliagon    チリアゴン
             public static PointF[] Myriagon    (float angle = 0, float radius = 0.5f) => PolygonVertexCalculation(10000  , angle, radius);//一万角形 Myriagon     ミリアゴン
             public static PointF[] Megagon     (float angle = 0, float radius = 0.5f) => PolygonVertexCalculation(1000000, angle, radius);//百万角形 Megagon      メガゴン
-        }
-
-        public class PolygonFillFigure : BasePalygonFigure
-        {
-            #region BasePalygonFigure
-            protected override void Draw(Graphics g, IConvertTo? f = null)
-            {
-                var _Vertex = new PointF[Vertex.Length];
-                for (int i = 0; i < _Vertex.Length; i++)
-                {
-                    _Vertex[i] = f is null ? Vertex[i] : f.ConvertToScale(Vertex[i]);
-                }
-
-                var _Polygon = new GraphicsPath();
-                _Polygon.AddPolygon(_Vertex);
-                g.FillPath(Color, _Polygon);
-            }
-            #endregion
-
-            public PolygonFillFigure() { }
-            public PolygonFillFigure(PointF[] v, PointF l, SizeF s, Brush c) : base(v, l, s, c) { }
-        }
-
-        public class PolygonLineFigure : BasePalygonFigure, IPolygonLineFigure
-        {
-            #region ILineFigure
-            public float LineSize { get; set; } = 1.0f;
-            public Pen Pen
-            {
-                get => new(Color, LineSize);
-                set
-                {
-                    Color    = value.Brush;
-                    LineSize = value.Width;
-                }
-            }
-            #endregion
-
-            #region BasePalygonFigure
-            protected override void Draw(Graphics g, IConvertTo? f = null)
-            {
-                var _Pen = f is null ? Pen : f.ConvertToScale(Pen);
-                var _Vertex = new PointF[Vertex.Length];
-                for (int i = 0; i < _Vertex.Length; i++)
-                {
-                    _Vertex[i] = f is null ? Vertex[i] : f.ConvertToScale(Vertex[i]);
-                }
-
-                var _Polygon = new GraphicsPath();
-                _Polygon.AddPolygon(_Vertex);
-                g.DrawPath(Pen, _Polygon);
-            }
-            #endregion
-
-            public PolygonLineFigure() { }
-            public PolygonLineFigure(PointF[] v, PointF l, SizeF s, Brush c, float ls) : base(v, l, s, c) { LineSize = ls; }
         }
     }
 }

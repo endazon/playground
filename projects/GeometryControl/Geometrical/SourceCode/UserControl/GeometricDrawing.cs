@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace Geometrical
 {
-    public partial class GeometricDrawing : UserControl, ICoordinateSystem, IList<IBasicFigure>
+    public partial class GeometricDrawing : UserControl, ICoordinateSystem, IList<IFigure>
     {
         #region EventHandler
         [Browsable(true)]
@@ -103,33 +103,49 @@ namespace Geometrical
         }
         #endregion
 
-        #region IList<IBasicFigure>
-        public IBasicFigure this[int index] { get => Plane1.FigureList[index]; set => Plane1.SelectionItems[index] = value; }
+        #region IList<IFigure>
+        public IFigure this[int index] { get => Plane1.FigureList[index]; set => Plane1.SelectionItems[index] = value; }
 
+        [Browsable(false)]
         public int Count => Plane1.FigureList.Count;
 
+        [Browsable(false)]
         public bool IsReadOnly => Plane1.FigureList.IsReadOnly;
 
-        public void Add(IBasicFigure item) => Plane1.FigureList.Add(item);
+        public void Add(IFigure item) => Plane1.FigureList.Add(item);
 
         public void Clear() => Plane1.FigureList.Clear();
 
-        public bool Contains(IBasicFigure item) => Plane1.FigureList.Contains(item);
+        public bool Contains(IFigure item) => Plane1.FigureList.Contains(item);
 
-        public void CopyTo(IBasicFigure[] array, int arrayIndex) => Plane1.FigureList.CopyTo(array, arrayIndex);
+        public void CopyTo(IFigure[] array, int arrayIndex) => Plane1.FigureList.CopyTo(array, arrayIndex);
 
-        public IEnumerator<IBasicFigure> GetEnumerator() => Plane1.FigureList.GetEnumerator();
+        public IEnumerator<IFigure> GetEnumerator() => Plane1.FigureList.GetEnumerator();
 
-        public int IndexOf(IBasicFigure item) => Plane1.FigureList.IndexOf(item);
+        public int IndexOf(IFigure item) => Plane1.FigureList.IndexOf(item);
 
-        public void Insert(int index, IBasicFigure item) => Plane1.FigureList.Insert(index, item);
+        public void Insert(int index, IFigure item) => Plane1.FigureList.Insert(index, item);
 
-        public bool Remove(IBasicFigure item) => Plane1.FigureList.Remove(item);
+        public bool Remove(IFigure item) => Plane1.FigureList.Remove(item);
 
         public void RemoveAt(int index) => Plane1.FigureList.RemoveAt(index);
 
         IEnumerator IEnumerable.GetEnumerator() => Plane1.FigureList.GetEnumerator();
         #endregion
+
+        [Browsable(true)]
+        [Localizable(true)]
+        [Category("FigurePlane")]
+        [Description("編集禁止")]
+        [DefaultValue(false)]
+        public bool EditingProhibited
+        {
+            get => Plane1.EditingProhibited;
+            set
+            {
+                Plane1.EditingProhibited = value;
+            }
+        }
 
         public GeometricDrawing()
         {
@@ -141,9 +157,17 @@ namespace Geometrical
             base.OnResize(e);
         }
 
+        private void Plane1_Paint(object sender, PaintEventArgs e)
+        {
+            var s = sender as FigurePlane;
+
+            toolStripStatusLabel2.Text = $"Scale:{s.ReducedScale}[mm]";
+            toolStripStatusLabel3.Text = $"Rate:{s.MagnificationRate * 100}[%]";
+        }
+
         private void Plane1_MouseMouseMoveForPlane(object sender, MouseMouseMoveForPlaneEventArgs me)
         {
-            toolStripStatusLabel1.Text = $"Location:X={me.XF} ,Y={me.YF}";
+            toolStripStatusLabel1.Text = $"Location:X={me.XF}[mm] ,Y={me.YF}[mm]";
         }
     }
 }

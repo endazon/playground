@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Geometrical.Figure;
 using System.ComponentModel;
 using System.Security.Cryptography.X509Certificates;
+using Geometrical.Properties;
 
 namespace Geometrical
 {
@@ -11,11 +12,11 @@ namespace Geometrical
         #region Event
         public class SelectFigureChangedEventArgs : EventArgs
         {
-            public SelectFigureChangedEventArgs(List<IBasicFigure> figures)
+            public SelectFigureChangedEventArgs(List<IFigure> figures)
             {
                 SelectionItems = figures;
             }
-            public List<IBasicFigure> SelectionItems { get; }
+            public List<IFigure> SelectionItems { get; }
         }
         public delegate void SelectFigureChangedEventHandler(object sender, SelectFigureChangedEventArgs e);
 
@@ -34,7 +35,7 @@ namespace Geometrical
         public delegate void MouseMouseMoveForPlaneEventHandler(object sender, MouseMouseMoveForPlaneEventArgs e);
         #endregion
 
-        public class BasicPlane : PictureBox, ICoordinateSystem
+        public class FigurePlane : PictureBox, ICoordinateSystem
         {
             #region Win32 Constants
             private const int WH_KEYBOARD_LL = 0x000D;
@@ -113,6 +114,7 @@ namespace Geometrical
                 public MouseButtons Button { get; private set; }
                 public int Clicks { get; private set; }
                 public Point Location { get; private set; }
+                public Cursor FixedCursor { get; set; } = Cursors.Default;
 
                 public void Update(MouseEventArgs me)
                 {
@@ -309,7 +311,131 @@ namespace Geometrical
             public FigureList FigureList { get; } = new();
 
             [Browsable(false)]
-            public List<IBasicFigure> SelectionItems { get; } = new();
+            public FigureList SelectionItems { get; } = new();
+
+            [Browsable(true)]
+            [Localizable(true)]
+            [Category("FigurePlane")]
+            [Description("編集禁止")]
+            [DefaultValue(false)]
+            public bool EditingProhibited { get; set; } = false;
+            #endregion
+
+            #region Func
+            public Cursor GetSelectFigureCursor(PointF location)
+            {
+                if (EditingProhibited)
+                {
+                    var AreaSize = System.ConvertFromScale(5);
+                    var TopRightArea = new RectangleF(
+                        SelectionItems.Rectangle.Right - AreaSize,
+                        SelectionItems.Rectangle.Top   + AreaSize,
+                        AreaSize,
+                        AreaSize
+                        );
+                    var RightArea = new RectangleF(
+                        SelectionItems.Rectangle.Right - AreaSize,
+                        SelectionItems.Rectangle.Top,
+                        AreaSize,
+                        SelectionItems.Rectangle.Height
+                        );
+                    var BottomArea = new RectangleF(
+                        SelectionItems.Rectangle.Left,
+                        SelectionItems.Rectangle.Bottom - AreaSize,
+                        SelectionItems.Rectangle.Width,
+                        AreaSize
+                        );
+
+                    if (0 < SelectionItems.Count)
+                    {
+                        if (TopRightArea.Contains(location))
+                        {
+                            return new Cursor(Resources.RotationArrows.GetHicon());
+                        }
+                        else if(RightArea.Contains(location))
+                        {
+                            return Cursors.SizeWE;
+                        }
+                        else if (BottomArea.Contains(location))
+                        {
+                            return Cursors.SizeNS;
+                        }
+                        else if (SelectionItems.Rectangle.Contains(location))
+                        {
+                            return Cursors.SizeAll;
+                        }
+                    }
+                }
+                return Cursors.Default;
+            }
+            #endregion
+
+            #region Interface
+            public void SelectedFigureAdd(IFigure? figure)
+            {
+                if (figure != null)
+                {
+                    void SetSelectFigure(IFigure selectFigure, IFigure origin)
+                    {
+                        selectFigure.Location = origin.Location;
+                        selectFigure.Size     = origin.Size;
+                        selectFigure.Color    = Brushes.Cyan;
+                        selectFigure.Tag      = origin;
+                        SelectionItems.Add(selectFigure);
+                    }
+                    if (FigureOperation.IsTypeMatchRectangleFigure(figure))
+                    {
+                        var selectFigure      = new RectangleLineFigure();
+                        var origin            = FigureOperation.CastRectangleFigure(figure);
+                        selectFigure.LineSize = origin.Line.LineSize;
+                        SetSelectFigure(selectFigure, origin);
+                    }
+                    else if (FigureOperation.IsTypeMatchEllipseFigure(figure))
+                    {
+                        var selectFigure      = new EllipseLineFigure();
+                        var origin            = FigureOperation.CastEllipseFigure(figure);
+                        selectFigure.LineSize = origin.Line.LineSize;
+                        SetSelectFigure(selectFigure, origin);
+
+                    }
+                    else if (FigureOperation.IsTypeMatchPolygonFigure(figure))
+                    {
+                        var selectFigure      = new PolygonLineFigure();
+                        var origin            = FigureOperation.CastPolygonFigure(figure);
+                        selectFigure.Vertex   = origin.Vertex;
+                        selectFigure.LineSize = origin.Line.LineSize;
+                        SetSelectFigure(selectFigure, origin);
+                    }
+                    if(2 > SelectionItems.Count)
+                    {
+                        SelectionItems.Line.Visible = false;
+                    }
+                    else
+                    {
+                        SelectionItems.Line.Color = Brushes.DarkCyan;
+                        SelectionItems.Line.LineSize = 1;
+                        SelectionItems.Line.Visible = true;
+                    }
+
+                    var list = new List<IFigure>();
+                    foreach (var item in SelectionItems)
+                    {
+                        if (item.Tag == null) { continue; }
+                        list.Add((IFigure)item.Tag);
+                    }
+                    OnSelectFigureChanged(new SelectFigureChangedEventArgs(list));
+                }
+                else
+                {
+                    OnSelectFigureChanged(new SelectFigureChangedEventArgs(new()));
+                }
+                Refresh();
+            }
+            public void SelectedFigureClear()
+            {
+                SelectionItems.Clear();
+                Refresh();
+            }
             #endregion
 
             #region OnEventDefinition
@@ -321,6 +447,7 @@ namespace Geometrical
             protected virtual void OnDrawing(PaintEventArgs pe)
             {
                 FigureList.Drawing(pe.Graphics, System);
+                SelectionItems.Drawing(pe.Graphics, System);
             }
             protected virtual void OnPostDrawing(PaintEventArgs pe)
             {
@@ -385,72 +512,15 @@ namespace Geometrical
             }
             protected override void OnMouseDown(MouseEventArgs me)
             {
+                mouseStatus.FixedCursor = Cursors.Default;
                 if (me.Button == MouseButtons.Left)
                 {
                     //図形選択
-                    var unit = System.GetUnitCoordinateSystem();
-                    var figure = FigureList.SelectFigure(System, new PointF(me.X - unit.X * Width, me.Y - unit.Y * Height), SelectionItems);
-                    if (figure != null)
-                    {
-                        if (!keyboardStatus.Control)
-                        {
-                            foreach (var item in SelectionItems)
-                            {
-                                FigureList.Remove(item);
-                            }
-                            SelectionItems.Clear();
-                        }
-
-                        void SetSelectFigure(IBasicFigure selectFigure, IBasicFigure origin)
-                        {
-                            selectFigure.Location = origin.Location;
-                            selectFigure.Size     = origin.Size;
-                            selectFigure.Color    = Brushes.Cyan;
-                            selectFigure.Tag      = origin;
-                            SelectionItems.Add(selectFigure);
-                            FigureList.Add(selectFigure);
-                        }
-                        if (FigureOperation.IsTypeMatchRectangleFigure(figure))
-                        {
-                            var selectFigure = new RectangleLineFigure();
-                            var origin = FigureOperation.CastRectangleFigure(figure);
-                            selectFigure.LineSize = origin.Line.LineSize;
-                            SetSelectFigure(selectFigure, origin);
-                        }
-                        else if (FigureOperation.IsTypeMatchEllipseFigure(figure))
-                        {
-                            var selectFigure = new EllipseLineFigure();
-                            var origin = FigureOperation.CastEllipseFigure(figure);
-                            selectFigure.LineSize = origin.Line.LineSize;
-                            SetSelectFigure(selectFigure, origin);
-
-                        }
-                        else if (FigureOperation.IsTypeMatchPolygonFigure(figure))
-                        {
-                            var selectFigure = new PolygonLineFigure();
-                            var origin = FigureOperation.CastPolygonFigure(figure);
-                            selectFigure.Vertex = origin.Vertex;
-                            selectFigure.LineSize = origin.Line.LineSize;
-                            SetSelectFigure(selectFigure, origin);
-                        }
-
-                        var list = new List<IBasicFigure>();
-                        foreach (var item in SelectionItems)
-                        {
-                            if (item.Tag == null) { continue; }
-                            list.Add((IBasicFigure)item.Tag);
-                        }
-                        OnSelectFigureChanged(new SelectFigureChangedEventArgs(list));
-                    }
-                    else
-                    {
-                        foreach (var item in SelectionItems)
-                        {
-                            FigureList.Remove(item);
-                        }
-
-                        OnSelectFigureChanged(new SelectFigureChangedEventArgs(new()));
-                    }
+                    var unit                = System.GetUnitCoordinateSystem();
+                    var location            = System.ConvertFromScale(new PointF(me.X - unit.X * Width, me.Y - unit.Y * Height));
+                    mouseStatus.FixedCursor = GetSelectFigureCursor(location);
+                    if (!keyboardStatus.Control) { SelectedFigureClear(); }
+                    SelectedFigureAdd(FigureList.SelectFigure(System, new PointF(me.X - unit.X * Width, me.Y - unit.Y * Height), SelectionItems));
                 }
                 Refresh();
                 mouseStatus.Update(me);
@@ -458,26 +528,75 @@ namespace Geometrical
             }
             protected override void OnMouseMove(MouseEventArgs me)
             {
+                var unit        = System.GetUnitCoordinateSystem();
+                var location    = System.ConvertFromScale(new PointF(me.X                   - unit.X * Width, me.Y                   - unit.Y * Height));
+                var z1location  = System.ConvertFromScale(new PointF(mouseStatus.Location.X - unit.X * Width, mouseStatus.Location.Y - unit.Y * Height));
+                var variation   = new PointF(location.X - z1location.X, location.Y - z1location.Y);
+                var MinimumSize = System.ReducedScale;
+
                 if (ClientRectangle.Contains(me.Location))
                 {
                     if (mouseStatus.Button == MouseButtons.Right)
                     {
                         //左クリックされていたら、原点移動
-                        System.MovingOrigin(new(me.X - mouseStatus.Location.X, me.Y - mouseStatus.Location.Y));
+                        System.MovingOrigin(variation);
                         Refresh();
+                    }
+
+                    if (mouseStatus.FixedCursor == Cursors.SizeAll)
+                    {
+                        Cursor = Cursors.SizeAll;
+
+                        SelectionItems.Location = new(SelectionItems.Location.X + variation.X, SelectionItems.Location.Y + variation.Y);
+                        foreach (var item in SelectionItems)
+                        {
+                            var figure = item.Tag as IFigure;
+                            if (figure != null)
+                            {
+                                figure.Location = item.Location;
+                            }
+                        }
+                        Refresh();
+                    }
+                    else if (mouseStatus.FixedCursor == Cursors.SizeWE)
+                    {
+                        Cursor = Cursors.SizeWE;
+
+                        SelectionItems.Size = new(MinimumSize < SelectionItems.Size.Width + variation.X ? SelectionItems.Size.Width + variation.X : MinimumSize, SelectionItems.Size.Height);
+                        foreach (var item in SelectionItems)
+                        {
+                            var figure = item.Tag as IFigure;
+                            if (figure != null)
+                            {
+                                figure.Size = item.Size;
+                            }
+                        }
+                        Refresh();
+                    }
+                    else if (mouseStatus.FixedCursor == Cursors.SizeNS)
+                    {
+                        Cursor = Cursors.SizeNS;
+
+                        SelectionItems.Size = new(SelectionItems.Size.Width, MinimumSize < SelectionItems.Size.Height + variation.Y ? SelectionItems.Size.Height + variation.Y : MinimumSize);
+                        foreach (var item in SelectionItems)
+                        {
+                            var figure = item.Tag as IFigure;
+                            if (figure != null)
+                            {
+                                figure.Size = item.Size;
+                            }
+                        }
+                        Refresh();
+                    }
+                    else
+                    {
+                        Cursor = GetSelectFigureCursor(location);
                     }
                     mouseStatus.Update(me);
                 }
                 else
                 {
                     ReleaseCapture();
-                }
-
-                //OnMouseMouseMoveForPlane
-                {
-                    var unit = System.GetUnitCoordinateSystem();
-                    var location = System.ConvertFromScale(new PointF(me.X - unit.X * Width, me.Y - unit.Y * Height));
-                    OnMouseMouseMoveForPlane(new MouseMouseMoveForPlaneEventArgs(me.Button, me.Clicks, location.X, location.Y, me.Delta));
                 }
 
 #if false//デバッグ用
@@ -490,11 +609,13 @@ namespace Geometrical
                     var f = System.ConvertFromScale(e);
                 }
 #endif
+                OnMouseMouseMoveForPlane(new MouseMouseMoveForPlaneEventArgs(me.Button, me.Clicks, location.X, location.Y, me.Delta));
                 base.OnMouseMove(me);
             }
             protected override void OnMouseUp(MouseEventArgs me)
             {
                 mouseStatus.Update(me);
+                mouseStatus.FixedCursor = Cursors.Default;
                 base.OnMouseUp(me);
             }
             protected override void OnMouseLeave(EventArgs e)
@@ -507,11 +628,11 @@ namespace Geometrical
             #endregion
 
             #region Construct
-            public BasicPlane() { }
+            public FigurePlane() { }
             #endregion
 
             #region Destruct
-            ~BasicPlane()
+            ~FigurePlane()
             {
                 UnHookKeyboard();
             }
