@@ -84,7 +84,7 @@ namespace Geometrical
             #region Type
             private class KeyboardStatus
             {
-                public List<Keys> DownKeyDataList { get; private set; } = new();
+                public List<Keys> DownKeyDataList { get; } = new();
                 public bool Alt => DownKeyDataList.Contains(Keys.LMenu) || DownKeyDataList.Contains(Keys.RMenu);
                 public bool Control => DownKeyDataList.Contains(Keys.LControlKey) || DownKeyDataList.Contains(Keys.RControlKey);
                 public bool Shift => DownKeyDataList.Contains(Keys.LShiftKey) || DownKeyDataList.Contains(Keys.RShiftKey);
@@ -102,6 +102,10 @@ namespace Geometrical
                     {
                         DownKeyDataList.Remove(ke.KeyData);
                     }
+                }
+                public void Clear()
+                {
+                    DownKeyDataList.Clear();
                 }
             }
             private class MouseStatus
@@ -496,6 +500,7 @@ namespace Geometrical
             protected override void OnMouseLeave(EventArgs e)
             {
                 UnHookKeyboard();
+                keyboardStatus.Clear();
                 mouseStatus.Clear();
                 base.OnMouseLeave(e);
             }
