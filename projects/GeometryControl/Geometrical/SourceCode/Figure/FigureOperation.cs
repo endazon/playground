@@ -6,37 +6,31 @@ namespace Geometrical
         public static class FigureOperation
         {
             #region RectangleFigure
-            public static bool IsTypeMatchRectangleFillFigure(Type t) => typeof(RectangleFillFigure) == t;
-            public static bool IsTypeMatchRectangleLineFigure(Type t) => typeof(RectangleLineFigure) == t;
-            public static bool IsTypeMatchRectangleeFillOrLineFigure(Type t) => IsTypeMatchRectangleFillFigure(t) || IsTypeMatchRectangleLineFigure(t);
-            public static bool IsTypeMatchSquareFillFigure(Type t) => typeof(SquareFillFigure) == t;
-            public static bool IsTypeMatchSquareLineFigure(Type t) => typeof(SquareLineFigure) == t;
-            public static bool IsTypeMatchSquareFillOrLineFigure(Type t) => IsTypeMatchSquareFillFigure(t) || IsTypeMatchSquareLineFigure(t);
+            public static bool IsTypeMatchRectangleFillFigure(object obj) => obj is RectangleFillFigure;
+            public static bool IsTypeMatchRectangleLineFigure(object obj) => obj is RectangleLineFigure;
+            public static bool IsTypeMatchRectangleeFillOrLineFigure(object obj) => IsTypeMatchRectangleFillFigure(obj) || IsTypeMatchRectangleLineFigure(obj);
             #endregion
 
             #region EllipseFigure
-            public static bool IsTypeMatchEllipseFillFigure(Type t) => typeof(EllipseFillFigure) == t;
-            public static bool IsTypeMatchEllipseLineFigure(Type t) => typeof(EllipseLineFigure) == t;
-            public static bool IsTypeMatchEllipseFillOrLineFigure(Type t) => IsTypeMatchEllipseFillFigure(t) || IsTypeMatchEllipseLineFigure(t);
-            public static bool IsTypeMatchCircleFillFigure(Type t) => typeof(CircleFillFigure) == t;
-            public static bool IsTypeMatchCircleLineFigure(Type t) => typeof(CircleLineFigure) == t;
-            public static bool IsTypeMatchCircleFillOrLineFigure(Type t) => IsTypeMatchCircleFillFigure(t) || IsTypeMatchCircleLineFigure(t);
-            public static bool IsTypeMatchPointFillFigure(Type t) => typeof(PointFillFigure) == t;
-            public static bool IsTypeMatchPointLineFigure(Type t) => typeof(PointLineFigure) == t;
-            public static bool IsTypeMatchPointFillOrLineFigure(Type t) => IsTypeMatchPointFillFigure(t) || IsTypeMatchPointLineFigure(t);
+            public static bool IsTypeMatchEllipseFillFigure(object obj) => obj is EllipseFillFigure;
+            public static bool IsTypeMatchEllipseLineFigure(object obj) => obj is EllipseLineFigure;
+            public static bool IsTypeMatchEllipseFillOrLineFigure(object obj) => IsTypeMatchEllipseFillFigure(obj) || IsTypeMatchEllipseLineFigure(obj);
             #endregion
 
             #region CompositeFigure
-            public static bool IsTypeMatchRectangleFigure(Type t) => typeof(RectangleFigure) == t;
+            public static bool IsTypeMatchRectangleFigure(object obj) => obj is RectangleFigure;
             public static RectangleFigure CastRectangleFigure(object obj) => (RectangleFigure)obj;
 
-            public static bool IsTypeMatchEllipseFigure(Type t) => typeof(EllipseFigure) == t;
+            public static bool IsTypeMatchEllipseFigure(object obj) => obj is EllipseFigure;
             public static EllipseFigure CastEllipseFigure(object obj) => (EllipseFigure)obj;
+
+            public static bool IsTypeMatchPolygonFigure(object obj) => obj is PolygonFigure;
+            public static PolygonFigure CastPolygonFigure(object obj) => (PolygonFigure)obj;
             #endregion
 
-            public static bool IsTypeMatchAnyRectangle(Type t) => IsTypeMatchRectangleeFillOrLineFigure(t) || IsTypeMatchSquareFillOrLineFigure(t) || IsTypeMatchRectangleFigure(t);
-            public static bool IsTypeMatchAnyEllipse(Type t) => IsTypeMatchEllipseFillOrLineFigure(t) || IsTypeMatchCircleFillOrLineFigure(t) || IsTypeMatchPointFillOrLineFigure(t) || IsTypeMatchEllipseFigure(t);
-            public static bool IsTypeMatchAny(Type t) => IsTypeMatchAnyRectangle(t) || IsTypeMatchAnyEllipse(t);
+            public static bool IsTypeMatchAnyRectangle(object obj) => IsTypeMatchRectangleeFillOrLineFigure(obj) || IsTypeMatchRectangleFigure(obj);
+            public static bool IsTypeMatchAnyEllipse(object obj) => IsTypeMatchEllipseFillOrLineFigure(obj) || IsTypeMatchEllipseFigure(obj);
+            public static bool IsTypeMatchAny(object obj) => IsTypeMatchAnyRectangle(obj) || IsTypeMatchAnyEllipse(obj) || IsTypeMatchPolygonFigure(obj);
         }
     }
 }

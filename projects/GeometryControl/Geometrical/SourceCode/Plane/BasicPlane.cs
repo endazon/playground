@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Diagnostics;
 using Geometrical.Figure;
 using System.ComponentModel;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Geometrical
 {
@@ -136,6 +137,7 @@ namespace Geometrical
             #region Fields
             private KeyboardProc? proc = null;
             private IntPtr hookId = IntPtr.Zero;
+            private int z1KeyEventParam = WM_SYSKEYUP;
             #endregion
 
             #region Hook
@@ -175,17 +177,31 @@ namespace Geometrical
                     var kb = (KBDLLHOOKSTRUCT?)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
                     if (kb != null)
                     {
-                        switch ((int)wParam)
+                        var keyEventParam = (int)wParam;
+                        switch (z1KeyEventParam)
                         {
                             case WM_KEYDOWN:
                             case WM_SYSKEYDOWN:
-                                OnKeyDown(new KeyEventArgs((Keys)kb.vkCode));
+                                switch (keyEventParam)
+                                {
+                                    case WM_KEYUP:
+                                    case WM_SYSKEYUP:
+                                        OnKeyUp(new KeyEventArgs((Keys)kb.vkCode));
+                                        break;
+                                }
                                 break;
                             case WM_KEYUP:
                             case WM_SYSKEYUP:
-                                OnKeyUp(new KeyEventArgs((Keys)kb.vkCode));
+                                switch (keyEventParam)
+                                {
+                                    case WM_KEYDOWN:
+                                    case WM_SYSKEYDOWN:
+                                        OnKeyDown(new KeyEventArgs((Keys)kb.vkCode));
+                                        break;
+                                }
                                 break;
                         }
+                        z1KeyEventParam = keyEventParam;
                     }
                 }
                 return CallNextHookEx(hookId, nCode, wParam, lParam);
@@ -381,26 +397,38 @@ namespace Geometrical
                             SelectionItems.Clear();
                         }
 
-                        ILineFigure selectFigure = new RectangleLineFigure();
-                        var type = figure.GetType();
-                        if (FigureOperation.IsTypeMatchAnyEllipse(type))
+                        void SetSelectFigure(IBasicFigure selectFigure, IBasicFigure origin)
                         {
-                            selectFigure = new EllipseLineFigure();
+                            selectFigure.Location = origin.Location;
+                            selectFigure.Size     = origin.Size;
+                            selectFigure.Color    = Brushes.Cyan;
+                            selectFigure.Tag      = origin;
+                            SelectionItems.Add(selectFigure);
+                            FigureList.Add(selectFigure);
                         }
-                        if (FigureOperation.IsTypeMatchRectangleFigure(type))
+                        if (FigureOperation.IsTypeMatchRectangleFigure(figure))
                         {
-                            selectFigure.LineSize = FigureOperation.CastRectangleFigure(figure).Line.LineSize;
+                            var selectFigure = new RectangleLineFigure();
+                            var origin = FigureOperation.CastRectangleFigure(figure);
+                            selectFigure.LineSize = origin.Line.LineSize;
+                            SetSelectFigure(selectFigure, origin);
                         }
-                        else if (FigureOperation.IsTypeMatchEllipseFigure(type))
+                        else if (FigureOperation.IsTypeMatchEllipseFigure(figure))
                         {
-                            selectFigure.LineSize = FigureOperation.CastEllipseFigure(figure).Line.LineSize;
+                            var selectFigure = new EllipseLineFigure();
+                            var origin = FigureOperation.CastEllipseFigure(figure);
+                            selectFigure.LineSize = origin.Line.LineSize;
+                            SetSelectFigure(selectFigure, origin);
+
                         }
-                        selectFigure.Location = figure.Location;
-                        selectFigure.Size = figure.Size;
-                        selectFigure.Color = Brushes.Cyan;
-                        selectFigure.Tag = figure;
-                        SelectionItems.Add(selectFigure);
-                        FigureList.Add(selectFigure);
+                        else if (FigureOperation.IsTypeMatchPolygonFigure(figure))
+                        {
+                            var selectFigure = new PolygonLineFigure();
+                            var origin = FigureOperation.CastPolygonFigure(figure);
+                            selectFigure.Vertex = origin.Vertex;
+                            selectFigure.LineSize = origin.Line.LineSize;
+                            SetSelectFigure(selectFigure, origin);
+                        }
 
                         var list = new List<IBasicFigure>();
                         foreach (var item in SelectionItems)

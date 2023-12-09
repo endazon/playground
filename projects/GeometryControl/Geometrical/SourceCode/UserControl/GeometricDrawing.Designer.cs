@@ -71,6 +71,7 @@
             // splitContainer1
             // 
             splitContainer1.Dock = DockStyle.Fill;
+            splitContainer1.FixedPanel = FixedPanel.Panel2;
             splitContainer1.IsSplitterFixed = true;
             splitContainer1.Location = new Point(0, 0);
             splitContainer1.Name = "splitContainer1";
@@ -86,7 +87,6 @@
             splitContainer1.Size = new Size(800, 450);
             splitContainer1.SplitterDistance = 421;
             splitContainer1.TabIndex = 1;
-            splitContainer1.Resize += splitContainer1_Resize;
             // 
             // GeometricDrawing
             // 

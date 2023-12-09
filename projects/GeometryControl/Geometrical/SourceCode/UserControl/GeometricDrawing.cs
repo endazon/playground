@@ -145,17 +145,5 @@ namespace Geometrical
         {
             toolStripStatusLabel1.Text = $"Location:X={me.XF} ,Y={me.YF}";
         }
-
-        private void splitContainer1_Resize(object sender, EventArgs e)
-        {
-            var s = sender as SplitContainer;
-            if (s != null)
-            {
-                var z1IsSplitterFixed = s.IsSplitterFixed;
-                s.IsSplitterFixed = false;
-                s.SplitterDistance = s.Height - statusStrip1.Height;
-                s.IsSplitterFixed = z1IsSplitterFixed;
-            }
-        }
     }
 }

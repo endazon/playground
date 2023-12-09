@@ -5,11 +5,16 @@ namespace Geometrical
 {
     namespace Figure
     {
-        public class FigureList : BasicFigure, IList<IBasicFigure>
+        public class FigureList : RectangleFigure, IList<IBasicFigure>
         {
             private List<IBasicFigure> Items { get; } = new();
 
-            public FigureList() { }
+            public FigureList() 
+            {
+                Fill.Visible = false;
+                Line.Visible = false;
+                String.Visible = false;
+            }
 
             private void UpdateItems()
             {
@@ -87,23 +92,26 @@ namespace Geometrical
                 set
                 {
                     var deformationRate = new SizeF(value.Width / base.Size.Width, value.Height / base.Size.Height);
-                    base.Size = value;
-                    foreach (var item in Items)
+                    if (deformationRate.Width != float.NaN && deformationRate.Height != float.NaN)
                     {
-                        item.Location = new(
-                            /* X = */Location.X + ((item.Location.X - Location.X) * deformationRate.Width ),
-                            /* Y = */Location.Y + ((item.Location.Y - Location.Y) * deformationRate.Height)
-                            );
-                        item.Size = new(
-                            /* Width  = */item.Size.Width  * deformationRate.Width,
-                            /* Height = */item.Size.Height * deformationRate.Height
-                            );
+                        foreach (var item in Items)
+                        {
+                            item.Location = new(
+                                /* X = */Location.X + ((item.Location.X - Location.X) * deformationRate.Width ),
+                                /* Y = */Location.Y + ((item.Location.Y - Location.Y) * deformationRate.Height)
+                                );
+                            item.Size = new(
+                                /* Width  = */item.Size.Width  * deformationRate.Width,
+                                /* Height = */item.Size.Height * deformationRate.Height
+                                );
+                        }
                     }
                     base.Size = value;
                 }
             }
             protected override void Draw(Graphics g, IConvertTo? f = null)
             {
+                base.Draw(g, f);
                 foreach (var item in Items)
                 {
                     item.Drawing(g, f);
@@ -121,7 +129,6 @@ namespace Geometrical
             public void Add(IBasicFigure item)
             {
                 Items.Add(item);
-                item.Visible = Visible;
                 UpdateItems();
             }
 

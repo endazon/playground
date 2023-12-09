@@ -27,6 +27,31 @@ namespace DebuggingForms
             Figure2.String.Text = "bbb";
             Figure2.String.Color = Brushes.Black;
             geometricDrawing1.Add(Figure2);
+
+            var Figure3 = new CoordinateAxisDraw();
+            Figure3.Location = new(50, 100);
+            Figure3.Line.Color = Brushes.DarkCyan;
+            Figure3.Fill.Color = Brushes.Gray;
+            Figure3.Visible = true;
+            geometricDrawing1.Add(Figure3);
+
+            var Figure4 = new PolygonFigure();
+            Figure4.Vertex = PolygonType.Hexagon(90f);
+            Figure4.Location = new(150, 50);
+            Figure4.Size = new(10, 10);
+            Figure4.Line.LineSize = 3;
+            Figure4.Line.Visible = false;
+            Figure4.Fill.Color = Brushes.Olive;
+            geometricDrawing1.Add(Figure4);
+
+            var Figure5 = new PolygonFigure();
+            Figure5.Vertex = PolygonType.Trigon(180f);
+            Figure5.Location = new(200, 200);
+            Figure5.Size = new(100, 100);
+            Figure5.Fill.Color = Brushes.Olive;
+            Figure5.Line.LineSize = 3;
+            Figure5.Line.Visible = false;
+            geometricDrawing1.Add(Figure5);
         }
     }
 }

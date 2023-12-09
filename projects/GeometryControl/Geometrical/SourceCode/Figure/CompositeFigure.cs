@@ -30,6 +30,12 @@ namespace Geometrical
             public PointFigure(PointF l, float s, Brush c, float ls, string t, float ts) : base(new(l.X - s, l.Y - s), new(s * 2, s * 2), c, ls, t, ts) { }
         }
 
+        public class PolygonFigure : BasicTemplatePolygonFillAndLineAndStringFigure<PolygonFillFigure, PolygonLineFigure, StringFigure>
+        {
+            public PolygonFigure() { }
+            public PolygonFigure(PointF[] v, PointF l, SizeF s, Brush c, float ls, string t, float ts) : base(v, l, s, c, ls, t, ts) { }
+        }
+
         public class CoordinateAxisDraw : FigureList
         {
             private StraightLineFigure CreateStraightLineFigure(PointF start, PointF end, Brush color)
