@@ -41,7 +41,7 @@ namespace Geometrical
                 base.Size     = new(Math.Abs(R - L), Math.Abs(B - T));
             }
 
-            public IFigure? SelectFigure(CoordinateSystem system, PointF point, FigureList? ignore)
+            public IFigure? SelectFigure(CoordinateSystem system, PointF point, FigureList? ignore = null)
             {
                 foreach (var item in this.Reverse())
                 {
