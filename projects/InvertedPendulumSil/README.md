@@ -57,6 +57,7 @@ dotnet test                            # 単体 + 仮想時間の結合 + 実時
 | [Docs/03-delay-margin.md](Docs/03-delay-margin.md) | 遅延余裕の理論値と実測、純 SIL が成立する条件、実験手順 |
 | [Docs/04-build-and-test.md](Docs/04-build-and-test.md) | ビルド・実行・テストの全手順、Docker、CI の組み方 |
 | [Docs/05-design-notes.md](Docs/05-design-notes.md) | 実装上の判断とその理由、既知の制約、今後の課題 |
+| [Docs/06-design-mock.md](Docs/06-design-mock.md) | 実装の出発点になった設計モック (単一 HTML) と、実装との差分 |
 
 ## プロジェクト構成
 
@@ -69,7 +70,7 @@ dotnet test                            # 単体 + 仮想時間の結合 + 実時
 | `tests/Ip.Server.Tests` | 実際の SignalR + MessagePack を通した実時間の結合テスト |
 | `e2e` | Playwright によるブラウザ結合テスト |
 | `Dockerfile` / `compose.yaml` | コンテナでのビルド・実行・テスト |
-| `Docs` | 本プロジェクトのドキュメント |
+| `Docs` | 本プロジェクトのドキュメント (`Docs/reference/` に設計モックを凍結保存) |
 
 ## 結論 (先に)
 帰還 100ms 固定の設計は、長い振子 (1.0m 前後) なら LAN 内でぎりぎり成立します。
