@@ -47,6 +47,11 @@ dotnet test                            # 単体 + 仮想時間の結合 + 実時
 ```
 `Ip.Server` が Blazor WASM クライアントをホストするので、起動するプロセスは 1 つだけです。
 
+動作の中身はログに出ます (サーバのコンソール、ブラウザの console、画面のイベントログ)。
+Development では 1 秒ごとの集計まで出るので、状態遷移・帰還の周期・指令・遅延を数値で追えます。
+帰還 1 本ごとの内容まで見たいときは `Logging__LogLevel__Ip.Controller=Trace` を付けて起動します。
+詳細は [Docs/07-logging.md](Docs/07-logging.md)。
+
 ## ドキュメント
 詳細は [`Docs/`](Docs/README.md) にあります。
 
@@ -58,6 +63,7 @@ dotnet test                            # 単体 + 仮想時間の結合 + 実時
 | [Docs/04-build-and-test.md](Docs/04-build-and-test.md) | ビルド・実行・テストの全手順、Docker、CI の組み方 |
 | [Docs/05-design-notes.md](Docs/05-design-notes.md) | 実装上の判断とその理由、既知の制約、今後の課題 |
 | [Docs/06-design-mock.md](Docs/06-design-mock.md) | 実装の出発点になった設計モック (単一 HTML) と、実装との差分 |
+| [Docs/07-logging.md](Docs/07-logging.md) | ログと診断トレース: 出口 (サーバ / ブラウザ / 画面)、カテゴリと絞り込み、読み方 |
 
 ## プロジェクト構成
 

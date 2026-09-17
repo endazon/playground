@@ -20,20 +20,35 @@ public sealed class ClockSynchronizer
 
     public int SampleCount { get; private set; }
 
+    /// <summary>直近のサンプルの往復時間 [ms]。採用されなかったサンプルも含む (診断表示用)。</summary>
+    public double LastRoundTripMs { get; private set; } = double.NaN;
+
+    /// <summary>直近のサンプルから計算したオフセット [ms]。採用されなかったサンプルも含む (診断表示用)。</summary>
+    public double LastOffsetMs { get; private set; } = double.NaN;
+
+    /// <summary>RTT が負になって捨てたサンプルの数。時計が単調でないか、サーバ側の時刻が壊れている兆候。</summary>
+    public int RejectedSampleCount { get; private set; }
+
     /// <param name="result">サーバが返した受信・送信時刻</param>
     /// <param name="clientReceiveMs">クライアントが応答を受け取った時刻</param>
     /// <returns>推定を更新したら true</returns>
     public bool Accept(ClockSyncResult result, double clientReceiveMs)
     {
         double rtt = (clientReceiveMs - result.ClientSendMs) - (result.ServerSendMs - result.ServerReceiveMs);
-        if (rtt < 0.0) return false;
+        LastRoundTripMs = rtt;
+        LastOffsetMs = ((result.ServerReceiveMs - result.ClientSendMs) + (result.ServerSendMs - clientReceiveMs)) / 2.0;
+        if (rtt < 0.0)
+        {
+            RejectedSampleCount++;
+            return false;
+        }
 
         SampleCount++;
         if (rtt > _bestRtt) return false;
 
         _bestRtt = rtt;
         RoundTripMs = rtt;
-        OffsetMs = ((result.ServerReceiveMs - result.ClientSendMs) + (result.ServerSendMs - clientReceiveMs)) / 2.0;
+        OffsetMs = LastOffsetMs;
         return true;
     }
 
@@ -43,5 +58,8 @@ public sealed class ClockSynchronizer
         OffsetMs = 0.0;
         RoundTripMs = 0.0;
         SampleCount = 0;
+        RejectedSampleCount = 0;
+        LastRoundTripMs = double.NaN;
+        LastOffsetMs = double.NaN;
     }
 }

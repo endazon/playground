@@ -46,6 +46,19 @@ CDN から引くと、遮断された環境で 3D ビューが**無言で消え*
 クロック同期の推定は「上り遅延」の**表示にしか**使いません。
 制御に持ち込むと、時計ズレが制御量に化けます。
 
+### 診断トレースは `ILogger` に依存させない
+`ControllerCore` / `VirtualPlant` / `DelayLine` は `Ip.Shared.Diagnostics.DiagnosticTrace` に書き、
+ホスト側 (`Ip.Server` / `Ip.Client`) が `ILogger` へ橋渡しします ([07-logging.md](07-logging.md))。
+`Ip.Shared` に `Microsoft.Extensions.Logging` を持ち込むと、
+仮想時間のテストハーネスとブラウザの WASM にまでロギング基盤の構成が要るようになります。
+
+トレースは制御ループの内側 (帰還 1 本ごと) から呼ばれるため、
+無効なときに補間文字列の整形が走ると、ログを出していないのに制御が遅くなります。
+補間文字列ハンドラ (`DiagnosticInterpolatedStringHandler`) で、無効なら各項の評価ごと省いています。
+
+画面のイベントログ (`LogEntry`) と診断トレースを分けているのは、
+画面に 1 秒ごとの集計まで流すと状態遷移が埋もれるためです。
+
 ### 静的アセットは `MapStaticAssets` で配信する
 `_framework/*` は指紋付きで配信されるため、ファイル名で引く `UseStaticFiles` では解決できません。
 また Blazor WASM クライアントのアセットは既定では Development でしか合成されないので、
