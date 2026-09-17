@@ -1,0 +1,12 @@
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\bin\Debug\TestWindowsFormsApp.exe.config
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\bin\Debug\TestWindowsFormsApp.exe
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\bin\Debug\TestWindowsFormsApp.pdb
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\bin\Debug\WinFormsCtrlLibInputScreen.dll
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\bin\Debug\WinFormsCtrlLibInputScreen.pdb
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\obj\Debug\TestWindowsFormsApp.csprojAssemblyReference.cache
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\obj\Debug\TestWindowsFormsApp.Form1.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\obj\Debug\TestWindowsFormsApp.Properties.Resources.resources
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\obj\Debug\TestWindowsFormsApp.csproj.GenerateResource.cache
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\obj\Debug\TestWindowsFormsApp.csproj.CopyComplete
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\obj\Debug\TestWindowsFormsApp.exe
+C:\02_SourceCode\C#\CommandGenerator\SourceCode\TestWindowsFormsApp\obj\Debug\TestWindowsFormsApp.pdb
