@@ -17,6 +17,8 @@ builder.Services
         options.ClientTimeoutInterval = TimeSpan.FromSeconds(10);
         options.KeepAliveInterval = TimeSpan.FromSeconds(3);
         options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+        // このプロトコルの最大メッセージは 100 バイト未満。既定の 32KB を絞って増幅を防ぐ。
+        options.MaximumReceiveMessageSize = 8 * 1024;
     })
     .AddMessagePackProtocol();
 
@@ -36,6 +38,22 @@ if (app.Configuration.GetValue("Sil:CrossOriginIsolation", false))
 
 // Blazor WASM のフレームワークファイル (_framework/*) は指紋付きで配信されるため、
 // ファイル名で引く UseStaticFiles ではなく、マニフェスト駆動の MapStaticAssets を使う。
+// 最低限のセキュリティヘッダ。Blazor WASM には 'wasm-unsafe-eval' が必須で、
+// スコープ付き CSS のため style-src に 'unsafe-inline' が要る。
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self' 'wasm-unsafe-eval'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; " +
+        "connect-src 'self' ws: wss:; " +
+        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+    await next();
+});
+
 app.MapStaticAssets();
 
 app.MapHub<SilHub>("/hub/sil");

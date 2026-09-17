@@ -15,15 +15,26 @@ namespace Ip.Server.Sessions;
 /// </summary>
 public sealed class ControllerSession : IAsyncDisposable
 {
-    /// <summary>制御ループの周回間隔 [ms]。帰還処理はイベント駆動なので、ここはウォッチドッグと遅延線の解像度を決める。</summary>
+    /// <summary>
+    /// 制御ループの周回間隔 [ms]。ウォッチドッグと遅延線の解像度を決める。
+    /// <c>Task.Delay(1)</c> の実測周期は OS のタイマ粒度に丸められて 4ms 前後になるため、
+    /// 「1ms 周期で回る」とは仮定しないこと (帰還 1 本ごとの制御計算自体はイベント駆動で即時に行われる)。
+    /// </summary>
     private const int LoopIntervalMs = 1;
     /// <summary>UI へ状態を配信する間隔 [ms]</summary>
     private const double StatusIntervalMs = 50.0;
+    /// <summary>切断時にループの停止を待つ上限。Hub の OnDisconnectedAsync をここで長く止めない。</summary>
+    private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(2);
 
-    private readonly Channel<object> _inbox = Channel.CreateUnbounded<object>(
-        new UnboundedChannelOptions { SingleReader = true });
-    private readonly Channel<object> _outbox = Channel.CreateUnbounded<object>(
-        new UnboundedChannelOptions { SingleReader = true });
+    /// <summary>1 周で処理する受信メッセージの上限。これを超えたぶんは次の周回に回す。</summary>
+    private const int MaxMessagesPerCycle = 64;
+    /// <summary>送信キューの上限。溢れたら古いものから捨てる (古い電圧指令に価値はない)。</summary>
+    private const int OutboxCapacity = 512;
+
+    private readonly Channel<object> _inbox = Channel.CreateBounded<object>(
+        new BoundedChannelOptions(2048) { SingleReader = true, FullMode = BoundedChannelFullMode.DropOldest });
+    private readonly Channel<object> _outbox = Channel.CreateBounded<object>(
+        new BoundedChannelOptions(OutboxCapacity) { SingleReader = true, FullMode = BoundedChannelFullMode.DropOldest });
 
     private readonly ControllerCore _core = new();
     private readonly DelayLine<object> _downlink;
@@ -34,6 +45,8 @@ public sealed class ControllerSession : IAsyncDisposable
     private readonly Task _sendLoop;
 
     private NetworkConfig _network = new();
+    /// <summary>最新の設計値の写し。Hub のスレッドから読むため、ControllerCore を直接触らない。</summary>
+    private DesignInfo _design;
     private double _lastStatusAt;
 
     public ControllerSession(string connectionId, IClientProxy client, ILogger logger)
@@ -47,7 +60,12 @@ public sealed class ControllerSession : IAsyncDisposable
         // 制御に関わる下りだけ遅延線を通す。設計値・状態・ログは UI 表示用なので素通しでよい。
         _core.VoltageProduced += command => _downlink.Push(command, MonotonicClock.NowMs, _network);
         _core.AbortProduced += command => _downlink.Push(command, MonotonicClock.NowMs, _network);
-        _core.DesignUpdated += design => _outbox.Writer.TryWrite(design);
+        _core.DesignUpdated += design =>
+        {
+            Volatile.Write(ref _design, design);
+            _outbox.Writer.TryWrite(design);
+        };
+        _design = _core.Design;
         _core.Logged += entry => _outbox.Writer.TryWrite(entry);
 
         _controlLoop = Task.Run(() => RunControlLoopAsync(_cts.Token));
@@ -59,8 +77,11 @@ public sealed class ControllerSession : IAsyncDisposable
     /// <summary>受信したメッセージを制御ループへ渡す。Hub のスレッドをブロックしない。</summary>
     public void Post(object message) => _inbox.Writer.TryWrite(message);
 
+    /// <summary>制御ループが異常終了したときに接続 ID を通知する。</summary>
+    public event Action<string>? Faulted;
+
     /// <summary>接続直後に現在の設計値を配信する。</summary>
-    public void PublishDesign() => _outbox.Writer.TryWrite(_core.Design);
+    public void PublishDesign() => _outbox.Writer.TryWrite(_design);
 
     private async Task RunControlLoopAsync(CancellationToken token)
     {
@@ -70,7 +91,9 @@ public sealed class ControllerSession : IAsyncDisposable
             {
                 double now = MonotonicClock.NowMs;
 
-                while (_inbox.Reader.TryRead(out var message)) Handle(message, now);
+                // 受信が殺到しても Flush / Tick に必ず到達させる。
+                for (int i = 0; i < MaxMessagesPerCycle && _inbox.Reader.TryRead(out var message); i++)
+                    Handle(message, now);
 
                 _downlink.Flush(now);
                 _core.Tick(now);
@@ -90,7 +113,13 @@ public sealed class ControllerSession : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            // ここで黙って終わると、セッションは生き続けるのに制御だけが死ぬ。
+            // UI から見ると「最後の状態のまま正常に見える」ので、必ず外に出して破棄まで持っていく。
             _logger.LogError(ex, "制御ループが異常終了しました ({ConnectionId})", ConnectionId);
+            _outbox.Writer.TryWrite(new AbortCommand(_core.CommandId));
+            _outbox.Writer.TryWrite(new LogEntry(LogSeverity.Error, "コントローラが異常終了しました", _core.Mode, _core.CommandId));
+            _inbox.Writer.TryComplete();
+            Faulted?.Invoke(ConnectionId);
         }
     }
 
@@ -144,7 +173,16 @@ public sealed class ControllerSession : IAsyncDisposable
                 };
                 if (method.Length == 0) continue;
 
-                await _client.SendAsync(method, payload, token).ConfigureAwait(false);
+                try
+                {
+                    await _client.SendAsync(method, payload, token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // 1 通の送信失敗でループを抜けると、以後この接続へは何も送られなくなるのに
+                    // 制御ループだけが回り続け、UI からは正常に見えてしまう。
+                    _logger.LogDebug(ex, "送信に失敗しました ({ConnectionId})", ConnectionId);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -152,7 +190,7 @@ public sealed class ControllerSession : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "送信ループを終了しました ({ConnectionId})", ConnectionId);
+            _logger.LogWarning(ex, "送信ループを終了しました ({ConnectionId})", ConnectionId);
         }
     }
 
@@ -161,8 +199,26 @@ public sealed class ControllerSession : IAsyncDisposable
         await _cts.CancelAsync().ConfigureAwait(false);
         _inbox.Writer.TryComplete();
         _outbox.Writer.TryComplete();
-        await Task.WhenAll(_controlLoop, _sendLoop).WaitAsync(TimeSpan.FromSeconds(2))
-            .ContinueWith(_ => { }, TaskScheduler.Default).ConfigureAwait(false);
+
+        try
+        {
+            await Task.WhenAll(_controlLoop, _sendLoop).WaitAsync(ShutdownTimeout).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            // まだトークンを使っている可能性があるので CancellationTokenSource は破棄しない。
+            // 停止しなかったこと自体が知りたい事実なので、握り潰さずに記録する。
+            _logger.LogWarning("ループが {Timeout} で停止しませんでした ({ConnectionId})", ShutdownTimeout, ConnectionId);
+            return;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "セッションの停止中に例外が発生しました ({ConnectionId})", ConnectionId);
+        }
+
         _cts.Dispose();
     }
 

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Ip.Shared.Model;
 using Ip.Shared.Numerics;
 using Ip.Shared.Protocol;
@@ -32,7 +33,14 @@ public sealed class ControllerCore
     /// <summary>スイングアップ完了とみなす角速度 [rad/s]</summary>
     public const double CaptureRateRadPerSec = 4.0;
     /// <summary>レール端から手前に取るソフトリミットの余裕 [m]</summary>
-    public const double SoftLimitMarginM = 0.05;
+    public const double SoftLimitMarginM = CartLimits.SoftLimitMarginM;
+
+    /// <summary>
+    /// 予測器が外挿してよい最大時間 [ms]。
+    /// 実測 E2E 遅延は通信スパイクや時間スリップで跳ねることがあり、その値をそのまま使うと
+    /// 不安定モデルで何百 ms も開ループ外挿して、飽和寸前の電圧を叩き出す。
+    /// </summary>
+    public const double MaxPredictionHorizonMs = 300.0;
     /// <summary>台車目標位置のランプ速度 [m/s]</summary>
     public const double TargetRampMetersPerSec = 0.3;
 
@@ -54,6 +62,9 @@ public sealed class ControllerCore
 
     private readonly VelocityEstimator _cartVelocity;
     private readonly VelocityEstimator _pendulumVelocity;
+    private readonly ExponentialAverage _feedbackInterval = new(0.1);
+    private readonly ExponentialAverage _uplinkDelay = new(0.1);
+    private readonly ExponentialAverage _e2eDelay = new(0.05);
     private bool _estimatorReady;
     private double _estX, _estTheta, _estTimestampMs;
     private long _estSeq = -1;
@@ -62,11 +73,11 @@ public sealed class ControllerCore
     private long _seq;
     private double _volts;
     private double _targetX;
-    private double _startLocalMs;
     private double _lastFeedbackLocalMs;
-    private double _feedbackIntervalMs;
-    private double _uplinkDelayMs;
-    private double _e2eDelayMs;
+    /// <summary>直近に受け取った帰還の計測時刻 (プラント時計)。開始時刻ガードの基準に使う。</summary>
+    private double _lastPlantTimestampMs;
+    /// <summary>開始操作を出した時点のプラント時計。これより前に計測された帰還は使わない。</summary>
+    private double _startPlantMs;
     private long _feedbackCount;
     private long _staleEventCount;
 
@@ -100,6 +111,9 @@ public sealed class ControllerCore
     /// <summary>
     /// プラント時刻 → コントローラ時刻のオフセット [ms] (local = plant + offset)。
     /// 別ホストで動く以上、時計は一致しない。<see cref="ClockSynchronizer"/> が推定した値を入れる。
+    ///
+    /// これは <b>「上り遅延」の表示にしか使わない</b>。制御の判断 (開始時刻ガード・速度推定・E2E 遅延) は
+    /// すべてプラント時計だけで閉じており、この推定が外れても制御は成立する。
     /// </summary>
     public double ClockOffsetMs { get; set; }
 
@@ -143,7 +157,9 @@ public sealed class ControllerCore
                 Start(ControlMode.Balance, nowMs);
                 break;
             case OperatorAction.Stop:
-                if (Mode != ControlMode.Idle)
+                // FAULT からは抜けない。異常の解除は「異常リセット」だけの責務にする。
+                // ここで Idle に落とすと、停止操作だけで異常がログにも残らず消えてしまう。
+                if (IsRunning)
                 {
                     Abort();
                     SetMode(ControlMode.Idle, "オペレータ停止");
@@ -159,10 +175,15 @@ public sealed class ControllerCore
     public void OnFeedback(EncoderFeedback feedback, double nowMs)
     {
         if (feedback.Seq <= _estSeq) return;            // 逆行した帰還は無視 (遅延線の追い越しは無いが念のため)
-        _lastFeedbackLocalMs = nowMs;
+        _lastPlantTimestampMs = feedback.TimestampMs;
 
-        double measuredLocalMs = feedback.TimestampMs + ClockOffsetMs;
-        if (measuredLocalMs < _startLocalMs) return;    // 開始指示より前の計測は使わない
+        // 開始指示より前に計測された帰還は使わない。
+        // 比較はプラント時計だけで閉じる。時計オフセットの推定に失敗しても、
+        // 「全帰還を捨て続けるのにウォッチドッグは鳴らない」という静かな故障にはならない。
+        if (feedback.TimestampMs < _startPlantMs) return;
+
+        // ウォッチドッグの更新は、実際に使える帰還を受け取った後に行う。
+        _lastFeedbackLocalMs = nowMs;
 
         if (feedback.Epoch != _estEpoch)
         {
@@ -189,7 +210,7 @@ public sealed class ControllerCore
             {
                 _cartVelocity.Update(x, dt);
                 _pendulumVelocity.Update(theta, dt);
-                _feedbackIntervalMs = Ema(_feedbackIntervalMs, feedback.TimestampMs - _estTimestampMs);
+                _feedbackInterval.Update(feedback.TimestampMs - _estTimestampMs);
             }
             _estX = x;
             _estTheta = theta;
@@ -198,8 +219,15 @@ public sealed class ControllerCore
         _estTimestampMs = feedback.TimestampMs;
         _estSeq = feedback.Seq;
         _feedbackCount++;
-        _uplinkDelayMs = Ema(_uplinkDelayMs, nowMs - measuredLocalMs);
-        if (feedback.E2EMs > 0.0) _e2eDelayMs = Ema(_e2eDelayMs, feedback.E2EMs, 0.05);
+        _uplinkDelay.Update(nowMs - (feedback.TimestampMs + ClockOffsetMs));
+        if (feedback.E2EMs > 0.0) _e2eDelay.Update(feedback.E2EMs);
+
+        // 冗長な安全信号: MotionEvent が遅れても、定周期帰還のフラグでドライブ遮断に気づける。
+        if (IsRunning && !feedback.DriveEnabled)
+        {
+            Fault("プラント通知: ドライブ無効");
+            return;
+        }
 
         Control(feedback.TimestampMs);
     }
@@ -231,13 +259,10 @@ public sealed class ControllerCore
     public ControllerStatus Snapshot(int downlinkQueueLength = 0) => new(
         Mode, Reason, CommandId, _volts, _targetX,
         _estX, CartPoleDynamics.WrapAngle(_estTheta),
-        _feedbackIntervalMs, _uplinkDelayMs, _e2eDelayMs,
+        _feedbackInterval.Value, _uplinkDelay.Value, _e2eDelay.Value,
         _feedbackCount, _staleEventCount, downlinkQueueLength);
 
     // ---- 内部 ----
-
-    private static double Ema(double old, double sample, double alpha = 0.1)
-        => old == 0.0 ? sample : old + alpha * (sample - old);
 
     private static string Describe(MotionEventKind kind) => kind switch
     {
@@ -248,18 +273,34 @@ public sealed class ControllerCore
         _ => kind.ToString(),
     };
 
+    /// <summary>設計結果のキャッシュ。UI のスライダで取りうる組合せは高々数十通りしかない。</summary>
+    private static readonly ConcurrentDictionary<(PendulumParameters, int, double), ControlDesign> DesignCache = new();
+
+    /// <summary>キャッシュの上限。想定外の入力で無限に増えないように抑える。</summary>
+    private const int MaxCachedDesigns = 256;
+
     /// <summary>
     /// 帰還周期と振子長から離散 LQR ゲインと理論遅延余裕を設計する。
     /// コントローラ本体とテスト・解析ツールが同じ経路を通るように公開している。
+    ///
+    /// 1 回あたり数十 ms かかり、制御ループと同じスレッドで走る。
+    /// スライダのドラッグで同じ組合せが何度も要求されるため、結果をキャッシュする
+    /// (入力が同じなら出力も同じ純粋計算)。
     /// </summary>
     public static ControlDesign CreateDesign(PendulumParameters parameters, int periodMs, double velocityCutoffHz)
     {
+        var key = (parameters, periodMs, velocityCutoffHz);
+        if (DesignCache.TryGetValue(key, out var cached)) return cached;
+
         var model = LinearizedModel.Create(parameters);
         double ts = periodMs / 1000.0;
         var (ad, bd) = Discretization.ZeroOrderHold(model.A, model.B, ts);
         var gains = DiscreteLqr.Solve(ad, bd, StateWeights, InputWeight);
         int margin = DelayMarginAnalyzer.Compute(model.A, model.B, gains, ts, velocityCutoffHz);
-        return new ControlDesign(ad, bd, new DesignInfo(gains, model.UnstablePole, margin, periodMs));
+
+        var design = new ControlDesign(ad, bd, new DesignInfo(gains, model.UnstablePole, margin, periodMs));
+        if (DesignCache.Count < MaxCachedDesigns) DesignCache.TryAdd(key, design);
+        return design;
     }
 
     private void Redesign()
@@ -284,9 +325,11 @@ public sealed class ControllerCore
         CommandId++;
         _seq = 0;
         _voltageHistory.Clear();
-        _startLocalMs = nowMs;
+        _startPlantMs = _lastPlantTimestampMs;
         _lastFeedbackLocalMs = nowMs;
-        _e2eDelayMs = 0.0;
+        _feedbackInterval.Reset();
+        _uplinkDelay.Reset();
+        _e2eDelay.Reset();
         _estimatorReady = false;
         _estSeq = -1;
         _targetX = 0.0;
@@ -365,7 +408,10 @@ public sealed class ControllerCore
 
         double[] x = [_estX - _targetX, theta, _cartVelocity.Value, _pendulumVelocity.Value];
         if (_options.UsePredictor)
-            x = Predict(x, (int)Math.Round(_e2eDelayMs / _network.PeriodMs));
+        {
+            double horizonMs = Math.Min(_e2eDelay.Value, MaxPredictionHorizonMs);
+            x = Predict(x, (int)Math.Round(horizonMs / _network.PeriodMs));
+        }
 
         double u = -(_gains[0] * x[0] + _gains[1] * x[1] + _gains[2] * x[2] + _gains[3] * x[3]);
         Send(u, measuredAtMs);
@@ -391,4 +437,34 @@ public sealed class ControllerCore
 
     private void Log(Protocol.LogSeverity level, string message)
         => Logged?.Invoke(new LogEntry(level, message, Mode, CommandId));
+}
+
+/// <summary>
+/// 指数移動平均。初期化済みかどうかを「値が 0 か」で判定すると、
+/// 0 が正当な観測値である量 (遅延 0 の構成での上り遅延など) で平滑が効かなくなるため、
+/// 明示的なフラグを持つ。非有限のサンプルは推定値を汚さないよう捨てる。
+/// </summary>
+internal sealed class ExponentialAverage(double alpha)
+{
+    private bool _initialized;
+
+    public double Value { get; private set; }
+
+    public double Update(double sample)
+    {
+        if (!double.IsFinite(sample)) return Value;
+        if (_initialized) Value += alpha * (sample - Value);
+        else
+        {
+            Value = sample;
+            _initialized = true;
+        }
+        return Value;
+    }
+
+    public void Reset()
+    {
+        _initialized = false;
+        Value = 0.0;
+    }
 }

@@ -1,6 +1,25 @@
+using Ip.Shared.Model;
 using MessagePack;
 
 namespace Ip.Shared.Protocol;
+
+/// <summary>
+/// 受信値の矯正。
+///
+/// <see cref="Math.Clamp(double,double,double)"/> は Infinity は境界へ落とすが <b>NaN は素通しする</b>。
+/// NaN が 1 つ混ざると、以降の比較がすべて false になって
+/// 「ウォッチドッグが永久に鳴らない」「同じ値かどうかの判定が常に不成立になる」といった
+/// 静かな故障を生むため、範囲チェックの前に必ず有限性を検査する。
+/// </summary>
+public static class Sanitize
+{
+    /// <param name="value">受信値</param>
+    /// <param name="min">下限</param>
+    /// <param name="max">上限</param>
+    /// <param name="fallback">NaN / Infinity だったときに使う既定値</param>
+    public static double Finite(double value, double min, double max, double fallback)
+        => double.IsFinite(value) ? Math.Clamp(value, min, max) : fallback;
+}
 
 /// <summary>
 /// 下り (コントローラ → プラント) の電圧指令。帰還を 1 つ受け取って制御計算するたびに 1 つ送る。
@@ -101,10 +120,10 @@ public sealed record NetworkConfig(
     /// <summary>範囲外の値で制御周期が壊れないよう、受信側で必ず通す。</summary>
     public NetworkConfig Sanitized() => new(
         Math.Clamp(PeriodMs, MinPeriodMs, MaxPeriodMs),
-        Math.Clamp(LatencyMs, 0.0, 500.0),
-        Math.Clamp(JitterMs, 0.0, 200.0),
-        Math.Clamp(SpikePercent, 0.0, 100.0),
-        Math.Clamp(EncoderNoiseCounts, 0.0, 50.0));
+        Sanitize.Finite(LatencyMs, 0.0, 500.0, 0.0),
+        Sanitize.Finite(JitterMs, 0.0, 200.0, 0.0),
+        Sanitize.Finite(SpikePercent, 0.0, 100.0, 0.0),
+        Sanitize.Finite(EncoderNoiseCounts, 0.0, 50.0, 0.0));
 }
 
 /// <summary>制御の任意オプション。</summary>
@@ -117,16 +136,16 @@ public sealed record ControlOptions(
 {
     public ControlOptions Sanitized() => new(
         UsePredictor,
-        Math.Clamp(CartTargetMeters, -0.45, 0.45),
-        Math.Clamp(VelocityCutoffHz, 1.0, 200.0),
-        Math.Clamp(WatchdogMs, 50.0, 5000.0));
+        Sanitize.Finite(CartTargetMeters, -CartLimits.MaxTargetM, CartLimits.MaxTargetM, 0.0),
+        Sanitize.Finite(VelocityCutoffHz, 1.0, 200.0, 25.0),
+        Sanitize.Finite(WatchdogMs, 50.0, 5000.0, 300.0));
 }
 
 /// <summary>実験で変えるプラント側のパラメータ。コントローラの設計モデルにも同じ値を配る。</summary>
 [MessagePackObject]
 public sealed record PlantConfig([property: Key(0)] double PendulumLength = 0.6)
 {
-    public PlantConfig Sanitized() => new(Math.Clamp(PendulumLength, 0.1, 1.5));
+    public PlantConfig Sanitized() => new(Sanitize.Finite(PendulumLength, 0.1, 1.5, 0.6));
 }
 
 /// <summary>コントローラの設計結果。帰還周期や振子長を変えるたびに配信する。</summary>

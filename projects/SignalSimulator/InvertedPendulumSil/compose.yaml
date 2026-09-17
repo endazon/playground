@@ -7,8 +7,20 @@ services:
       context: .
       target: runtime
     image: inverted-pendulum-sil:latest
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
+          pids: 256
+    # ループバックにだけ公開する。学習・実験用でありLAN に晒す必要がない。
+    # (e2e サービスは compose ネットワーク内の app:8080 に直接つなぐので影響しない)
     ports:
-      - "5210:8080"
+      - "127.0.0.1:5210:8080"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
       interval: 5s

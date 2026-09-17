@@ -32,7 +32,7 @@
 
     <div class="panel">
         <div class="statusbar">
-            <span class="mode" data-m="@ModeKey" data-testid="mode">@ModeLabel</span>
+            <span class="mode" data-m="@ModeKey" data-testid="mode" role="status" aria-live="polite">@ModeLabel</span>
             <span class="reason" data-testid="reason">@StatusReason</span>
             <span class="badges">
                 <span class="badge @(Runner.Link == LinkState.Connected ? "" : "warn")" data-testid="link">通信: @Runner.LinkDetail</span>
@@ -60,7 +60,7 @@
                 <div class="presets" role="group" aria-label="プリセット">
                     @foreach (var (key, preset) in Presets)
                     {
-                        <button class="ghost" data-testid="preset" @onclick="@(() => ApplyPresetAsync(preset))">@key</button>
+                        <button class="ghost" data-testid="@($"preset-{preset.Key}")" @onclick="@(() => ApplyPresetAsync(preset))">@key</button>
                     }
                 </div>
 
@@ -68,7 +68,8 @@
                     <label class="sl">
                         帰還周期 <output data-testid="value-period">@Periods[_periodIndex] ms</output>
                         <input type="range" data-testid="slider-period" min="0" max="@(Periods.Length - 1)" step="1"
-                               value="@_periodIndex" @oninput="OnPeriodChangedAsync" />
+                               value="@_periodIndex" aria-valuetext="@($"{Periods[_periodIndex]} ミリ秒")"
+                               @oninput="OnPeriodChangedAsync" />
                         <small>変更するとバック側で離散LQRを再設計</small>
                     </label>
                     <label class="sl">
@@ -78,18 +79,18 @@
                     </label>
                     <label class="sl">
                         ジッタ <output>0〜@_jitter.ToString("F0") ms</output>
-                        <input type="range" min="0" max="50" step="1" value="@_jitter"
+                        <input type="range" data-testid="slider-jitter" min="0" max="50" step="1" value="@_jitter"
                                @oninput="@(e => OnNetworkSliderAsync(e, v => _jitter = v))" />
                     </label>
                     <label class="sl">
                         遅延スパイク率 <output>@_spike.ToString("F1") %</output>
-                        <input type="range" min="0" max="10" step="0.5" value="@_spike"
+                        <input type="range" data-testid="slider-spike" min="0" max="10" step="0.5" value="@_spike"
                                @oninput="@(e => OnNetworkSliderAsync(e, v => _spike = v))" />
                         <small>TCP再送相当の +150ms。欠落はしない</small>
                     </label>
                     <label class="sl">
                         エンコーダノイズ <output>σ @_noise.ToString("F1") count</output>
-                        <input type="range" min="0" max="3" step="0.1" value="@_noise"
+                        <input type="range" data-testid="slider-noise" min="0" max="3" step="0.1" value="@_noise"
                                @oninput="@(e => OnNetworkSliderAsync(e, v => _noise = v))" />
                     </label>
                     <label class="sl">
@@ -99,7 +100,7 @@
                     </label>
                     <label class="sl">
                         台車の目標位置 <output>@(_targetX >= 0 ? "+" : "")@_targetX.ToString("F2") m</output>
-                        <input type="range" min="-0.3" max="0.3" step="0.05" value="@_targetX"
+                        <input type="range" data-testid="slider-target" min="-0.3" max="0.3" step="0.05" value="@_targetX"
                                @oninput="OnTargetChangedAsync" />
                     </label>
                 </div>
@@ -133,8 +134,8 @@
                     <div class="metric"><span>不安定極 / 時定数</span><b data-testid="metric-pole">@PoleText</b></div>
                     <div class="metric"><span>LQR ゲイン K</span><b data-testid="metric-gain" style="font-size:11.5px">@GainText</b></div>
                     <div class="metric"><span>指令電圧</span><b data-testid="metric-volts">@Fmt(Runner.Telemetry.Volts, 2, " V")</b></div>
-                    <div class="metric"><span>CommandId / 破棄した指令</span><b data-testid="metric-command">#@(Controller?.CommandId ?? 0) / @Runner.Telemetry.RejectedCommands</b></div>
-                    <div class="metric"><span>送信待ち(上り/下り)</span><b>@Runner.Telemetry.UplinkQueueLength / @(Controller?.DownlinkQueueLength ?? 0)</b></div>
+                    <div class="metric"><span>CommandId / 破棄した指令</span><b data-testid="metric-command">@(Controller is null ? "—" : $"#{Controller.CommandId} / {Runner.Telemetry.RejectedCommands}")</b></div>
+                    <div class="metric"><span>送信待ち(上り/下り)</span><b data-testid="metric-queue">@(Controller is null ? "—" : $"{Runner.Telemetry.UplinkQueueLength} / {Controller.DownlinkQueueLength}")</b></div>
                     <div class="metric"><span>時間スリップ</span><b>@Runner.Telemetry.TimeSlips 回</b></div>
                 </div>
             </div>
@@ -148,7 +149,7 @@
 
     <div class="panel">
         <p class="group-title">イベントログ</p>
-        <ul class="log" data-testid="log">
+        <ul class="log" data-testid="log" role="log" aria-live="polite">
             @if (Runner.Logs.Count == 0)
             {
                 <li class="empty">まだイベントはありません。「スイングアップ開始」か「倒立から開始」を押してください。</li>
@@ -176,10 +177,10 @@
 
     private static readonly (string Label, PresetValue Value)[] Presets =
     [
-        ("理想 1ms・遅延なし", new PresetValue(0, 0, 0, 0)),
-        ("LAN 5ms・片道5ms", new PresetValue(2, 5, 2, 0)),
-        ("前回設計 100ms・片道20ms", new PresetValue(6, 20, 5, 0)),
-        ("WAN 10ms・片道40ms", new PresetValue(3, 40, 15, 1)),
+        ("理想 1ms・遅延なし", new PresetValue("ideal", 0, 0, 0, 0)),
+        ("LAN 5ms・片道5ms", new PresetValue("lan", 2, 5, 2, 0)),
+        ("前回設計 100ms・片道20ms", new PresetValue("legacy", 6, 20, 5, 0)),
+        ("WAN 10ms・片道40ms", new PresetValue("wan", 3, 40, 15, 1)),
     ];
 
     /// <summary>描画へ状態を渡す間隔 [ms]</summary>
@@ -196,9 +197,14 @@
     private double _targetX;
     private bool _predict;
 
+    /// <summary>再設計を伴う設定変更のデバウンス時間 [ms]。スライダのドラッグ 1 回で何度も再設計させない。</summary>
+    private const int RedesignDebounceMs = 150;
+
     private IJSObjectReference? _module;
     private DotNetObjectReference<Simulator>? _selfReference;
     private CancellationTokenSource? _uiCts;
+    private CancellationTokenSource? _debounceCts;
+    private bool _disposed;
 
     private ControllerStatus? Controller => Runner.Controller;
     private bool IsConnected => Runner.Link == LinkState.Connected;
@@ -206,7 +212,7 @@
     private bool IsFaulted => Controller is { Mode: ControlMode.Fault };
     private bool CanStart => IsConnected && Controller is null or { Mode: ControlMode.Idle };
 
-    private string ModeKey => Controller?.Mode switch
+    private string ModeKey => !IsConnected ? "IDLE" : Controller?.Mode switch
     {
         ControlMode.SwingUp => "SWINGUP",
         ControlMode.Balance => "BALANCE",
@@ -215,18 +221,30 @@
         _ => "IDLE",
     };
 
-    private string ModeLabel => Controller?.Mode switch
+    /// <summary>
+    /// 通信が切れている間は制御状態を表示しない。
+    /// 最後に受け取った状態を出し続けると、制御が死んでいても「倒立制御中」と表示され続ける。
+    /// </summary>
+    private string ModeLabel => Runner.Link switch
     {
-        ControlMode.SwingUp => "SWINGUP 振り上げ中",
-        ControlMode.Balance => "BALANCE 倒立制御中",
-        ControlMode.Fault => "FAULT 異常停止",
-        ControlMode.Idle => "IDLE 待機",
-        _ => "起動中",
+        LinkState.Connecting => "起動中",
+        LinkState.Reconnecting => "UNKNOWN 通信断 (再接続中)",
+        LinkState.Disconnected => "UNKNOWN 通信断",
+        _ => Controller?.Mode switch
+        {
+            ControlMode.SwingUp => "SWINGUP 振り上げ中",
+            ControlMode.Balance => "BALANCE 倒立制御中",
+            ControlMode.Fault => "FAULT 異常停止",
+            ControlMode.Idle => "IDLE 待機",
+            _ => "起動中",
+        },
     };
 
-    private string StatusReason => Controller?.Reason is { Length: > 0 } reason
-        ? reason
-        : IsConnected ? "準備完了" : Runner.LinkDetail;
+    private string StatusReason => Runner.PlantStopped
+        ? "プラントの積分ループが停止しました。再読み込みしてください。"
+        : !IsConnected ? Runner.LinkDetail
+        : Controller?.Reason is { Length: > 0 } reason ? reason
+        : "準備完了";
 
     private int MarginMs => Runner.Design?.DelayMarginMs ?? 0;
     private double BudgetFull => MarginMs * 1.5;
@@ -263,12 +281,26 @@
     {
         if (!firstRender) return;
 
-        _module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/sim-view.js");
+        // import やハブ接続の await 中に離脱されると、DisposeAsync は「まだ何も無い」状態で帰る。
+        // その後ここが再開すると、破棄済みコンポーネントの上で描画ループが永久に回り始めるため、
+        // 各 await の後で破棄済みかどうかを必ず確認する。
+        var module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/sim-view.js");
+        if (_disposed)
+        {
+            await module.DisposeAsync();
+            return;
+        }
+        _module = module;
+
         _selfReference = DotNetObjectReference.Create(this);
         await _module.InvokeVoidAsync("init", _selfReference);
+        if (_disposed) return;
 
         await Runner.StartAsync(new Uri(Navigation.ToAbsoluteUri("/hub/sil").ToString()));
+        if (_disposed) return;
+
         await ApplyNetworkAsync();
+        if (_disposed) return;
 
         _uiCts = new CancellationTokenSource();
         _ = RunViewLoopAsync(_uiCts.Token);
@@ -328,7 +360,34 @@
         _periodIndex = int.TryParse(e.Value?.ToString(), out int index)
             ? Math.Clamp(index, 0, Periods.Length - 1)
             : _periodIndex;
-        return ApplyNetworkAsync();
+        return DebounceRedesignAsync(ApplyNetworkAsync);
+    }
+
+    /// <summary>
+    /// 帰還周期と振子長の変更はバック側で離散 LQR と遅延余裕の再設計を起こす。
+    /// スライダをドラッグすると 1 目盛りごとに走って制御ループを止めるので、止まったところで 1 回だけ送る。
+    /// </summary>
+    private async Task DebounceRedesignAsync(Func<Task> send)
+    {
+        var previous = _debounceCts;
+        _debounceCts = new CancellationTokenSource();
+        var token = _debounceCts.Token;
+        if (previous is not null)
+        {
+            await previous.CancelAsync();
+            previous.Dispose();
+        }
+
+        try
+        {
+            await Task.Delay(RedesignDebounceMs, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (!_disposed) await send();
     }
 
     private Task OnNetworkSliderAsync(ChangeEventArgs e, Action<double> assign)
@@ -340,7 +399,7 @@
     private Task OnLengthChangedAsync(ChangeEventArgs e)
     {
         if (double.TryParse(e.Value?.ToString(), out double value)) _length = value;
-        return Runner.SetPlantAsync(new PlantConfig(_length));
+        return DebounceRedesignAsync(() => Runner.SetPlantAsync(new PlantConfig(_length)));
     }
 
     private Task OnTargetChangedAsync(ChangeEventArgs e)
@@ -372,7 +431,14 @@
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         Runner.Changed -= OnRunnerChanged;
+        if (_debounceCts is not null)
+        {
+            await _debounceCts.CancelAsync();
+            _debounceCts.Dispose();
+            _debounceCts = null;
+        }
         if (_uiCts is not null)
         {
             await _uiCts.CancelAsync();
@@ -392,6 +458,6 @@
         _selfReference?.Dispose();
     }
 
-    /// <summary>プリセット 1 件ぶんの通信条件。</summary>
-    private readonly record struct PresetValue(int PeriodIndex, double Latency, double Jitter, double Spike);
+    /// <summary>プリセット 1 件ぶんの通信条件。<paramref name="Key"/> は E2E から参照する識別子。</summary>
+    private readonly record struct PresetValue(string Key, int PeriodIndex, double Latency, double Jitter, double Spike);
 }

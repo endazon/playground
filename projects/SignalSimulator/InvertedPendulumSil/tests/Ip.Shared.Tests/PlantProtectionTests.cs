@@ -103,6 +103,26 @@ public sealed class PlantProtectionTests
     }
 
     [Fact]
+    public void Reset_ClearsTheSessionGeneration_SoAReconnectedControllerCanDriveAgain()
+    {
+        // 再接続するとバック側は新しいセッションになり CommandId を 1 から採番し直す。
+        // プラントが古い世代を覚えたままだと、その指令を「旧セッション」とみなして全部捨て、
+        // ドライブは有効なのに 1 本も適用されない状態がリロードまで続く。
+        var plant = CreatePlant(out _, out _);
+        plant.AdvanceTo(0);
+        for (long id = 1; id <= 3; id++) plant.ApplyCommand(new VoltageCommand(id, 0, 1.0, 0.0), 10 * id);
+        Assert.Equal(3, plant.ActiveCommandId);
+
+        plant.Reset(upright: true);
+
+        Assert.Equal(0, plant.ActiveCommandId);
+        Assert.Equal(0.0, plant.MeasuredE2EMs, 9);   // 前セッションの実測遅延を持ち越さない
+
+        plant.ApplyCommand(new VoltageCommand(1, 0, 3.0, 0.0), 100);
+        Assert.Equal(3.0, plant.AppliedVolts, 9);
+    }
+
+    [Fact]
     public void Reset_ReenablesTheDrive_AndBumpsTheEpoch()
     {
         var plant = CreatePlant(out _, out _);

@@ -22,6 +22,12 @@ public sealed class VirtualPlant
     public const double CommandTimeoutMs = 500.0;
     /// <summary>1 回の <see cref="AdvanceTo"/> で許す最大の追いつき時間 [s]。これを超えたぶんは捨てる。</summary>
     public const double MaxCatchUpSeconds = 0.2;
+    /// <summary>
+    /// メカリミット検出のしきい値に使う、ストッパの静的たわみに対する倍率。
+    /// しきい値を静的たわみと同値にすると、最大電圧で準静的に押し付けたときに
+    /// ちょうど届かず、リミットが永久に出ないことがある。
+    /// </summary>
+    private const double LimitDetectionFactor = 0.5;
     /// <summary>外乱ボタンで与える軸トルク [Nm] とその継続時間 [s]</summary>
     private const double DisturbanceTorque = 0.3;
     private const double DisturbanceSeconds = 0.05;
@@ -63,6 +69,14 @@ public sealed class VirtualPlant
     public event Action<MotionEvent>? MotionEventRaised;
 
     public PlantState State => _state;
+
+    /// <summary>
+    /// メカリミットとしてドライブを遮断する台車位置 [m]。
+    /// 最大電圧で押し付けたときのストッパの静的たわみの半分だけレール端より外に置く。
+    /// </summary>
+    public double LimitTriggerPosition =>
+        _parameters.RailStroke
+        + LimitDetectionFactor * _derived.ForceGain * _parameters.MaxVoltage / _parameters.StopStiffness;
     public double SimSeconds => _simSeconds;
     public bool DriveEnabled { get; private set; } = true;
     public bool EmergencyStopped { get; private set; }
@@ -150,6 +164,14 @@ public sealed class VirtualPlant
         _timeoutFired = false;
         _disturbance = Disturbance.None;
         _disturbanceEndSeconds = -1.0;
+
+        // 運転セッションの世代も初期化する。
+        // これを残すと、コントローラ側が再接続で CommandId を採番し直したときに
+        // 「古い指令」とみなして新しいセッションの指令を全部捨て続ける。
+        _activeCommandId = 0;
+        _lastSeq = -1;
+        MeasuredE2EMs = 0.0;
+
         Epoch++;
     }
 
@@ -203,7 +225,7 @@ public sealed class VirtualPlant
 
             double stepWallMs = _originMs + _simSeconds * 1000.0;
 
-            if (DriveEnabled && Math.Abs(_state.X) > _parameters.RailStroke + 0.002)
+            if (DriveEnabled && Math.Abs(_state.X) > LimitTriggerPosition)
                 DisableDrive(MotionEventKind.LimitReached, stepWallMs);
 
             if (_commandRunning && !_timeoutFired && stepWallMs - _lastCommandAtMs > CommandTimeoutMs)

@@ -28,8 +28,12 @@ public static class DelayMarginAnalyzer
         int subSteps = Math.Max(1, (int)Math.Round(tsSeconds / StepSeconds));
         double lpf = VelocityEstimator.LowPassGain(cutoffHz, subSteps * StepSeconds);
 
+        // 遅延 [ms] を積分ステップ数へ。StepSeconds を変えても遅延の意味が変わらないようにする。
+        int DelayToSteps(int delayMs) => (int)Math.Round(delayMs / (StepSeconds * 1000.0));
+
         bool Unstable(int delayMs)
         {
+            int delaySteps = DelayToSteps(delayMs);
             // 遅延キュー: (適用ステップ, 電圧) を FIFO で保持する
             var queue = new Queue<(int At, double U)>();
             double u = 0.0;
@@ -46,7 +50,7 @@ public static class DelayMarginAnalyzer
                     vth += lpf * ((x[1] - prevTh) / dt - vth);
                     prevX = x[0];
                     prevTh = x[1];
-                    queue.Enqueue((step + delayMs, -(k[0] * x[0] + k[1] * x[1] + k[2] * vx + k[3] * vth)));
+                    queue.Enqueue((step + delaySteps, -(k[0] * x[0] + k[1] * x[1] + k[2] * vx + k[3] * vth)));
                 }
 
                 while (queue.Count > 0 && queue.Peek().At <= step) u = queue.Dequeue().U;

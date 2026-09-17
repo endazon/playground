@@ -25,8 +25,8 @@
         <span class="dismiss">🗙</span>
     </div>
 
-    <!-- 3D ビュー用。読み込めなかった場合は側面図だけで動作する。 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+    <!-- 3D ビュー用 (同梱。lib/three/README.md 参照)。読み込めなかった場合は側面図だけで動作する。 -->
+    <script defer src="lib/three/three.min.js"></script>
     <!-- 指紋付きの実体は静的アセットマニフェストが解決する。
          index.html はフォールバックで物理ファイルのまま返されるため、
          プレースホルダ構文 (#[.{fingerprint}]) はここでは使えない。 -->

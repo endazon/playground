@@ -62,7 +62,7 @@ public static class CartPoleDynamics
         => 0.5 * d.PivotInertia * s.ThetaDot * s.ThetaDot
            + p.PendulumMass * PendulumParameters.Gravity * d.HalfLength * (Math.Cos(s.Theta) - 1.0);
 
-    /// <summary>角度を (-π, π] に正規化する。</summary>
+    /// <summary>角度を [-π, π) に正規化する (π は -π に写る)。</summary>
     public static double WrapAngle(double a)
     {
         a = (a + Math.PI) % (2.0 * Math.PI);

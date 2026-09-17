@@ -24,12 +24,41 @@ export async function setRange(page: Page, testId: string, value: number | strin
   await page.getByTestId(testId).fill(String(value));
 }
 
+/**
+ * 数値表示が範囲に収まるまで待つ。`textContent()` の一発読みでは Playwright の
+ * 自動リトライが効かず、100ms ごとに更新される EMA 表示を一瞬の値で掴んで落ちる。
+ */
+export async function expectNumberInRange(
+  locator: Locator, min: number, max: number, label: string,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      const value = await tryReadNumber(locator);
+      return Number.isNaN(value) ? null : value >= min && value <= max;
+    }, { message: `${label} が ${min}〜${max} に入らない`, timeout: 25_000 })
+    .toBe(true);
+}
+
+/** 3D ビューが生きているか (three.js を読めているか)。 */
+export async function expect3dActive(page: Page): Promise<void> {
+  await expect(page.locator('#fallback3d')).toBeHidden();
+  await expect(page.locator('#c3d')).toBeVisible();
+  expect(await page.evaluate(() => typeof (window as unknown as { THREE?: unknown }).THREE !== 'undefined'),
+    'three.js が読み込めていない').toBe(true);
+}
+
 /** 「85 ms」「5.0 ms」のような表示から数値だけを取り出す。 */
 export async function readNumber(locator: Locator): Promise<number> {
+  const value = await tryReadNumber(locator);
+  if (Number.isNaN(value)) throw new Error(`数値を読み取れない表示: "${await locator.textContent()}"`);
+  return value;
+}
+
+/** 未受信の「—」表示では NaN を返す。ポーリングの中で例外を投げないため。 */
+export async function tryReadNumber(locator: Locator): Promise<number> {
   const text = (await locator.textContent()) ?? '';
   const match = text.match(/-?\d+(\.\d+)?/);
-  if (!match) throw new Error(`数値を読み取れない表示: "${text}"`);
-  return Number(match[0]);
+  return match ? Number(match[0]) : Number.NaN;
 }
 
 /**

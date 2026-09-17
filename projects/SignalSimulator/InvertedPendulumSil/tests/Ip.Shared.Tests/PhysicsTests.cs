@@ -75,7 +75,8 @@ public sealed class PhysicsTests
         for (int i = 0; i < 3000; i++)
             s = CartPoleDynamics.Rk4Step(p, d, s, p.MaxVoltage, Disturbance.None, 0.001);
 
-        Assert.True(s.X < p.RailStroke + 0.02, $"ストッパを突き抜けた: x={s.X:0.000}");
+        // 「動かなかった」「逆に走った」でも通ってしまわないよう、到達と非貫通の両方を固定する
+        Assert.InRange(s.X, p.RailStroke - 0.01, p.RailStroke + 0.02);
     }
 
     [Fact]

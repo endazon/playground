@@ -16,6 +16,13 @@ public sealed class SilHub(ControllerSessionManager sessions, ILogger<SilHub> lo
     public override Task OnConnectedAsync()
     {
         var session = sessions.Create(Context.ConnectionId, Clients.Caller);
+        if (session is null)
+        {
+            // セッション数の上限。受け入れられない接続は即座に切る。
+            Context.Abort();
+            return Task.CompletedTask;
+        }
+
         session.PublishDesign();
         return base.OnConnectedAsync();
     }
@@ -57,8 +64,16 @@ public sealed class SilHub(ControllerSessionManager sessions, ILogger<SilHub> lo
         return new ClockSyncResult(clientSendMs, receivedAt, MonotonicClock.NowMs);
     }
 
-    /// <summary>クライアントが推定した「プラント時刻 → サーバ時刻」のオフセットを受け取る。</summary>
-    public void ReportClockOffset(double offsetMs) => Post(new ControllerSession.ClockOffset(offsetMs));
+    /// <summary>
+    /// クライアントが推定した「プラント時刻 → サーバ時刻」のオフセットを受け取る。
+    /// この値は表示にしか使わないが、NaN が入ると表示が恒久的に壊れるので受信側で矯正する。
+    /// </summary>
+    public void ReportClockOffset(double offsetMs)
+        => Post(new ControllerSession.ClockOffset(
+            Sanitize.Finite(offsetMs, -MaxClockOffsetMs, MaxClockOffsetMs, 0.0)));
+
+    /// <summary>許容するクロックオフセットの絶対値 [ms] (24 時間)。</summary>
+    private const double MaxClockOffsetMs = 24.0 * 60.0 * 60.0 * 1000.0;
 
     private void Post(object message)
     {

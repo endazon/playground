@@ -44,10 +44,13 @@ public sealed class DelayLine<T>(Action<T> deliver, Random? random = null)
         }
     }
 
-    /// <summary>遅延なしで即座に配送する (通信路エミュレーションを使わない構成用)。</summary>
-    public void PushImmediate(T message) => _deliver(message);
-
-    /// <summary>到達時刻を過ぎたメッセージを配送する。呼び出し側が定期的に呼ぶ。</summary>
+    /// <summary>
+    /// 到達時刻を過ぎたメッセージを配送する。呼び出し側が定期的に呼ぶ。
+    ///
+    /// <see cref="Push"/> は <see cref="Flush"/> と並行に呼んでよい (投入順に追い越しは起きない) が、
+    /// <see cref="Flush"/> 自体は<b>単一スレッドから呼ぶこと</b>。
+    /// 配送コールバックをロックの外で呼ぶため、2 スレッドから同時に流すと追い越しが起きる。
+    /// </summary>
     public void Flush(double nowMs)
     {
         while (true)
@@ -59,15 +62,6 @@ public sealed class DelayLine<T>(Action<T> deliver, Random? random = null)
                 message = _queue.Dequeue().Message;
             }
             _deliver(message);
-        }
-    }
-
-    public void Clear()
-    {
-        lock (_gate)
-        {
-            _queue.Clear();
-            _lastDeliveryAt = 0.0;
         }
     }
 }

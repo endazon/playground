@@ -40,8 +40,15 @@ export function init(dotnetRef) {
 }
 
 export function update(state) {
+  // 壊れた状態を受け取ってもサンプル列を無限に伸ばさない (NaN は比較がすべて false になる)
+  if (!state || !isFinite(state.simSeconds)) return;
   view.state = state;
   sample(state);
+}
+
+/** 3D ビューが動いているか。E2E から «CDN/同梱スクリプトが死んでいないか» を確認するために使う。 */
+export function is3dActive() {
+  return !!view.three;
 }
 
 export function pushEffect(dir) {
@@ -52,8 +59,22 @@ export function dispose() {
   if (view.raf) cancelAnimationFrame(view.raf);
   view.raf = 0;
   view.dotnet = null;
+  view.state = null;
+  view.samples = [];
+  view.lastT = -1;
+
   if (view.three) {
-    try { view.three.renderer.dispose(); } catch { /* 破棄時の失敗は無視 */ }
+    try {
+      // ジオメトリ/マテリアルは GC 対象にならないので明示的に解放する
+      view.three.scene.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        const material = obj.material;
+        if (Array.isArray(material)) material.forEach(m => m.dispose());
+        else if (material) material.dispose();
+      });
+      view.three.detach();
+      view.three.renderer.dispose();
+    } catch { /* 破棄時の失敗は無視 */ }
     view.three = null;
   }
 }
@@ -279,27 +300,34 @@ function init3D() {
     gPend.add(gRod);
 
     let az = 0.55, ev = 0.18, drag = null, moved = 0;
-    canvas.addEventListener("pointerdown", e => {
+    const listeners = [];
+    const on = (name, handler) => { canvas.addEventListener(name, handler); listeners.push([name, handler]); };
+    on("pointerdown", e => {
       drag = { x: e.clientX, y: e.clientY, az, ev };
       moved = 0;
       canvas.setPointerCapture(e.pointerId);
     });
-    canvas.addEventListener("pointermove", e => {
+    on("pointermove", e => {
       if (!drag) return;
       moved = Math.max(moved, Math.hypot(e.clientX - drag.x, e.clientY - drag.y));
       az = drag.az + (e.clientX - drag.x) * 0.008;
       ev = Math.max(-0.3, Math.min(1.1, drag.ev + (e.clientY - drag.y) * 0.006));
     });
-    canvas.addEventListener("pointerup", e => {
+    on("pointerup", e => {
       if (drag && moved < 5) {
         const r = canvas.getBoundingClientRect();
         notifyPush(e.clientX - r.left < r.width / 2 ? 1 : -1);
       }
       drag = null;
     });
-    ["pointercancel", "pointerleave"].forEach(n => canvas.addEventListener(n, () => { drag = null; }));
+    ["pointercancel", "pointerleave"].forEach(n => on(n, () => { drag = null; }));
 
-    view.three = { renderer, scene, camera, cart, cartMat, pend, rod, gCart, gPend, gRod, pulleys, angles: () => ({ az, ev }) };
+    view.three = {
+      renderer, scene, camera, cart, cartMat, pend, rod, gCart, gPend, gRod, pulleys,
+      sizedWidth: 0, sizedHeight: 0,
+      angles: () => ({ az, ev }),
+      detach: () => listeners.forEach(([name, handler]) => canvas.removeEventListener(name, handler)),
+    };
   } catch {
     canvas.style.display = "none";
     const fb = $("fallback3d");
@@ -311,7 +339,10 @@ function render3D(st) {
   const t = view.three;
   if (!t) return;
   const c = t.renderer.domElement, w = c.clientWidth, h = c.clientHeight;
-  if (w && h && c.width !== Math.round(w * t.renderer.getPixelRatio())) {
+  // 幅だけを見ていると、高さだけ変わるレイアウトで camera.aspect が古いまま歪む
+  if (w && h && (t.sizedWidth !== w || t.sizedHeight !== h)) {
+    t.sizedWidth = w;
+    t.sizedHeight = h;
     t.renderer.setSize(w, h, false);
     t.camera.aspect = w / h;
     t.camera.updateProjectionMatrix();

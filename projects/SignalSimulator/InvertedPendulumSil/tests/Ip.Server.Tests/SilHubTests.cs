@@ -73,6 +73,63 @@ public sealed class SilHubTests(SilServerFixture fixture) : IClassFixture<SilSer
     }
 
     [Fact]
+    public async Task Disconnecting_ReleasesTheSession()
+    {
+        using var http = fixture.CreateClient();
+
+        var (connection, inbox) = await ConnectAsync();
+        await using var _ = inbox;
+        Assert.True(await inbox.WaitUntilAsync(() => inbox.CountOf(inbox.Designs) > 0, Timeout));
+
+        int whileConnected = await ReadSessionCountAsync(http);
+        Assert.True(whileConnected >= 1, $"接続中なのにセッションが無い: {whileConnected}");
+
+        await connection.StopAsync();
+
+        // OnDisconnectedAsync → RemoveAsync → DisposeAsync が回ってセッションが解放されること
+        var deadline = DateTime.UtcNow + Timeout;
+        while (DateTime.UtcNow < deadline && await ReadSessionCountAsync(http) >= whileConnected)
+            await Task.Delay(50);
+
+        Assert.True(await ReadSessionCountAsync(http) < whileConnected, "切断してもセッションが解放されない");
+    }
+
+    [Fact]
+    public async Task TwoConnections_GetIndependentControllers()
+    {
+        var (first, firstInbox) = await ConnectAsync();
+        await using var _ = firstInbox;
+        await using var firstHost = new RealTimePlantHost(first);
+
+        var (second, secondInbox) = await ConnectAsync();
+        await using var __ = secondInbox;
+
+        await first.SendAsync(HubMethods.ConfigureNetwork, new NetworkConfig(PeriodMs: 5));
+        firstHost.Plant.Reset(upright: true);
+        await Task.Delay(100);
+        await first.SendAsync(HubMethods.Operate, OperatorAction.Balance);
+
+        Assert.True(await firstInbox.WaitUntilAsync(
+            () => firstInbox.Latest(firstInbox.Statuses)?.Mode == ControlMode.Balance, Timeout));
+
+        // 2 本目は何も操作していないので IDLE のまま。片方の運転が他方に漏れない。
+        Assert.True(await secondInbox.WaitUntilAsync(() => secondInbox.CountOf(secondInbox.Designs) > 0, Timeout));
+        var secondStatus = secondInbox.Latest(secondInbox.Statuses);
+        Assert.True(secondStatus is null or { Mode: ControlMode.Idle },
+            $"2 本目のセッションが巻き込まれている: {secondStatus?.Mode}");
+        Assert.Empty(secondInbox.Voltages);
+
+        await first.StopAsync();
+        await second.StopAsync();
+    }
+
+    private static async Task<int> ReadSessionCountAsync(HttpClient http)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(await http.GetStringAsync("/healthz"));
+        return document.RootElement.GetProperty("sessions").GetInt32();
+    }
+
+    [Fact]
     public async Task Balance_OverTheWire_KeepsThePendulumUpright()
     {
         var (connection, inbox) = await ConnectAsync();

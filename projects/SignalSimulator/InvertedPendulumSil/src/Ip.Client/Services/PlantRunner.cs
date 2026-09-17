@@ -63,6 +63,9 @@ public sealed class PlantRunner : IAsyncDisposable
     public DesignInfo? Design { get; private set; }
 
     public LinkState Link { get; private set; } = LinkState.Connecting;
+
+    /// <summary>プラントの積分ループが異常終了したか。true なら表示は信用できない。</summary>
+    public bool PlantStopped { get; private set; }
     public string LinkDetail { get; private set; } = "接続中";
     public double ClockOffsetMs => _clock.OffsetMs;
     public double ClockRoundTripMs => _clock.RoundTripMs;
@@ -82,6 +85,10 @@ public sealed class PlantRunner : IAsyncDisposable
             .WithUrl(hubUrl)
             .AddMessagePackProtocol()
             .WithAutomaticReconnect()
+            // 既定の 30 秒では、通信が死んでも画面が「接続済み・倒立制御中」を表示し続ける。
+            // サーバ側 (ClientTimeoutInterval 10s / KeepAlive 3s) と揃えて検知を早める。
+            .WithServerTimeout(TimeSpan.FromSeconds(10))
+            .WithKeepAliveInterval(TimeSpan.FromSeconds(3))
             .Build();
 
         _hub.On<VoltageCommand>(HubMethods.OnVoltage, command => _plant.ApplyCommand(command, MonotonicClock.NowMs));
@@ -92,6 +99,8 @@ public sealed class PlantRunner : IAsyncDisposable
 
         _hub.Reconnecting += _ =>
         {
+            // 最後に受け取った状態を残すと、制御が死んでいるのに UI が「倒立制御中」と言い続ける。
+            Controller = null;
             SetLink(LinkState.Reconnecting, "再接続中");
             AddLog("システム", LogSeverity.Warning, "コントローラとの接続が切れました。再接続します。");
             return Task.CompletedTask;
@@ -105,6 +114,7 @@ public sealed class PlantRunner : IAsyncDisposable
         };
         _hub.Closed += _ =>
         {
+            Controller = null;
             SetLink(LinkState.Disconnected, "切断");
             return Task.CompletedTask;
         };
@@ -196,6 +206,13 @@ public sealed class PlantRunner : IAsyncDisposable
         catch (OperationCanceledException)
         {
         }
+        catch (Exception ex)
+        {
+            // ここで黙って抜けると、描画ループは生きたまま台車と振子だけが凍る。
+            // 画面上の手がかりが「シミュレーション時刻が進まない」ことだけになるので、必ず表に出す。
+            PlantStopped = true;
+            AddLog("システム", LogSeverity.Error, $"プラントの積分ループが停止しました: {ex.Message}");
+        }
     }
 
     private async Task RunSendLoopAsync(CancellationToken token)
@@ -204,7 +221,13 @@ public sealed class PlantRunner : IAsyncDisposable
         {
             await foreach (var (method, payload) in _outbox.Reader.ReadAllAsync(token).ConfigureAwait(false))
             {
-                if (_hub is null || _hub.State != HubConnectionState.Connected) continue;
+                if (_hub is null || _hub.State != HubConnectionState.Connected)
+                {
+                    // 帰還は捨てて構わないが、オペレータ操作が黙って消えるのは困る
+                    if (method == HubMethods.Operate)
+                        AddLog("システム", LogSeverity.Warning, "未接続のため操作を破棄しました。");
+                    continue;
+                }
                 try
                 {
                     await _hub.SendAsync(method, payload, token).ConfigureAwait(false);
