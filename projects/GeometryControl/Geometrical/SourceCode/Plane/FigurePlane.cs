@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+ï»¿using System.Runtime.InteropServices;
 using System.Diagnostics;
 using Geometrical.Figure;
 using System.ComponentModel;
@@ -162,18 +162,18 @@ namespace Geometrical
                     if (curModule.ModuleName == null) { return; }
                     if (hookId != IntPtr.Zero) { return; }
 
-                    //GC‘Îô
+                    //GCå¯¾ç­–
                     proc = HookProcedure;
 
-                    //ƒtƒbƒN‚ğs‚¤
-                    //‘æ‚Pˆø”FƒtƒbƒN‚·‚éƒCƒxƒ“ƒg‚Ìí—Ş
-                    //        @‚P‚R‚ÍƒL[ƒ{[ƒhƒtƒbƒN‚ğ•\‚·
-                    //‘æ‚Qˆø”FƒtƒbƒN‚Ìƒƒ\ƒbƒh‚ÌƒAƒhƒŒƒX
-                    //@@@@@ƒtƒbƒNƒƒ\ƒbƒh‚ğ“o˜^‚·‚é
-                    //‘æ‚Rˆø”FƒCƒ“ƒXƒ^ƒ“ƒXƒnƒ“ƒhƒ‹
-                    //        @Œ»İÀs’†‚Ìƒnƒ“ƒhƒ‹‚ğ“n‚·
-                    //‘æ‚Sˆø”FƒXƒŒƒbƒhID
-                    //@@@@@‚O‚ğw’è‚·‚é‚ÆA‚·‚×‚Ä‚ÌƒXƒŒƒbƒh‚ÅƒtƒbƒN‚³‚ê‚é
+                    //ãƒ•ãƒƒã‚¯ã‚’è¡Œã†
+                    //ç¬¬ï¼‘å¼•æ•°ï¼šãƒ•ãƒƒã‚¯ã™ã‚‹ã‚¤ãƒ™ãƒ³ãƒˆã®ç¨®é¡
+                    //        ã€€ï¼‘ï¼“ã¯ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒ•ãƒƒã‚¯ã‚’è¡¨ã™
+                    //ç¬¬ï¼’å¼•æ•°ï¼šãƒ•ãƒƒã‚¯æ™‚ã®ãƒ¡ã‚½ãƒƒãƒ‰ã®ã‚¢ãƒ‰ãƒ¬ã‚¹
+                    //ã€€ã€€ã€€ã€€ã€€ãƒ•ãƒƒã‚¯ãƒ¡ã‚½ãƒƒãƒ‰ã‚’ç™»éŒ²ã™ã‚‹
+                    //ç¬¬ï¼“å¼•æ•°ï¼šã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ãƒãƒ³ãƒ‰ãƒ«
+                    //        ã€€ç¾åœ¨å®Ÿè¡Œä¸­ã®ãƒãƒ³ãƒ‰ãƒ«ã‚’æ¸¡ã™
+                    //ç¬¬ï¼”å¼•æ•°ï¼šã‚¹ãƒ¬ãƒƒãƒ‰ID
+                    //ã€€ã€€ã€€ã€€ã€€ï¼ã‚’æŒ‡å®šã™ã‚‹ã¨ã€ã™ã¹ã¦ã®ã‚¹ãƒ¬ãƒƒãƒ‰ã§ãƒ•ãƒƒã‚¯ã•ã‚Œã‚‹
                     hookId = SetWindowsHookEx(
                         /* int idHook        = */WH_KEYBOARD_LL,
                         /* KeyboardProc lpfn = */proc,
@@ -229,13 +229,13 @@ namespace Geometrical
             [Browsable(true)]
             [Localizable(true)]
             [Category("Geometrical.Plane")]
-            [Description("}–Ê‘I‘ğƒCƒxƒ“ƒg")]
+            [Description("å›³é¢é¸æŠã‚¤ãƒ™ãƒ³ãƒˆ")]
             public event SelectFigureChangedEventHandler? SelectFigureChanged = null;
 
             [Browsable(true)]
             [Localizable(true)]
             [Category("Geometrical.Plane")]
-            [Description("•½–Êã‚Ìƒ}ƒEƒXˆÚ“®ƒCƒxƒ“ƒg")]
+            [Description("å¹³é¢ä¸Šã®ãƒã‚¦ã‚¹ç§»å‹•ã‚¤ãƒ™ãƒ³ãƒˆ")]
             public event MouseMouseMoveForPlaneEventHandler? MouseMouseMoveForPlane = null;
             #endregion
 
@@ -246,7 +246,7 @@ namespace Geometrical
             [Browsable(true)]
             [Localizable(true)]
             [Category("CoordinateSystem")]
-            [Description("2ŸŒ³•½–Êã‚ÌŒ´“_")]
+            [Description("2æ¬¡å…ƒå¹³é¢ä¸Šã®åŸç‚¹")]
             [TypeConverter(typeof(PointFConverter))]
             public PointF Origin
             {
@@ -260,7 +260,7 @@ namespace Geometrical
             [Browsable(true)]
             [Localizable(true)]
             [Category("CoordinateSystem")]
-            [Description("2ŸŒ³•½–Êã‚ÌÀ•WŒn")]
+            [Description("2æ¬¡å…ƒå¹³é¢ä¸Šã®åº§æ¨™ç³»")]
             [DefaultValue(typeof(CoordinateDirections), "RightHanded")]
             public CoordinateDirections Direction
             {
@@ -274,7 +274,7 @@ namespace Geometrical
             [Browsable(true)]
             [Localizable(true)]
             [Category("CoordinateSystem")]
-            [Description("2ŸŒ³•½–Êã‚ÌŒü‚«")]
+            [Description("2æ¬¡å…ƒå¹³é¢ä¸Šã®å‘ã")]
             [DefaultValue(typeof(CoordinateRotates), "Angle000")]
             public CoordinateRotates Rotation
             {
@@ -288,7 +288,7 @@ namespace Geometrical
             [Browsable(true)]
             [Localizable(true)]
             [Category("CoordinateSystem")]
-            [Description("2ŸŒ³•½–Êã‚ÌkÚ")]
+            [Description("2æ¬¡å…ƒå¹³é¢ä¸Šã®ç¸®å°º")]
             [DefaultValue(1.0f)]
             public float ReducedScale
             {
@@ -302,7 +302,7 @@ namespace Geometrical
             [Browsable(true)]
             [Localizable(true)]
             [Category("CoordinateSystem")]
-            [Description("2ŸŒ³•½–Êã‚ÌŠg‘å—¦")]
+            [Description("2æ¬¡å…ƒå¹³é¢ä¸Šã®æ‹¡å¤§ç‡")]
             [DefaultValue(1.0f)]
             public float MagnificationRate
             {
@@ -324,7 +324,7 @@ namespace Geometrical
             [Browsable(true)]
             [Localizable(true)]
             [Category("FigurePlane")]
-            [Description("•ÒW‹Ö~")]
+            [Description("ç·¨é›†ç¦æ­¢")]
             [DefaultValue(false)]
             public bool EditingProhibited { get; set; } = false;
             #endregion
@@ -510,15 +510,15 @@ namespace Geometrical
             {
                 if (keyboardStatus.Control)
                 {
-                    //ƒzƒC[ƒ‹‚Ì‰ñ“]‰ñ”‚ªA
+                    //ãƒ›ã‚¤ãƒ¼ãƒ«ã®å›è»¢å›æ•°ãŒã€
                     if (me.Delta > 0)
                     {
-                        //³‚Ìê‡AŠg‘å
+                        //æ­£ã®å ´åˆã€æ‹¡å¤§
                         System.ChangeMagnificationRate(+1.0f);
                     }
                     else
                     {
-                        //•‰‚Ìê‡Ak¬
+                        //è² ã®å ´åˆã€ç¸®å°
                         System.ChangeMagnificationRate(-1.0f);
                     }
                     Refresh();
@@ -531,7 +531,7 @@ namespace Geometrical
                 mouseStatus.FixedCursor = Cursors.Default;
                 if (me.Button == MouseButtons.Left)
                 {
-                    //}Œ`‘I‘ğ
+                    //å›³å½¢é¸æŠ
                     var unit = System.GetUnitCoordinateSystem();
                     if (!keyboardStatus.Control) { SelectedFigureClear(); }
                     SelectedFigureAdd(FigureList.SelectFigure(System, new PointF(me.X - unit.X * Width, me.Y - unit.Y * Height), SelectionItems));
@@ -555,7 +555,7 @@ namespace Geometrical
                 {
                     if (mouseStatus.Button == MouseButtons.Right)
                     {
-                        //¶ƒNƒŠƒbƒN‚³‚ê‚Ä‚¢‚½‚çAŒ´“_ˆÚ“®
+                        //å·¦ã‚¯ãƒªãƒƒã‚¯ã•ã‚Œã¦ã„ãŸã‚‰ã€åŸç‚¹ç§»å‹•
                         System.MovingOrigin(variation);
                         Refresh();
                     }
@@ -615,7 +615,7 @@ namespace Geometrical
                     ReleaseCapture();
                 }
 
-#if false//ƒfƒoƒbƒO—p
+#if false//ãƒ‡ãƒãƒƒã‚°ç”¨
                 {
                     var a = System.ConvertToScale(new PointF(10, 20));
                     var b = System.ConvertFromScale(a);

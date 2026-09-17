@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <stdint.h>
 #include <type_traits>
@@ -9,7 +9,7 @@ namespace UnitOfNumber {
 
 #pragma region Numeral
 	/// <summary>
-	/// ”šÀ‘ÌƒNƒ‰ƒX
+	/// æ•°å­—å®Ÿä½“ã‚¯ãƒ©ã‚¹
 	/// </summary>
 	/// <typeparam name="__ValueType"></typeparam>
 	template<class __ValueType>
@@ -38,7 +38,7 @@ namespace UnitOfNumber {
 
 	public:
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//NumericEntity() noexcept = delete;
 		//NumericEntity(const __MySelfType&) noexcept = delete;
 		//NumericEntity(__MySelfType&&) noexcept = delete;
@@ -53,7 +53,7 @@ namespace UnitOfNumber {
 		template<class T> constexpr NumericEntity(const T&& other) noexcept : __MySelfType(other)
 		{}
 
-		//ƒLƒƒƒXƒg‰‰Zq(Cast)
+		//ã‚­ãƒ£ã‚¹ãƒˆæ¼”ç®—å­(Cast)
 		inline explicit operator __ValueType() const noexcept
 		{
 			return GetValue();
@@ -61,12 +61,12 @@ namespace UnitOfNumber {
 	};
 
 	/// <summary>
-	/// ”š‘€ìƒNƒ‰ƒX
+	/// æ•°å­—æ“ä½œã‚¯ãƒ©ã‚¹
 	/// </summary>
 	/// <typeparam name="__InheritanceType"></typeparam>
 	template<class __InheritanceType, class __ReturnType = __InheritanceType>
 	class NumeralOperators : public __InheritanceType	{
-		//¦ˆÈ‰º‚ÌŠÖ”‚Í‚±‚ÌƒNƒ‰ƒX‚ğg—p‚·‚éÛ‚É•K{
+		//â€»ä»¥ä¸‹ã®é–¢æ•°ã¯ã“ã®ã‚¯ãƒ©ã‚¹ã‚’ä½¿ç”¨ã™ã‚‹éš›ã«å¿…é ˆ
 		//template<class T> constexpr auto CAST(T&& v);
 		//inline __ValueType GetValue() const noexcept;
 		//inline void SetValue(const __ValueType& v) & noexcept;
@@ -92,9 +92,9 @@ namespace UnitOfNumber {
 	public:
 		using __InheritanceType::__InheritanceType;
 
-		//‘ã“ü‰‰Zq(Assignment)
+		//ä»£å…¥æ¼”ç®—å­(Assignment)
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
 		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
 		//**********************************************************
@@ -108,36 +108,36 @@ namespace UnitOfNumber {
 			return operator=(rhs);
 		}
 
-		//’P€ƒ}ƒCƒiƒX‰‰Zq‚Æ’P€ƒvƒ‰ƒX‰‰Zq(Unary Negation/Plus)
+		//å˜é …ãƒã‚¤ãƒŠã‚¹æ¼”ç®—å­ã¨å˜é …ãƒ—ãƒ©ã‚¹æ¼”ç®—å­(Unary Negation/Plus)
 		inline __ReturnType operator+() const { return __ReturnType(+this->GetValue()); }
 		inline __ReturnType operator-() const { return __ReturnType(-this->GetValue()); }
 
-		//Zp‰‰Zq(Arithmetic)
+		//ç®—è¡“æ¼”ç®—å­(Arithmetic)
 		template<class T> inline __ReturnType operator+(T&& rhs) { return __ReturnType(this->GetValue() + this->CAST(rhs)); }
 		template<class T> inline __ReturnType operator-(T&& rhs) { return __ReturnType(this->GetValue() - this->CAST(rhs)); }
 		template<class T> inline __ReturnType operator*(T&& rhs) { return __ReturnType(this->GetValue() * this->CAST(rhs)); }
 		template<class T> inline __ReturnType operator/(T&& rhs) { return __ReturnType(this->GetValue() / this->CAST(rhs)); }
 		template<class T> inline __ReturnType operator%(T&& rhs) { return __ReturnType(mod(this->GetValue(), this->CAST(rhs))); }
 
-		//•¡‡‘ã“ü‰‰Zq(Compound Assignment)
+		//è¤‡åˆä»£å…¥æ¼”ç®—å­(Compound Assignment)
 		template<class T> inline void operator+=(T&& rhs) { this->SetValue(this->GetValue() + this->CAST(rhs)); }
 		template<class T> inline void operator-=(T&& rhs) { this->SetValue(this->GetValue() - this->CAST(rhs)); }
 		template<class T> inline void operator*=(T&& rhs) { this->SetValue(this->GetValue() * this->CAST(rhs)); }
 		template<class T> inline void operator/=(T&& rhs) { this->SetValue(this->GetValue() / this->CAST(rhs)); }
 		template<class T> inline void operator%=(T&& rhs) { this->SetValue(mod(this->GetValue(), this->CAST(rhs))); }
 
-		//Œã’uƒCƒ“ƒNƒŠƒƒ“ƒg/ƒfƒNƒŠƒƒ“ƒg(Postfix Increment/Decrement)
+		//å¾Œç½®ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆ/ãƒ‡ã‚¯ãƒªãƒ¡ãƒ³ãƒˆ(Postfix Increment/Decrement)
 		inline __ReturnType operator++(int) { auto z1 = this->GetValue(); this->SetValue(z1 + 1); return __ReturnType(z1); }
 		inline __ReturnType operator--(int) { auto z1 = this->GetValue(); this->SetValue(z1 - 1); return __ReturnType(z1); }
 
-		//‘O’uƒCƒ“ƒNƒŠƒƒ“ƒg/ƒfƒNƒŠƒƒ“ƒg(Prefix Increment/Decremrnt)
+		//å‰ç½®ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆ/ãƒ‡ã‚¯ãƒªãƒ¡ãƒ³ãƒˆ(Prefix Increment/Decremrnt)
 		inline __MySelfType& operator++() { this->SetValue(this->GetValue() + 1); return *this; }
 		inline __MySelfType& operator--() { this->SetValue(this->GetValue() - 1); return *this; }
 
-		//˜_—”Û’è‰‰Zq(Logical Not)
+		//è«–ç†å¦å®šæ¼”ç®—å­(Logical Not)
 		inline bool operator!() const noexcept { return  this->GetValue() == 0; }
 
-		//”äŠr‰‰Zq(Compare)
+		//æ¯”è¼ƒæ¼”ç®—å­(Compare)
 		template<class T> inline bool operator==(T&& rhs) { return  this->GetValue() ==  this->CAST(rhs); }
 		template<class T> inline bool operator!=(T&& rhs) { return  this->GetValue() !=  this->CAST(rhs); }
 		template<class T> inline bool operator<=(T&& rhs) { return  this->GetValue() <=  this->CAST(rhs); }
@@ -145,18 +145,18 @@ namespace UnitOfNumber {
 		template<class T> inline bool operator>=(T&& rhs) { return  this->GetValue() >=  this->CAST(rhs); }
 		template<class T> inline bool operator> (T&& rhs) { return  this->GetValue() >   this->CAST(rhs); }
 
-		//‰ÈŠwZp(Scientific Arithmetic)
+		//ç§‘å­¦ç®—è¡“(Scientific Arithmetic)
 		template<class T> inline __ReturnType pow(T&& rhs)	{ return __ReturnType(std::pow( this->GetValue(), this->CAST(rhs))); }
 						  inline __ReturnType log()			{ return __ReturnType(std::log( this->GetValue())); }
 		template<class T> inline __ReturnType log(T&& rhs)  { return __ReturnType(std::log( this->GetValue() / this->CAST(rhs))); }
 						  inline __ReturnType abs()			{ return __ReturnType(std::abs( this->GetValue())); }
 
-		//•¶š—ñ•ÏŠ·(Text Conversion)
+		//æ–‡å­—åˆ—å¤‰æ›(Text Conversion)
 		inline std::string to_string(){ return std::to_string(this->GetValue()); }
 	};
 
 	/// <summary>
-	/// Šî–{”šƒNƒ‰ƒX
+	/// åŸºæœ¬æ•°å­—ã‚¯ãƒ©ã‚¹
 	/// </summary>
 	/// <typeparam name="__EntityType"></typeparam>
 	/// <typeparam name="__ValueType"></typeparam>
@@ -170,9 +170,9 @@ namespace UnitOfNumber {
 	public:
 		using __InheritanceType::__InheritanceType;
 
-		//‘ã“ü‰‰Zq(Assignment)
+		//ä»£å…¥æ¼”ç®—å­(Assignment)
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
 		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
 		//**********************************************************
@@ -188,7 +188,7 @@ namespace UnitOfNumber {
 	};
 
 	/// <summary>
-	/// ”šƒNƒ‰ƒX
+	/// æ•°å­—ã‚¯ãƒ©ã‚¹
 	/// </summary>
 	/// <typeparam name="__ValueType"></typeparam>
 	template<class __ValueType>
@@ -202,7 +202,7 @@ namespace UnitOfNumber {
 #pragma region SIPrefixUnit
 
 	/// <summary>
-	/// SIÚ“ª«‘€ìƒNƒ‰ƒX
+	/// SIæ¥é ­è¾æ“ä½œã‚¯ãƒ©ã‚¹
 	/// </summary>
 	/// <typeparam name="__InheritanceType"></typeparam>
 	/// <typeparam name="__ReturnType"></typeparam>
@@ -210,9 +210,9 @@ namespace UnitOfNumber {
 	using SIPrefixOperators = NumeralOperators<__InheritanceType, __ReturnType>;
 
 	/// <summary>
-	/// Šî–{SIÚ“ª«ƒNƒ‰ƒX
-	/// Œ^‚ğw’è‚Å‚«‚é
-	/// ¦¬”“_‚Ì‚ ‚éŒ^‚ª–]‚Ü‚µ‚¢
+	/// åŸºæœ¬SIæ¥é ­è¾ã‚¯ãƒ©ã‚¹
+	/// å‹ã‚’æŒ‡å®šã§ãã‚‹
+	/// â€»å°æ•°ç‚¹ã®ã‚ã‚‹å‹ãŒæœ›ã¾ã—ã„
 	/// </summary>
 	/// <typeparam name="__ValueType"></typeparam>
 	template<class __ValueType>
@@ -224,7 +224,7 @@ namespace UnitOfNumber {
 
 	protected:
 		///// <summary>
-		///// SIÚ“ª«’PˆÊÀ‘ÌƒNƒ‰ƒX
+		///// SIæ¥é ­è¾å˜ä½å®Ÿä½“ã‚¯ãƒ©ã‚¹
 		///// </summary>
 		///// <typeparam name="__ValueType"></typeparam>
 		///// <typeparam name="__Exp"></typeparam>
@@ -254,7 +254,7 @@ namespace UnitOfNumber {
 
 		public:
 			//**********************************************************
-			//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+			//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 			SIPrefixUnitEntity() noexcept = delete;
 			//SIPrefixUnitEntity(const __MySelfType&) noexcept = delete;
 			//SIPrefixUnitEntity(__MySelfType&&) noexcept = delete;
@@ -263,7 +263,7 @@ namespace UnitOfNumber {
 			constexpr SIPrefixUnitEntity(BaseSIPrefix<__ValueType>* other) noexcept : _pValue(other)
 			{}
 
-			//ƒLƒƒƒXƒg‰‰Zq(Cast)
+			//ã‚­ãƒ£ã‚¹ãƒˆæ¼”ç®—å­(Cast)
 			inline explicit operator __ValueType() const noexcept
 			{
 				return GetValue();
@@ -274,7 +274,7 @@ namespace UnitOfNumber {
 
 	public:
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//BaseSIPrefix() noexcept = delete;
 		//BaseSIPrefix(const __MySelfType&) noexcept = delete;
 		//BaseSIPrefix(__MySelfType&&) noexcept = delete;
@@ -340,9 +340,9 @@ namespace UnitOfNumber {
 		BaseSIPrefixUnit<-27> r;
 		BaseSIPrefixUnit<-30> q;
 	
-		//‘ã“ü‰‰Zq(Assignment)
+		//ä»£å…¥æ¼”ç®—å­(Assignment)
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
 		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
 		//**********************************************************
@@ -358,7 +358,7 @@ namespace UnitOfNumber {
 	};
 
 	/// <summary>
-	/// SIÚ“ª«ƒNƒ‰ƒX
+	/// SIæ¥é ­è¾ã‚¯ãƒ©ã‚¹
 	/// </summary>
 	template<class __ValueType>
 	using SIPrefix = BaseSIPrefix<__ValueType>;
@@ -370,7 +370,7 @@ namespace UnitOfNumber {
 
 #pragma region Specific
 	/// <summary>
-	/// “Áê”šÀ‘ÌƒNƒ‰ƒX
+	/// ç‰¹æ®Šæ•°å­—å®Ÿä½“ã‚¯ãƒ©ã‚¹
 	/// </summary>
 	/// <typeparam name="__ValueType"></typeparam>
 	template<class __ValueType>
@@ -399,7 +399,7 @@ namespace UnitOfNumber {
 
 	public:
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//SpecificNumeralEntity() noexcept = delete;
 		//SpecificNumeralEntity(const __MySelfType&) noexcept = delete;
 		//SpecificNumeralEntity(__MySelfType&&) noexcept = delete;
@@ -414,7 +414,7 @@ namespace UnitOfNumber {
 		template<class T> constexpr SpecificNumeralEntity(const T && other) noexcept : __MySelfType(other)
 		{}
 
-		//ƒLƒƒƒXƒg‰‰Zq(Cast)
+		//ã‚­ãƒ£ã‚¹ãƒˆæ¼”ç®—å­(Cast)
 		inline explicit operator __ValueType() const noexcept
 		{
 			return GetValue();
@@ -422,7 +422,7 @@ namespace UnitOfNumber {
 	};
 
 	/// <summary>
-	/// Šî–{“Áê”šƒNƒ‰ƒX
+	/// åŸºæœ¬ç‰¹æ®Šæ•°å­—ã‚¯ãƒ©ã‚¹
 	/// </summary>
 	/// <typeparam name="__ValueType"></typeparam>
 	/// <typeparam name="__ReturnType"></typeparam>
@@ -436,9 +436,9 @@ namespace UnitOfNumber {
 	public:
 		using __InheritanceType::__InheritanceType;
 
-		//‘ã“ü‰‰Zq(Assignment)
+		//ä»£å…¥æ¼”ç®—å­(Assignment)
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
 		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
 		//**********************************************************

@@ -67,7 +67,6 @@ DebuggingConsole が読み込む DLL は別ディレクトリに出力される�
 
 ## 注意点・未完成部分
 
-- ソースの文字コードが混在している。Shift-JIS: `UnitOfNumber.hpp`、`ScientificPostulates.hpp`、`Simulator.hpp`、`Utility.hpp`、`UnitTest.cpp`、`CommunicationHistoryListDialog.cpp`、`toolchain.cmake`。その他は UTF-8（BOM 付き）。
 - Windows 専用（`windows.h`、`LoadLibrary`、`__declspec`）で、`toolchain.cmake` は作者 PC の絶対パスに依存する。
 - `GeneralPurposeTimer.hpp` の `DateFormat` で `sprintf_s` が `assert()` 内にあり、Release ビルドでは文字列が生成されない可能性がある。
 - `BaseTimeSimulator` のスレッドは detach したまま。複数スレッドからの呼び出しの不具合修正はアーカイブブランチ側にしかない。
@@ -83,6 +82,7 @@ DebuggingConsole が読み込む DLL は別ディレクトリに出力される�
 | 開発期間 | 2022-01-16 〜 2023-01-08（master 42 コミット） |
 | 履歴 | パスを `projects/SignalSimulator/` に書き換えて全コミットを保持 |
 | サブモジュール | `.gitmodules` はリポジトリルートへ移し、パスを書き換えた |
+| 移管時の整理 | Shift-JIS だった 7 ファイル（`UnitOfNumber.hpp`、`ScientificPostulates.hpp`、`Simulator.hpp`、`Utility.hpp`、`UnitTest.cpp`、`CommunicationHistoryListDialog.cpp`、`toolchain.cmake`）を UTF-8（BOM 付き）へ変換。MSVC が BOM で UTF-8 と判定できるようにしている |
 
 ### 主な経緯
 

@@ -1,19 +1,19 @@
-# CMakeLists.txt‚ð•ÏX‚¹‚¸‚ÉÝ’è‚ðs‚¤B
-# ŠÂ‹«–ˆ‚É_“î‚ÉÝ’è‚ðs‚¤‚±‚Æ‚ª‰Â”\
+ï»¿# CMakeLists.txtã‚’å¤‰æ›´ã›ãšã«è¨­å®šã‚’è¡Œã†ã€‚
+# ç’°å¢ƒæ¯Žã«æŸ”è»Ÿã«è¨­å®šã‚’è¡Œã†ã“ã¨ãŒå¯èƒ½
 
-# GoogleTest‚ÍMT‚ÅƒRƒ“ƒpƒCƒ‹‚³‚ê‚Ä‚¢‚é‚½‚ßA‚±‚¿‚ç‚ÌƒvƒƒOƒ‰ƒ€‚àMT‚ÅƒRƒ“ƒpƒCƒ‹‚·‚é•K—v‚ª‚ ‚é
+# GoogleTestã¯MTã§ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã•ã‚Œã¦ã„ã‚‹ãŸã‚ã€ã“ã¡ã‚‰ã®ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã‚‚MTã§ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã™ã‚‹å¿…è¦ãŒã‚ã‚‹
 #set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd /Zi /Ob0 /Od /RTC1" CACHE STRING "description")
 #set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT /O2 /Ob2 /DNDEBUG" CACHE STRING "description")
 
-# DLL‚ðŽg—p‚·‚éê‡‚ªMD‚ÅƒRƒ“ƒpƒCƒ‹‚·‚é•K—v‚ª‚ ‚éBˆÈ‰ºŽQÆ
+# DLLã‚’ä½¿ç”¨ã™ã‚‹å ´åˆãŒMDã§ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã™ã‚‹å¿…è¦ãŒã‚ã‚‹ã€‚ä»¥ä¸‹å‚ç…§
 # https://stackoverflow.com/questions/35310117/debug-assertion-failed-expression-acrt-first-block-header
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd /Zi /Ob0 /Od /RTC1" CACHE STRING "description")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD /O2 /Ob2 /DNDEBUG" CACHE STRING "description")
 
-# QtƒCƒ“ƒXƒg[ƒ‹æ
+# Qtã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«å…ˆ
 set(QTDIR "C:/03_liblary/Qt/6.2.3/msvc2019_64")
 
-# Qtƒ‰ƒCƒuƒ‰ƒŠŒQ
+# Qtãƒ©ã‚¤ãƒ–ãƒ©ãƒªç¾¤
 set(QT_LIBRARY_DIR "C:/03_liblary/Bat/Qt/output")
 #set(ZLIB_LIBRARY "C:/03_liblary/zlib/lib/Debug/zlibd.lib")
 set(ZLIB_LIBRARY "C:/03_liblary/zlib/lib/Release/zlib.lib")

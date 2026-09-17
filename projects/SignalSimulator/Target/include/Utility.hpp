@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <windows.h>
 #include <stdint.h>
@@ -18,7 +18,7 @@ namespace Utility
 		HMODULE _hModule;
 
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//DLLLoader() noexcept = delete;
 		DLLLoader(const __MySelfType&) noexcept = delete;
 		DLLLoader(__MySelfType&&) noexcept = delete;
@@ -39,9 +39,9 @@ namespace Utility
 			FreeLibrary(_hModule);
 		}
 
-		//‘ã“ü‰‰Zq(Assignment)
+		//ä»£å…¥æ¼”ç®—å­(Assignment)
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		__MySelfType& operator=(const __MySelfType&) noexcept = delete;
 		__MySelfType& operator=(__MySelfType&&) &noexcept = delete;
 		//**********************************************************
@@ -53,7 +53,7 @@ namespace Utility
 
 		static __MySelfType& Instance(std::wstring name)
 		{
-			//‚Ü‚¾ƒ[ƒh‚µ‚Ä‚¢‚È‚¢
+			//ã¾ã ãƒ­ãƒ¼ãƒ‰ã—ã¦ã„ãªã„
 			if (_ListOfEntities.find(name) == _ListOfEntities.end())
 			{
 				_ListOfEntities[name] = new __MySelfType(name.c_str());
@@ -61,14 +61,14 @@ namespace Utility
 			return *_ListOfEntities[name];
 		}
 
-		//•¶š—ñ•ÏŠ·(UTF-8¨UTF-16)
-		//¦C++17‚Å‚Í”ñ„§
+		//æ–‡å­—åˆ—å¤‰æ›(UTF-8â†’UTF-16)
+		//â€»C++17ã§ã¯éæ¨å¥¨
 		static std::wstring convertStringToWString(const std::string& from)
 		{
-			//UTF-8‚ÆUTF-16‚Ì‘ŠŒİ•ÏŠ·‚ğs‚¤ƒRƒ“ƒo[ƒ^[
+			//UTF-8ã¨UTF-16ã®ç›¸äº’å¤‰æ›ã‚’è¡Œã†ã‚³ãƒ³ãƒãƒ¼ã‚¿ãƒ¼
 			std::wstring_convert<std::codecvt_utf8<std::wstring::value_type>, std::wstring::value_type> converter;
 
-			//UTF-8‚©‚çUTF-16‚É•ÏŠ·
+			//UTF-8ã‹ã‚‰UTF-16ã«å¤‰æ›
 			return converter.from_bytes(from);			
 		}
 

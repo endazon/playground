@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 
 namespace Geometrical
 {
@@ -87,12 +87,12 @@ namespace Geometrical
             #endregion
 
             /// <summary>
-            /// �����Ŏw�肳�ꂽ�O���t�B�b�N�I�u�W�F�N�g�ɕ`�悷��œK�ȃt�H���g�T�C�Y���Z�o���܂��B
+            /// 引数で指定されたグラフィックオブジェクトに描画する最適なフォントサイズを算出します。
             /// </summary>
-            /// <param name="str">�o�͂��镶����</param>
-            /// <param name="size">�T�C�Y</param>
-            /// <param name="g">�O���t�B�b�N�I�u�W�F�N�g</param>
-            /// <returns>�t�H���g�T�C�Y</returns>
+            /// <param name="str">出力する文字列</param>
+            /// <param name="size">サイズ</param>
+            /// <param name="g">グラフィックオブジェクト</param>
+            /// <returns>フォントサイズ</returns>
             protected Font AdjustFontSize(Graphics g, Font font)
             {
                 var fontSize = font.Size;

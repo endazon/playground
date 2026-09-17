@@ -1,4 +1,4 @@
-#include "CommunicationHistoryListDialog.h"
+ï»¿#include "CommunicationHistoryListDialog.h"
 
 std::mutex CommunicationHistoryListDialog::_Mutex;
 CommunicationHistoryListDialog::CommunicationHistoryListDialog(QWidget *parent)
@@ -11,7 +11,7 @@ void CommunicationHistoryListDialog::AddMessage(std::string Type, std::string Ms
 {
     std::lock_guard<std::mutex> lock(_Mutex);
 
-    //€”õ
+    //æº–å‚™
     auto table = ui.TableWidget;
     QTableWidgetItem* time = new QTableWidgetItem(QString::fromLocal8Bit(Time.format()));
     QTableWidgetItem* type = new QTableWidgetItem(QString::fromLocal8Bit(Type));
@@ -19,10 +19,10 @@ void CommunicationHistoryListDialog::AddMessage(std::string Type, std::string Ms
     const qsizetype rowCount = table->rowCount();
     if (rowCount < 0) { return; }
 
-    //‘Oˆ—
+    //å‰å‡¦ç†
     table->setRowCount(rowCount + 1);
 
-    //ƒŠƒXƒgˆ—
+    //ãƒªã‚¹ãƒˆå‡¦ç†
     {
         const bool sortingEnabled = table->isSortingEnabled();
         table->setSortingEnabled(false);
@@ -33,7 +33,7 @@ void CommunicationHistoryListDialog::AddMessage(std::string Type, std::string Ms
         table->setSortingEnabled(sortingEnabled);
     }
 
-    //ˆê”Ô‰º‚ÉƒXƒNƒ[ƒ‹
+    //ä¸€ç•ªä¸‹ã«ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
     {
         auto item = table->item(rowCount, 0);
         table->scrollToItem(item, QAbstractItemView::PositionAtTop);

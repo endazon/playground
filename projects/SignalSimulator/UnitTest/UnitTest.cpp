@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 #include <time.h>
 #include <windows.h>
 #include <chrono>
@@ -10,8 +10,8 @@ class UnitOfNumberUnitTest : public ::testing::Test
 protected:
 	struct ProcessingTimeMeasurement
 	{
-		//C/C++�ŏ������Ԃ̌v�����s�����Ctime.h �Œ�`����Ă��� clock()�֐����ǂ����p����܂��D
-		//�����Cclock()�֐��̕���\��10[ms]���x�ł��̂ŁC�Z�������̌v���ɂ͌����܂���D
+		//C/C++で処理時間の計測を行う時，time.h で定義されている clock()関数が良く利用されます．
+		//ただ，clock()関数の分解能は10[ms]程度ですので，短い処理の計測には向きません．
 		struct LowPrecision
 		{
 			template<class T> static auto measurement(T&& Func)
@@ -28,8 +28,8 @@ protected:
 			}
 		};
 
-		//clock�֐��𗘗p���ĒZ�������̎��Ԃ��v���������ꍇ�C�Ⴆ�Ή��L�̂悤�ɌJ��Ԃ������ɂ��āC
-		//��Ŋ|���������Ԃ��J��Ԃ��񐔂Ŋ���悤�ȕ��@���l����K�v������܂��D
+		//clock関数を利用して短い処理の時間を計測したい場合，例えば下記のように繰り返し処理にして，
+		//後で掛かった時間を繰り返し回数で割るような方法を考える必要があります．
 		struct LowPrecisionImprovement
 		{
 			template<class T>static auto measurement(T&& Func)
@@ -50,8 +50,8 @@ protected:
 			}
 		};
 
-		//<chrono>�Œ�`����Ă���N���X�ŁC1[ms]���x�̕���\�Ŏ��Ԍv�����\�ł��D
-		//C++11���R���p�C���ł����������Η��p�ł��邽�߁C�N���X�v���b�g�t�H�[�����l����ꍇ�͗L�p���Ǝv���܂��D
+		//<chrono>で定義されているクラスで，1[ms]程度の分解能で時間計測が可能です．
+		//C++11をコンパイルできる環境があれば利用できるため，クロスプラットフォームを考える場合は有用だと思います．
 		struct MediumPrecision
 		{
 			template<class T>static auto measurement(T&& Func)
@@ -71,13 +71,13 @@ protected:
 			}
 		};
 
-		//windows.h�Œ�`����Ă���֐��ŁC1[ms]�ȉ��ׂ̍�������\�Ŏ��Ԍv�����\�ł��D
-		//clock�֐��ɔ�ׂ�Ǝg�p�@����╡�G�ł����C���x�͍�������windows���ł���΍̗p���������Ă��ǂ��Ǝv���܂��D
+		//windows.hで定義されている関数で，1[ms]以下の細かい分解能で時間計測が可能です．
+		//clock関数に比べると使用法がやや複雑ですが，精度は高いためwindows環境であれば採用を検討しても良いと思います．
 		struct HighPrecision
 		{
 			template<class T>static auto measurement(T&& Func)
 			{
-				// QueryPerformanceCounter�֐���1�b������̃J�E���g�����擾����
+				// QueryPerformanceCounter関数の1秒当たりのカウント数を取得する
 				LARGE_INTEGER freq;
 				QueryPerformanceFrequency(&freq);
 
@@ -114,7 +114,7 @@ protected:
 		char out[256];
 #pragma warning(suppress : 4996)
 		sprintf(out, "time %lf[ms]\n", time);
-		std::cout << out << std::endl;// �f�o�b�O���̃��O(�o�͗�)�ɏo��
+		std::cout << out << std::endl;// デバッグ時のログ(出力欄)に出力
 	}
 
 	const double PARAM = 0.1;
@@ -122,13 +122,13 @@ protected:
 
 TEST_F(NumeralUnitTest, TestMethod_Constructor)
 {
-	//�����Ȃ�
+	//引数なし
 	{
 		Numeral test;
 		EXPECT_NEAR(CAST(0), CAST(test), PARAM);
 	}
 	
-	//�v���~�e�B�u�^�Q�ƍ��Ӓl
+	//プリミティブ型参照左辺値
 	{
 		NumeralValueType test1 = 1;
 		Numeral test2 = test1;
@@ -136,13 +136,13 @@ TEST_F(NumeralUnitTest, TestMethod_Constructor)
 		EXPECT_NEAR(CAST(1), CAST(test2), PARAM);
 	}
 	
-	//�v���~�e�B�u�^�E�Ӓl
+	//プリミティブ型右辺値
 	{
 		Numeral test = NumeralValueType(2);
 		EXPECT_NEAR(CAST(2), CAST(test), PARAM);
 	}
 	
-	//Numeral�^�Q�ƍ��Ӓl
+	//Numeral型参照左辺値
 	{
 		Numeral test1 = 3;
 		Numeral test2 = test1;
@@ -150,7 +150,7 @@ TEST_F(NumeralUnitTest, TestMethod_Constructor)
 		EXPECT_NEAR(CAST(3), CAST(test2), PARAM);
 	}
 	
-	//Numeral�^�E�Ӓl
+	//Numeral型右辺値
 	{
 		Numeral test = Numeral(4);
 		EXPECT_NEAR(CAST(4), CAST(test), PARAM);
@@ -159,7 +159,7 @@ TEST_F(NumeralUnitTest, TestMethod_Constructor)
 
 TEST_F(NumeralUnitTest, TestMethod_Assignment)
 {
-	//�v���~�e�B�u�^�Q�ƍ��Ӓl
+	//プリミティブ型参照左辺値
 	{
 		NumeralValueType test1 = 1;
 		Numeral test2;
@@ -168,14 +168,14 @@ TEST_F(NumeralUnitTest, TestMethod_Assignment)
 		EXPECT_NEAR(CAST(1), CAST(test2), PARAM);
 	}
 
-	//�v���~�e�B�u�^�E�Ӓl
+	//プリミティブ型右辺値
 	{
 		Numeral test;
 		test = NumeralValueType(2);
 		EXPECT_NEAR(CAST(2), CAST(test), PARAM);
 	}
 
-	//Numeral�^�Q�ƍ��Ӓl
+	//Numeral型参照左辺値
 	{
 		Numeral test1 = 3;
 		Numeral test2;
@@ -184,7 +184,7 @@ TEST_F(NumeralUnitTest, TestMethod_Assignment)
 		EXPECT_NEAR(CAST(3), CAST(test2), PARAM);
 	}
 
-	//Numeral�^�E�Ӓl
+	//Numeral型右辺値
 	{
 		Numeral test;
 		test = Numeral(4);
@@ -386,11 +386,11 @@ TEST_F(NumeralUnitTest, TestMethod_ProcessingTimeMeasurement)
 		{
 			for (sum = 0; sum < LENGTH; sum++);
 		};
-		std::cout << "�y�v���~�e�B�u�^�z" << std::endl;
-		std::cout << "���[�v1000000����s" << std::endl;
+		std::cout << "【プリミティブ型】" << std::endl;
+		std::cout << "ループ1000000回実行" << std::endl;
 		const auto time = ProcessingTimeMeasurementFunc::measurement(func);
-		std::cout << "���v:"; WriteMessageForTime(time);
-		std::cout << "����:"; WriteMessageForTime(time / LENGTH);
+		std::cout << "合計:"; WriteMessageForTime(time);
+		std::cout << "平均:"; WriteMessageForTime(time / LENGTH);
 		EXPECT_NEAR(CAST(LENGTH), CAST(sum), PARAM);
 	}
 	{
@@ -399,11 +399,11 @@ TEST_F(NumeralUnitTest, TestMethod_ProcessingTimeMeasurement)
 		{
 			for (sum = 0; sum < LENGTH; sum++);
 		};
-		std::cout << "�yNumeral�^�z" << std::endl;
-		std::cout << "���[�v1000000����s" << std::endl;
+		std::cout << "【Numeral型】" << std::endl;
+		std::cout << "ループ1000000回実行" << std::endl;
 		const auto time = ProcessingTimeMeasurementFunc::measurement(func);
-		std::cout << "���v:"; WriteMessageForTime(time);
-		std::cout << "����:"; WriteMessageForTime(time / LENGTH);
+		std::cout << "合計:"; WriteMessageForTime(time);
+		std::cout << "平均:"; WriteMessageForTime(time / LENGTH);
 		EXPECT_NEAR(CAST(LENGTH), CAST(sum), PARAM);
 	}
 }
@@ -424,7 +424,7 @@ protected:
 		char out[256];
 #pragma warning(suppress : 4996)
 		sprintf(out, "time %lf[ms]\n", time);
-		std::cout << out << std::endl;// �f�o�b�O���̃��O(�o�͗�)�ɏo��
+		std::cout << out << std::endl;// デバッグ時のログ(出力欄)に出力
 	}
 
 	const double PARAM = 0.1;
@@ -432,13 +432,13 @@ protected:
 
 TEST_F(SIPrefixUnitTest, TestMethod_Constructor)
 {
-	//�����Ȃ�
+	//引数なし
 	{
 		SIPrefix test;
 		EXPECT_NEAR(CAST(0), CAST(test), PARAM);
 	}
 
-	//�v���~�e�B�u�^�Q�ƍ��Ӓl
+	//プリミティブ型参照左辺値
 	{
 		SIPrefixType test1 = 1;
 		SIPrefix test2 = test1;
@@ -446,13 +446,13 @@ TEST_F(SIPrefixUnitTest, TestMethod_Constructor)
 		EXPECT_NEAR(CAST(1), CAST(test2), PARAM);
 	}
 
-	//�v���~�e�B�u�^�E�Ӓl
+	//プリミティブ型右辺値
 	{
 		SIPrefix test = SIPrefixType(2);
 		EXPECT_NEAR(CAST(2), CAST(test), PARAM);
 	}
 
-	//Numeral�^�Q�ƍ��Ӓl
+	//Numeral型参照左辺値
 	{
 		SIPrefix test1 = 3;
 		SIPrefix test2 = test1;
@@ -460,7 +460,7 @@ TEST_F(SIPrefixUnitTest, TestMethod_Constructor)
 		EXPECT_NEAR(CAST(3), CAST(test2), PARAM);
 	}
 
-	//Numeral�^�E�Ӓl
+	//Numeral型右辺値
 	{
 		SIPrefix test = SIPrefix(4);
 		EXPECT_NEAR(CAST(4), CAST(test), PARAM);
@@ -469,7 +469,7 @@ TEST_F(SIPrefixUnitTest, TestMethod_Constructor)
 
 TEST_F(SIPrefixUnitTest, TestMethod_Assignment)
 {
-	//�v���~�e�B�u�^�Q�ƍ��Ӓl
+	//プリミティブ型参照左辺値
 	{
 		SIPrefixType test1 = 1;
 		SIPrefix test2;
@@ -478,14 +478,14 @@ TEST_F(SIPrefixUnitTest, TestMethod_Assignment)
 		EXPECT_NEAR(CAST(1), CAST(test2), PARAM);
 	}
 
-	//�v���~�e�B�u�^�E�Ӓl
+	//プリミティブ型右辺値
 	{
 		SIPrefix test;
 		test = SIPrefixType(2);
 		EXPECT_NEAR(CAST(2), CAST(test), PARAM);
 	}
 
-	//Numeral�^�Q�ƍ��Ӓl
+	//Numeral型参照左辺値
 	{
 		SIPrefix test1 = 3;
 		SIPrefix test2;
@@ -494,7 +494,7 @@ TEST_F(SIPrefixUnitTest, TestMethod_Assignment)
 		EXPECT_NEAR(CAST(3), CAST(test2), PARAM);
 	}
 
-	//Numeral�^�E�Ӓl
+	//Numeral型右辺値
 	{
 		SIPrefix test;
 		test = SIPrefix(4);
@@ -713,7 +713,7 @@ TEST_F(SIPrefixUnitTest, TestMethod_ConvertFromOriginalToSIPrefixUnit)
 	//	EXPECT_NEAR(CAST(1000000000000),					 CAST(test.p), PARAM);
 	//	EXPECT_NEAR(CAST(1000000000000000),				 CAST(test.f), PARAM);
 	//	EXPECT_NEAR(CAST(1000000000000000000),				 CAST(test.a), PARAM);
-	//	//start ���̃e�X�g�̓\�t�g�I�ɕs��
+	//	//start このテストはソフト的に不可
 	//	//EXPECT_NEAR(CAST(1000000000000000000000),			CAST(test.z), PARAM);
 	//	//EXPECT_NEAR(CAST(1000000000000000000000000),			CAST(test.y), PARAM);
 	//	//EXPECT_NEAR(CAST(1000000000000000000000000000),		CAST(test.r), PARAM);
@@ -776,11 +776,11 @@ TEST_F(SIPrefixUnitTest, TestMethod_ProcessingTimeMeasurement)
 		{
 			for (sum = 0; sum < LENGTH; sum++);
 		};
-		std::cout << "�y�v���~�e�B�u�^�z" << std::endl;
-		std::cout << "���[�v1000000����s" << std::endl;
+		std::cout << "【プリミティブ型】" << std::endl;
+		std::cout << "ループ1000000回実行" << std::endl;
 		const auto time = ProcessingTimeMeasurementFunc::measurement(func);
-		std::cout << "���v:"; WriteMessageForTime(time);
-		std::cout << "����:"; WriteMessageForTime(time / LENGTH);
+		std::cout << "合計:"; WriteMessageForTime(time);
+		std::cout << "平均:"; WriteMessageForTime(time / LENGTH);
 		EXPECT_NEAR(CAST(LENGTH), CAST(sum), PARAM);
 	}
 	{
@@ -789,11 +789,11 @@ TEST_F(SIPrefixUnitTest, TestMethod_ProcessingTimeMeasurement)
 		{
 			for (sum = 0; sum < LENGTH; sum++);
 		};
-		std::cout << "�yNumeral�^�z" << std::endl;
-		std::cout << "���[�v1000000����s" << std::endl;
+		std::cout << "【Numeral型】" << std::endl;
+		std::cout << "ループ1000000回実行" << std::endl;
 		const auto time = ProcessingTimeMeasurementFunc::measurement(func);
-		std::cout << "���v:"; WriteMessageForTime(time);
-		std::cout << "����:"; WriteMessageForTime(time / LENGTH);
+		std::cout << "合計:"; WriteMessageForTime(time);
+		std::cout << "平均:"; WriteMessageForTime(time / LENGTH);
 		EXPECT_NEAR(CAST(LENGTH), CAST(sum), PARAM);
 	}
 }
@@ -810,7 +810,7 @@ protected:
 		char out[256];
 #pragma warning(suppress : 4996)
 		sprintf(out, "value %lf", value);
-		std::cout << out << std::endl;// �f�o�b�O���̃��O(�o�͗�)�ɏo��
+		std::cout << out << std::endl;// デバッグ時のログ(出力欄)に出力
 	}
 };
 

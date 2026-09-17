@@ -99,7 +99,6 @@ dotnet run --project DebuggingForms
 - `MouseMouseMoveForPlaneEventArgs` が基底 `MouseEventArgs` の y に x を渡している（`XF` / `YF` は正しい）。
 - `PolygonLineFigure.Draw` は線幅を縮尺変換していない。
 - 既定フォントは `MS UI Gothic` 固定。テストプロジェクトなし。
-- ソースの文字コードは UTF-8（BOM）と Shift-JIS（`FigurePlane.cs`、`BasicFigure.cs`）が混在。
 - クラス名 `BasicPalygonFigure` の綴りは原文のまま。
 
 ## 移管情報
@@ -111,6 +110,7 @@ dotnet run --project DebuggingForms
 | 開発期間 | 2023-11-23 〜 2023-12-10（14 コミット） |
 | 履歴 | パスを `projects/GeometryControl/` に書き換えて全コミットを保持 |
 | ブランチ | master のみ（未マージのブランチ・PR なし） |
+| 移管時の整理 | Shift-JIS だった `BasicFigure.cs`・`CoordinateSystem.cs`・`FigurePlane.cs` を UTF-8（BOM 付き）へ変換 |
 
 ### 主な経緯
 

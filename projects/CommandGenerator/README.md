@@ -27,7 +27,7 @@ TCP クライアントは `Target/Class/Com/TcpClient.cs`（Socket の非同期 
 ## 技術スタック
 
 - C# / Windows Forms / .NET Framework 4.7.2
-- NuGet: `Newtonsoft.Json` 12.0.3（`SourceCode/packages/` にコミット済み）
+- NuGet: `Newtonsoft.Json` 12.0.3（`packages.config`。`SourceCode/packages/` へビルド時に自動復元）
 - Visual Studio 2019（ソリューション形式 16.0）
 
 ## ディレクトリ構成
@@ -49,7 +49,6 @@ SourceCode/
   WinFormsCtrlLibInputScreen/   入力用 UserControl ライブラリ（Decimal / Hexadecimal / String / Selection / File）
   TestWindowsFormsApp/          試験用アプリ（Form1 は空）
   Sample/                       サンプル JSON / CSV
-  packages/                     NuGet パッケージ
 ```
 
 ### 設計上の特徴
@@ -74,7 +73,7 @@ SourceCode/
   - `11_ListSetting/Form/FormMain.cs` の `AddRange` / `Add` は中身が空。
   - `FormCommunication.cs` の接続先入力は「TODO:要変更」の暫定実装。`TcpClient` の改行区切り処理はコメントアウトのまま。
 - `FormGenerate` を閉じると、カレントディレクトリ内の名前に「FileData」を含むファイルを削除する。
-- `bin/`、`obj/`、`.vs/`、`packages/` がコミットされている（`.gitignore` なし）。`bin/Release` や `App.config` には旧名 `CommandCreator` が残る。
+- `App.config` などに旧名 `CommandCreator` が残る。
 - 自動テストなし。メニュー表記「Seting」は原文のまま。
 
 ## ライセンス
@@ -89,6 +88,7 @@ MIT License（Copyright (c) 2020 endazon）。`LICENSE` を参照。
 | 移管日 | 2026-09-17 |
 | 開発期間 | 2020-04-26 〜 2020-08-09（14 コミット） |
 | 履歴 | パスを `projects/CommandGenerator/` に書き換えて全コミットを保持 |
+| 移管時の整理 | 移管元でコミットされていた `bin/`・`obj/`・`.vs/`・`packages/` を削除し、`.gitignore` で除外 |
 
 ### 主な経緯
 

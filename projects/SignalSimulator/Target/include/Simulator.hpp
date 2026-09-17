@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <mutex>
 #include <thread>
@@ -30,31 +30,31 @@ namespace Simulator {
 			//DebuggingTimestampForDelete(*pObj);
 
 			for (auto it = _SimulatorList.begin(); it != _SimulatorList.end();) {
-				// ğŒˆê’v‚µ‚½—v‘f‚ğíœ‚·‚é
+				// æ¡ä»¶ä¸€è‡´ã—ãŸè¦ç´ ã‚’å‰Šé™¤ã™ã‚‹
 				if (*it == pObj) {
-					// íœ‚³‚ê‚½—v‘f‚ÌŸ‚ğw‚·ƒCƒeƒŒ[ƒ^‚ª•Ô‚³‚ê‚éB
+					// å‰Šé™¤ã•ã‚ŒãŸè¦ç´ ã®æ¬¡ã‚’æŒ‡ã™ã‚¤ãƒ†ãƒ¬ãƒ¼ã‚¿ãŒè¿”ã•ã‚Œã‚‹ã€‚
 					it = _SimulatorList.erase(it);
 					_SimulatorInstanceUpdateFunction->Delete(*pObj);
 					return;
 				}
-				// —v‘fíœ‚ğ‚µ‚È‚¢ê‡‚ÉAƒCƒeƒŒ[ƒ^‚ği‚ß‚é
+				// è¦ç´ å‰Šé™¤ã‚’ã—ãªã„å ´åˆã«ã€ã‚¤ãƒ†ãƒ¬ãƒ¼ã‚¿ã‚’é€²ã‚ã‚‹
 				++it;
 			}
 		}
 
 	protected:
-		//ƒI[ƒo[ƒ‰ƒCƒh
+		//ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰
 		void SetValue(const __ValueType& v) & noexcept override
 		{
 			__InheritanceType::SetValue(v);
 			_SimulatorInstanceUpdateFunction->ValueUpdate(*this);
 		}
 
-		//ƒfƒoƒbƒO—pŠÖ”
+		//ãƒ‡ãƒãƒƒã‚°ç”¨é–¢æ•°
 		void DebuggingTimestamp(__MySelfType& rObj) noexcept
 		{
 			GeneralPurposeTimer::DateFormat::UTC date;
-			std::cout << "yName:" << rObj.Name() << "-Group:" << rObj.Group() << "-Comment:" << rObj.Comment() << "z";
+			std::cout << "ã€Name:" << rObj.Name() << "-Group:" << rObj.Group() << "-Comment:" << rObj.Comment() << "ã€‘";
 			std::cout << date.format() << ":";
 		}
 		void DebuggingTimestampForRegistered(__MySelfType& rObj) noexcept
@@ -75,9 +75,9 @@ namespace Simulator {
 		}
 
 	public:
-		//using __InheritanceType::__InheritanceType; //Œp³Œ³‚ÌƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Íg‚í‚È‚¢
+		//using __InheritanceType::__InheritanceType; //ç¶™æ‰¿å…ƒã®ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã¯ä½¿ã‚ãªã„
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//BaseSimulator() noexcept = delete;
 		//BaseSimulator(const __MySelfType&) noexcept = delete;
 		//BaseSimulator(__MySelfType&&) noexcept = delete;
@@ -98,9 +98,9 @@ namespace Simulator {
 			DeleteSignalObject(this);
 		}
 
-		//‘ã“ü‰‰Zq(Assignment)
+		//ä»£å…¥æ¼”ç®—å­(Assignment)
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//__MySelfType& operator=(const __MySelfType&) noexcept = delete;
 		//__MySelfType& operator=(__MySelfType&&) & noexcept = delete;
 		//**********************************************************
@@ -231,22 +231,22 @@ namespace Simulator {
 				std::lock_guard<std::mutex> lock(_Mutex);
 
 				for (auto it = _TimeSimulatorList.begin(); it != _TimeSimulatorList.end();) {
-					// ğŒˆê’v‚µ‚½—v‘f‚ğíœ‚·‚é
+					// æ¡ä»¶ä¸€è‡´ã—ãŸè¦ç´ ã‚’å‰Šé™¤ã™ã‚‹
 					if (*it == pObj) {
-						// íœ‚³‚ê‚½—v‘f‚ÌŸ‚ğw‚·ƒCƒeƒŒ[ƒ^‚ª•Ô‚³‚ê‚éB
+						// å‰Šé™¤ã•ã‚ŒãŸè¦ç´ ã®æ¬¡ã‚’æŒ‡ã™ã‚¤ãƒ†ãƒ¬ãƒ¼ã‚¿ãŒè¿”ã•ã‚Œã‚‹ã€‚
 						it = _TimeSimulatorList.erase(it);
 						return;
 					}
-					// —v‘fíœ‚ğ‚µ‚È‚¢ê‡‚ÉAƒCƒeƒŒ[ƒ^‚ği‚ß‚é
+					// è¦ç´ å‰Šé™¤ã‚’ã—ãªã„å ´åˆã«ã€ã‚¤ãƒ†ãƒ¬ãƒ¼ã‚¿ã‚’é€²ã‚ã‚‹
 					++it;
 				}
 			}
 		}
 
 	public:
-		//using __InheritanceType::__InheritanceType; //Œp³Œ³‚ÌƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Íg‚í‚È‚¢
+		//using __InheritanceType::__InheritanceType; //ç¶™æ‰¿å…ƒã®ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã¯ä½¿ã‚ãªã„
 		//**********************************************************
-		//ˆÃ–Ù“I‚ÉéŒ¾‚³‚ê‚é
+		//æš—é»™çš„ã«å®£è¨€ã•ã‚Œã‚‹
 		//BaseTimeSimulator() noexcept = delete;
 		//BaseTimeSimulator(const __MySelfType&) noexcept = delete;
 		//BaseTimeSimulator(__MySelfType&&) noexcept = delete;

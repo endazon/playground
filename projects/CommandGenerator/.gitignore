@@ -1,0 +1,14 @@
+# 本プロジェクト固有の除外。
+# リポジトリルートに .gitignore が無いため、Visual Studio / NuGet の生成物をここで除外する。
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+
+# ビルド生成物
+[Bb]in/
+[Oo]bj/
+
+# NuGet（packages.config の復元先。ビルド時に Visual Studio が自動復元する）
+[Pp]ackages/

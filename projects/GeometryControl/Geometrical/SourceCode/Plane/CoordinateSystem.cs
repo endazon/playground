@@ -1,4 +1,4 @@
-using Geometrical.Figure;
+Ôªøusing Geometrical.Figure;
 using System.Drawing;
 
 namespace Geometrical
@@ -380,13 +380,13 @@ namespace Geometrical
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                return new(0, 0);//ç∂è„
+                                return new(0, 0);//Â∑¶‰∏ä
                             case CoordinateRotates.Angle090:
-                                return new(1, 0);//âEè„
+                                return new(1, 0);//Âè≥‰∏ä
                             case CoordinateRotates.Angle180:
-                                return new(1, 1);//âEâ∫
+                                return new(1, 1);//Âè≥‰∏ã
                             case CoordinateRotates.Angle270:
-                                return new(0, 1);//ç∂â∫
+                                return new(0, 1);//Â∑¶‰∏ã
                             default:
                                 break;
                         }
@@ -395,13 +395,13 @@ namespace Geometrical
                         switch (Rotation)
                         {
                             case CoordinateRotates.Angle000:
-                                return new(1, 0);//âEè„
+                                return new(1, 0);//Âè≥‰∏ä
                             case CoordinateRotates.Angle090:
-                                return new(0, 0);//ç∂è„
+                                return new(0, 0);//Â∑¶‰∏ä
                             case CoordinateRotates.Angle180:
-                                return new(0, 1);//ç∂â∫
+                                return new(0, 1);//Â∑¶‰∏ã
                             case CoordinateRotates.Angle270:
-                                return new(1, 1);//âEâ∫
+                                return new(1, 1);//Âè≥‰∏ã
                             default:
                                 break;
                         }
@@ -432,9 +432,9 @@ namespace Geometrical
                 MagnificationRate = m;
             }
             public CoordinateSystem() : this(
-                new(),                           //å¥ì_(0,0)
-                CoordinateDirections.RightHanded,//âEéËç¿ïWån
-                CoordinateRotates.Angle000,      //0ÅãâÒì]
+                new(),                           //ÂéüÁÇπ(0,0)
+                CoordinateDirections.RightHanded,//Âè≥ÊâãÂ∫ßÊ®ôÁ≥ª
+                CoordinateRotates.Angle000,      //0¬∞ÂõûËª¢
                 1.0f,                            //1[mm]
                 1.0f                             //100[%]
                 )
