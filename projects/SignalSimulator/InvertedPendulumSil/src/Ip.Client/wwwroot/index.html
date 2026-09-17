@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>倒立振子 SIL シミュレータ</title>
+    <base href="/" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon"
+          href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f1115'/%3E%3Crect x='6' y='22' width='20' height='4' rx='1' fill='%234fd1c5'/%3E%3Crect x='12' y='18' width='8' height='5' rx='1' fill='%234fd1c5'/%3E%3Crect x='19' y='5' width='3' height='14' rx='1.5' transform='rotate(12 20 12)' fill='%23ffb347'/%3E%3C/svg%3E" />
+</head>
+
+<body>
+    <div id="app">
+        <div class="app">
+            <h1>台車型倒立振子 SIL シミュレータ</h1>
+            <p class="sub">読み込み中…</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        予期しないエラーが発生しました。
+        <a href="." class="reload">再読み込み</a>
+        <span class="dismiss">🗙</span>
+    </div>
+
+    <!-- 3D ビュー用。読み込めなかった場合は側面図だけで動作する。 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+</body>
+
+</html>

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ip.Client/Ip.Client.csproj" />
+    <Project Path="src/Ip.Server/Ip.Server.csproj" />
+    <Project Path="src/Ip.Shared/Ip.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ip.Server.Tests/Ip.Server.Tests.csproj" />
+    <Project Path="tests/Ip.Shared.Tests/Ip.Shared.Tests.csproj" />
+  </Folder>
+</Solution>
