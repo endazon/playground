@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>倒立振子 SIL シミュレータ</title>
+<style>
+  :root{
+    --bg:#eef0f4; --panel:#ffffff; --panel2:#f3f5f8; --line:#c3c9d4; --grid:#e3e7ed;
+    --text:#141821; --sub:#5d6674; --accent:#12a094; --on-accent:#ffffff;
+    --amber:#d98415; --violet:#6a58e0; --pink:#d64a78;
+    --ok:#1f9d5a; --warn:#b8770f; --danger:#d33c3c;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --line:#39404d; --grid:#242933;
+      --text:#e8eaed; --sub:#98a0ac; --accent:#4fd1c5; --on-accent:#04211e;
+      --amber:#ffb347; --violet:#a597ff; --pink:#f07b9c;
+      --ok:#5fd38d; --warn:#e8a33d; --danger:#ef5b5b;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --line:#39404d; --grid:#242933;
+    --text:#e8eaed; --sub:#98a0ac; --accent:#4fd1c5; --on-accent:#04211e;
+    --amber:#ffb347; --violet:#a597ff; --pink:#f07b9c;
+    --ok:#5fd38d; --warn:#e8a33d; --danger:#ef5b5b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;}
+  .app{max-width:1180px;margin:0 auto;padding:16px 14px 40px;}
+  h1{font-size:16px;font-weight:650;margin:0 0 3px;letter-spacing:.01em;}
+  .sub{font-size:12px;color:var(--sub);margin:0 0 14px;line-height:1.65;max-width:72ch;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  .views{display:grid;grid-template-columns:1fr;gap:12px;}
+  @media (min-width:780px){ .views{grid-template-columns:1fr 1fr;} }
+  .view{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0;}
+  .vhead{font-size:12px;color:var(--sub);margin:0 0 8px 2px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .view canvas{width:100%;aspect-ratio:1/1;display:block;border-radius:8px;touch-action:none;}
+  #c3d{cursor:grab;} #c3d:active{cursor:grabbing;}
+  #c2d{cursor:pointer;}
+  #fallback3d{display:none;font-size:12px;color:var(--sub);padding:40px 12px;text-align:center;}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;}
+  .legend i{display:inline-block;width:14px;height:0;border-top:3px solid var(--amber);vertical-align:middle;margin-right:4px;}
+  .legend i.ghost{border-top:2px dashed var(--sub);}
+
+  .panel{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;}
+  .statusbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .mode{font-size:13px;font-weight:700;padding:3px 11px;border-radius:99px;background:var(--panel2);
+    border:1px solid var(--line);font-variant-numeric:tabular-nums;}
+  .mode[data-m="SWINGUP"],.mode[data-m="BALANCE"]{background:var(--accent);color:var(--on-accent);border-color:transparent;}
+  .mode[data-m="FAULT"]{background:var(--danger);color:#fff;border-color:transparent;}
+  .reason{font-size:12.5px;color:var(--sub);}
+  .badges{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
+  .badge{font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:6px;padding:2px 7px;}
+  .badge.warn{color:var(--warn);border-color:var(--warn);}
+
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center;}
+  button{appearance:none;border:1px solid transparent;border-radius:8px;padding:9px 14px;
+    font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--on-accent);}
+  button.ghost{background:var(--panel2);color:var(--text);border-color:var(--line);}
+  button.estop{background:var(--danger);color:#fff;margin-left:auto;padding:9px 18px;}
+  button.attn{border-color:var(--danger);box-shadow:0 0 0 2px color-mix(in srgb,var(--danger) 35%,transparent);}
+  button:disabled{opacity:.35;cursor:not-allowed;}
+  button:focus-visible,input:focus-visible,summary:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
+
+  .split{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px;}
+  @media (min-width:900px){ .split{grid-template-columns:1.1fr .9fr;} }
+  .group-title{font-size:12px;color:var(--sub);margin:0 0 8px;}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .presets button{padding:6px 10px;font-size:12px;font-weight:500;}
+  .sliders{display:grid;grid-template-columns:1fr;gap:9px 18px;}
+  @media (min-width:560px){ .sliders{grid-template-columns:1fr 1fr;} }
+  .sl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:12.5px;align-items:center;}
+  .sl output{font-variant-numeric:tabular-nums;color:var(--text);font-size:12px;}
+  .sl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:0;}
+  .sl small{grid-column:1/-1;color:var(--sub);font-size:11px;}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-top:10px;}
+  .toggle input{width:18px;height:18px;accent-color:var(--accent);}
+
+  .budget{margin-bottom:12px;}
+  .budget-head{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;gap:8px;flex-wrap:wrap;}
+  .budget-head b{font-size:15px;}
+  .track{position:relative;height:14px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;}
+  .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--ok);transition:width .15s linear;}
+  .fill[data-lv="warn"]{background:var(--warn);} .fill[data-lv="danger"]{background:var(--danger);}
+  .marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);left:66.6%;}
+  .budget-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:4px;}
+  .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+  .metric{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;}
+  .metric span{display:block;font-size:11px;color:var(--sub);}
+  .metric b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
+
+  #scope{width:100%;height:360px;display:block;}
+  .log{list-style:none;margin:0;padding:0;max-height:180px;overflow:auto;font-size:12px;line-height:1.7;}
+  .log li{display:grid;grid-template-columns:62px 58px 1fr;gap:6px;border-bottom:1px solid var(--grid);padding:1px 0;}
+  .log .t{color:var(--sub);font-variant-numeric:tabular-nums;}
+  .log .src{color:var(--sub);}
+  .log .warn .m{color:var(--warn);} .log .error .m{color:var(--danger);font-weight:600;}
+  .empty{color:var(--sub);font-size:12px;}
+
+  /* ===== 設計メモ ===== */
+  details.memo{margin-top:16px;}
+  details.memo>summary{cursor:pointer;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:13px 18px;font-size:13.5px;font-weight:650;list-style:none;}
+  details.memo>summary::-webkit-details-marker{display:none;}
+  details.memo>summary::before{content:"▸ ";color:var(--accent);}
+  details.memo[open]>summary::before{content:"▾ ";}
+  details.memo[open]>summary{border-radius:12px 12px 0 0;border-bottom:none;}
+  .arch{background:var(--panel);border:1px solid var(--line);border-radius:0 0 12px 12px;padding:6px 18px 18px;}
+  .arch h3{font-size:13px;font-weight:650;margin:22px 0 8px;padding-left:9px;border-left:3px solid var(--accent);}
+  .arch p,.arch li{font-size:12.8px;line-height:1.8;max-width:78ch;}
+  .arch p{margin:0 0 10px;}
+  .arch ul{margin:0 0 12px;padding-left:20px;} .arch li{margin-bottom:4px;}
+  .arch code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;}
+  .arch pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+    overflow-x:auto;font-size:11px;line-height:1.55;margin:0 0 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .tw{overflow-x:auto;margin:0 0 12px;}
+  .arch table{border-collapse:collapse;font-size:12px;min-width:100%;}
+  .arch th,.arch td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top;line-height:1.6;}
+  .arch th{background:var(--panel2);font-weight:600;color:var(--sub);font-size:11.5px;white-space:nowrap;}
+  .arch td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .arch .warnbox{background:var(--panel2);border-left:3px solid var(--warn);border-radius:0 8px 8px 0;
+    padding:10px 14px;font-size:12.8px;line-height:1.75;margin:0 0 12px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>台車型倒立振子 SIL シミュレータ</h1>
+  <p class="sub">プラント(台車・振子・モータ)は Worker 上で 1ms 固定ステップ、コントローラ(バックエンド相当)は別 Worker で動き、両者は遅延を注入した通信路だけでつながっています。全制御をバック側で行う純 SIL 構成で、通信遅延が倒立維持に与える影響を観察できます。</p>
+
+  <div class="views">
+    <div class="view">
+      <div class="vhead"><span>側面図 — タップした側から振子を押す</span>
+        <span class="legend"><span><i></i>プラント実状態</span><span><i class="ghost"></i>バックが見ている状態</span></span></div>
+      <canvas id="c2d" aria-label="台車型倒立振子の側面図"></canvas>
+    </div>
+    <div class="view">
+      <div class="vhead"><span>3D ビュー</span><span>ドラッグで回転 / タップで外乱</span></div>
+      <canvas id="c3d" aria-label="3Dビュー"></canvas>
+      <div id="fallback3d">3Dビューを読み込めませんでした。側面図は引き続き使えます。</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="statusbar">
+      <span class="mode" id="mode" data-m="IDLE">起動中</span>
+      <span class="reason" id="reason">Worker を起動しています</span>
+      <span class="badges"><span class="badge" id="bRuntime">実行: —</span><span class="badge" id="bShared">共有状態: —</span></span>
+    </div>
+    <div class="row">
+      <button id="btnSwing" disabled>スイングアップ開始</button>
+      <button id="btnBalance" class="ghost" disabled>倒立から開始</button>
+      <button id="btnStop" class="ghost" disabled>停止</button>
+      <button id="btnClear" class="ghost" disabled>異常リセット</button>
+      <button id="btnInit" class="ghost" disabled>プラント初期化</button>
+      <span class="sep"></span>
+      <button id="btnPushL" class="ghost" disabled aria-label="振子を左へ押す">◀ 外乱</button>
+      <button id="btnPushR" class="ghost" disabled aria-label="振子を右へ押す">外乱 ▶</button>
+      <button id="btnEstop" class="estop" disabled>非常停止</button>
+    </div>
+
+    <div class="split">
+      <div>
+        <p class="group-title">通信と制御の条件</p>
+        <div class="presets" role="group" aria-label="プリセット">
+          <button class="ghost" data-preset="ideal">理想 1ms・遅延なし</button>
+          <button class="ghost" data-preset="lan">LAN 5ms・片道5ms</button>
+          <button class="ghost" data-preset="legacy">前回設計 100ms・片道20ms</button>
+          <button class="ghost" data-preset="wan">WAN 10ms・片道40ms</button>
+        </div>
+        <div class="sliders">
+          <label class="sl">帰還周期 <output id="oPeriod"></output>
+            <input type="range" id="sPeriod" min="0" max="6" step="1">
+            <small>変更するとバック側で離散LQRを再設計</small></label>
+          <label class="sl">通信遅延(片道) <output id="oLat"></output>
+            <input type="range" id="sLat" min="0" max="150" step="1"></label>
+          <label class="sl">ジッタ <output id="oJit"></output>
+            <input type="range" id="sJit" min="0" max="50" step="1"></label>
+          <label class="sl">遅延スパイク率 <output id="oSpike"></output>
+            <input type="range" id="sSpike" min="0" max="10" step="0.5">
+            <small>TCP再送相当の +150ms。欠落はしない</small></label>
+          <label class="sl">エンコーダノイズ <output id="oNoise"></output>
+            <input type="range" id="sNoise" min="0" max="3" step="0.1"></label>
+          <label class="sl">振子長 <output id="oLen"></output>
+            <input type="range" id="sLen" min="0.3" max="0.8" step="0.05"></label>
+          <label class="sl">台車の目標位置 <output id="oXref"></output>
+            <input type="range" id="sXref" min="-0.3" max="0.3" step="0.05"></label>
+        </div>
+        <label class="toggle"><input type="checkbox" id="cPredict">遅延補償(予測器)を使う — 計測済みの E2E 遅延ぶん先の状態を予測して制御</label>
+      </div>
+
+      <div>
+        <div class="budget">
+          <div class="budget-head"><span>遅延予算 (計測→指令適用)</span><span class="num"><b id="bE2e">—</b> / 余裕 <b id="bMargin">—</b></span></div>
+          <div class="track"><div class="fill" id="bFill"></div><div class="marker" title="理論遅延余裕"></div></div>
+          <div class="budget-foot"><span>0</span><span id="bNote">縦線が理論遅延余裕</span><span id="bMax">—</span></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>実測帰還周期</span><b id="mFb">—</b></div>
+          <div class="metric"><span>上り遅延(計測→バック受信)</span><b id="mUp">—</b></div>
+          <div class="metric"><span>不安定極 / 時定数</span><b id="mPole">—</b></div>
+          <div class="metric"><span>LQR ゲイン K</span><b id="mK" style="font-size:11.5px">—</b></div>
+          <div class="metric"><span>指令電圧</span><b id="mV">—</b></div>
+          <div class="metric"><span>CommandId / 破棄した指令</span><b id="mCmd">—</b></div>
+          <div class="metric"><span>送信待ち(上り/下り)</span><b id="mQ">—</b></div>
+          <div class="metric"><span>時間スリップ</span><b id="mSlip">—</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="group-title">時系列 (直近10秒) — 破線はバック側の推定値・目標値・理論遅延余裕</p>
+    <canvas id="scope" aria-label="時系列チャート"></canvas>
+  </div>
+
+  <div class="panel">
+    <p class="group-title">イベントログ</p>
+    <ul class="log" id="log"><li class="empty">まだイベントはありません。「スイングアップ開始」か「倒立から開始」を押してください。</li></ul>
+  </div>
+
+  <details class="memo" open>
+    <summary>設計メモ — 台車型倒立振子の純 SIL 構成</summary>
+    <div class="arch">
+      <h3>全体構成</h3>
+<pre>┌─ バックエンド (ASP.NET Core) ── コントローラ ───────────┐
+│  状態機械 IDLE → SWINGUP → BALANCE / FAULT (Stateless)   │
+│  状態推定: パルス → 位置 / 差分+LPF で速度               │
+│  離散LQR (帰還周期で再設計) / エネルギー法スイングアップ │
+│  予測器(任意) / 転倒・ソフトリミット監視 / ウォッチドッグ│
+└────────────────┬─────────────────────────┘
+   VoltageCommand (下り) │ │ EncoderFeedback (上り)
+   帰還受信ごとに1回     │ │ 周期可変 1〜100ms + MotionEvent 即時
+┌────────────────┴─────────────────────────┐
+│  SignalR Hub (MessagePack) ※モックでは遅延線で模擬       │
+└────────────────┬─────────────────────────┘
+┌────────────────┴─────────────────────────┐
+│─ Blazor WASM ── プラント (仮想ハードウェア) ────────────│
+│  [Worker] 1ms 固定ステップ RK4                            │
+│     台車+振子の非線形モデル / DCモータ(逆起電力)         │
+│     エンコーダ量子化 / メカストッパ                       │
+│     ドライブ保護: 非常停止・リミット・指令タイムアウト    │
+│               ↓ SharedArrayBuffer (seqlock)              │
+│  [メインスレッド] rAF → 描画のみ                          │
+└──────────────────────────────────────────┘</pre>
+      <p>前回の搬送機シミュレータの原則「バックは自分の指令が実行された前提で動かない」はそのまま維持しています。変わったのは、指令が位置決め1回ではなく<b>帰還1回ごとの電圧指令</b>になり、制御ループ全体が通信路をまたいだ点です。</p>
+
+      <h3>前回設計からの変更点</h3>
+      <div class="tw"><table>
+        <thead><tr><th>項目</th><th>搬送機 (前回)</th><th>倒立振子 (今回)</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>下り指令</td><td><code>MoveCommand</code> を動作開始時に1回</td><td><code>VoltageCommand</code> を帰還受信ごと</td><td>純SILではバックが操作量そのものを決める</td></tr>
+          <tr><td>帰還周期</td><td>100ms 固定</td><td>1〜100ms 可変 (既定 5ms)</td><td>周期は遅延余裕に直結するため実験パラメータにする</td></tr>
+          <tr><td>ドライブ側保護</td><td>強制停止フラグ</td><td>非常停止 / メカリミット / 指令タイムアウト / 無効中の指令拒否</td><td>通信が途絶えても電圧を出し続けないことをプラント単独で保証する</td></tr>
+          <tr><td>帰還の世代</td><td>CommandId のみ</td><td>CommandId + <code>epoch</code> (リセット世代)</td><td>リセット直後に古い計測値で転倒判定する競合を防ぐ</td></tr>
+          <tr><td>時刻</td><td>—</td><td>全メッセージに計測時刻 <code>t</code> と基準計測時刻 <code>basedOn</code></td><td>E2E遅延を実測し、予測器と遅延予算表示に使う</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>通信プロトコル</h3>
+      <div class="tw"><table>
+        <thead><tr><th>向き</th><th>メッセージ</th><th>内容</th><th>送信タイミング</th></tr></thead>
+        <tbody>
+          <tr><td>下り</td><td><code>VoltageCommand</code></td><td>cmdId, seq, 電圧, basedOn(元にした計測時刻)</td><td>帰還を受信して制御計算した直後</td></tr>
+          <tr><td>下り</td><td><code>AbortCommand</code></td><td>cmdId</td><td>停止・異常時</td></tr>
+          <tr><td>上り</td><td><code>EncoderFeedback</code></td><td>seq, cmdId, 計測時刻, 台車パルス, 振子パルス, E2E遅延, ドライブ有効, epoch</td><td>帰還周期ごと</td></tr>
+          <tr><td>上り</td><td><code>MotionEvent</code></td><td>ESTOP / LIMIT / CMD_TIMEOUT / DRIVE_DISABLED + パルス</td><td>即時 (通信遅延は受ける)</td></tr>
+        </tbody>
+      </table></div>
+      <p>プラントは <code>cmdId</code> が現行より古い指令と、<code>seq</code> が逆行した指令を破棄します。ドライブ無効中に新しい <code>cmdId</code> が来た場合はそのセッションごと拒否し、<code>DRIVE_DISABLED</code> をバックへ通知します。</p>
+
+      <h3>状態機械</h3>
+      <div class="tw"><table>
+        <thead><tr><th>状態</th><th>動作</th><th>遷移</th></tr></thead>
+        <tbody>
+          <tr><td>IDLE</td><td>指令を出さない</td><td>開始操作で CommandId を払い出して SWINGUP / BALANCE へ</td></tr>
+          <tr><td>SWINGUP</td><td>エネルギー法 + 台車の中央復帰項</td><td>|θ| &lt; 0.3rad かつ |θ̇| &lt; 4rad/s で BALANCE へ</td></tr>
+          <tr><td>BALANCE</td><td>離散LQR (予測器は任意)</td><td>|θ| &gt; 0.6rad、|x| &gt; 0.45m、帰還途絶、MotionEvent で FAULT へ</td></tr>
+          <tr><td>FAULT</td><td>AbortCommand を送って停止</td><td>異常リセット操作でのみ IDLE へ (開始操作は受け付けない)</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>遅延余裕 — 純 SIL が成立する条件</h3>
+      <p>倒立点の不安定極 λ は振子が短いほど大きくなり、許容できるループ遅延はおおむね 1/λ のオーダーに縮みます。バック側は帰還周期・速度推定フィルタ・任意遅延を含めた線形閉ループを 1ms 刻みで模擬し、発散しない最大遅延を二分探索して「理論遅延余裕」として表示します。</p>
+      <div class="tw"><table>
+        <thead><tr><th>振子長</th><th>不安定極</th><th>周期 1ms</th><th>5ms</th><th>20ms</th><th>50ms</th><th>100ms</th></tr></thead>
+        <tbody>
+          <tr><td>0.3 m</td><td class="n">7.5 rad/s</td><td class="n">58 ms</td><td class="n">57 ms</td><td class="n">52 ms</td><td class="n">41 ms</td><td class="n">35 ms</td></tr>
+          <tr><td>0.6 m</td><td class="n">5.3 rad/s</td><td class="n">86 ms</td><td class="n">85 ms</td><td class="n">80 ms</td><td class="n">68 ms</td><td class="n">59 ms</td></tr>
+          <tr><td>1.0 m</td><td class="n">4.1 rad/s</td><td class="n">110 ms</td><td class="n">109 ms</td><td class="n">105 ms</td><td class="n">95 ms</td><td class="n">86 ms</td></tr>
+        </tbody>
+      </table></div>
+      <p>Node 上の実時間結合テスト (振子長 0.6m、周期 5ms、外乱あり) では、往復約 70ms まで倒立を維持し、約 90ms で転倒しました。理論値 85ms と整合しています。予測器を有効にすると往復約 140ms でも維持できました。</p>
+      <div class="warnbox">この表が示すとおり、前回設計の「帰還 100ms 固定」は、長い振子なら LAN 内でぎりぎり成立します。一方で、短い振子やインターネット越しの SignalR では余裕を超えます。実機へ移行する際は、安定化ループをドライブ(組み込み側)に置き、バックは目標値とモード管理に専念する階層型に切り替えるべきです。このシミュレータは、その判断を数値で裏付けるための実験台という位置づけです。</div>
+
+      <h3>監視の多重化</h3>
+      <div class="tw"><table>
+        <thead><tr><th>層</th><th>検知</th><th>守るもの</th></tr></thead>
+        <tbody>
+          <tr><td>バック</td><td>転倒 (|θ|)、ソフトリミット (|x|)、ウォッチドッグ (max(300ms, 3×周期))、旧セッションのイベント破棄</td><td>制御ロジックの前提が崩れたことの検知</td></tr>
+          <tr><td>プラント(ドライブ)</td><td>非常停止、メカリミット、指令タイムアウト 500ms、無効中の指令拒否</td><td>通信・バックが死んでも電圧を出し続けないこと</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>通信路エミュレーション</h3>
+      <ul>
+        <li>SignalR は WebSocket (TCP) 上で動くため、パケットは欠落せず順序も保たれます。損失は再送による遅延スパイクとして現れるので、「スパイク率」で +150ms の遅延を注入し、追い越しは禁止しています。</li>
+        <li>遅延は送信側の Worker 内で、計測時刻を基準にしたキューとして実装しています。プラントは 1ms ステップをまとめて進めるため、計測時刻は送信処理の時刻ではなく積分ステップの時刻を使います。</li>
+      </ul>
+
+      <h3>このモックの実行基盤と制約</h3>
+      <ul>
+        <li>Worker は Blob URL から起動します。ホスト側の CSP で拒否された場合は、同じ関数をメインスレッドで動かすフォールバックに切り替え、右上のバッジに表示します。</li>
+        <li>SharedArrayBuffer は cross-origin isolation (COOP/COEP) が有効なときだけ使い、それ以外は postMessage で状態を受け渡します。</li>
+        <li>setTimeout の最小間隔 (約4ms) の制約により、E2E遅延には数ms の下限があります。</li>
+        <li>物理モデルは実時間に同期させています。そのため積分刻みは決定的ですが、通信タイミングは実行ごとに揺らぎます。
+          <ul>
+            <li>実時間同期 (現行): 人が触って観察できる。一方で、同じ条件でも結果が完全には再現しない</li>
+            <li>ロックステップ同期: プラントがバック応答を待って進むので再現性は完全になる。一方で、遅延の効果を仮想時間で模擬する必要があり、UIでの即時操作とは相性が悪い</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>Blazor WASM へ移植する際の注意</h3>
+      <ul>
+        <li>マルチスレッド (<code>WasmEnableThreads</code>) には COOP/COEP ヘッダが必要です。Blazor Web 構成では <code>ServeMultithreadingHeaders</code> オプションで配信できます。</li>
+        <li><code>[JSImport]/[JSExport]</code> は少なくとも導入時点ではメインスレッド専用でした。描画側との境界はメインスレッドに置き、Worker との共有は SharedArrayBuffer に限定します。</li>
+        <li>.NET 10 のマルチスレッド WASM で <code>System.Threading.Timer</code> が runtime 内部で落ちる報告があります。固定ステップループは Timer に依存させず、Stopwatch 基準で自前で回します。</li>
+        <li>物理モデル・LQR設計・遅延余裕計算は共有クラスライブラリに置きます。そうすれば、このモックで Node を使って行ったような結合テストを xUnit でそのまま書けます。</li>
+      </ul>
+
+      <h3>おすすめの実験手順</h3>
+      <ul>
+        <li>「倒立から開始」で倒立させ、通信遅延を少しずつ上げながら外乱を加え、遅延予算バーが縦線を越えるあたりで倒れることを確かめる</li>
+        <li>予測器を有効にして同じ遅延で倒れにくくなることを確かめ、次にジッタを増やして予測がずれる様子を見る</li>
+        <li>振子長を 0.3m にして、理論遅延余裕が縮むことを確かめる</li>
+        <li>「前回設計」プリセットで 100ms 周期でも倒立する条件と、振子長を短くしたときに崩れる条件を比べる</li>
+        <li>非常停止のあと「異常リセット」(バック側の確認)だけ行って開始すると、プラントが DRIVE_DISABLED で拒否し、バックが再び FAULT に落ちることを確かめる。「プラント初期化」(現場側の復帰)で再開できる</li>
+      </ul>
+    </div>
+  </details>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+<script>
+/* ============================================================
+   共有ライブラリ: 物理モデル / 線形化 / 離散LQR / 遅延線
+   ※ Worker へはソース文字列ごと注入するため、外部参照を持たないこと
+   ============================================================ */
+function sharedLib(){
+  "use strict";
+  const G = 9.81;
+  const now = () => performance.timeOrigin + performance.now(); // Worker間で共通の時刻基準
+  const clamp = (v,a,b) => v<a ? a : v>b ? b : v;
+  const wrap = a => { a=(a+Math.PI)%(2*Math.PI); if(a<0) a+=2*Math.PI; return a-Math.PI; };
+
+  function defaultParams(){
+    return {
+      M:0.6, Jm:2e-5, r:0.015,          // 台車質量[kg] / ロータ慣性[kgm2] / プーリ半径[m]
+      kt:0.05, ke:0.05, Rm:2.0, Vmax:24, // トルク定数 / 逆起電力定数 / 巻線抵抗 / 電源電圧
+      bc:1.0, fc:0.4,                   // 台車 粘性摩擦[Ns/m] / クーロン摩擦[N]
+      m:0.15, L:0.6, bp:8e-4,           // 振子 質量 / 全長[m] / 軸粘性
+      rail:0.5,                         // レール片側ストローク[m]
+      ppr:2000, pprPend:4096,           // エンコーダ [count/rev] (4逓倍後)
+      kStop:2e4, cStop:150              // メカストッパ剛性 / 減衰
+    };
+  }
+  function derived(p){
+    const l=p.L/2, I=p.m*p.L*p.L/12;
+    return { l, J:I+p.m*l*l, Mt:p.M+p.Jm/(p.r*p.r),
+      Kf:p.kt/(p.Rm*p.r), Kv:p.kt*p.ke/(p.Rm*p.r*p.r),
+      mpc:2*Math.PI*p.r/p.ppr };
+  }
+
+  // 非線形 Cart-pole. s=[x, th, xd, thd], th=0 が倒立, 正方向は +x 側へ倒れる向き
+  function deriv(p,d,s,V,dist){
+    const xd=s[2], thd=s[3], c=Math.cos(s[1]), sn=Math.sin(s[1]);
+    let F = d.Kf*V - (d.Kv+p.bc)*xd - p.fc*Math.tanh(xd/0.01) + dist.F;
+    const pen = s[0]>p.rail ? s[0]-p.rail : s[0]<-p.rail ? s[0]+p.rail : 0;
+    if(pen!==0){ let fs=-p.kStop*pen - p.cStop*xd; if(fs*pen>0) fs=0; F+=fs; } // 引き戻し方向のみ
+    const a11=d.Mt+p.m, a12=p.m*d.l*c, det=a11*d.J-a12*a12;
+    const b1=F + p.m*d.l*sn*thd*thd;
+    const b2=p.m*G*d.l*sn - p.bp*thd + dist.T;
+    return [xd, thd, (b1*d.J-a12*b2)/det, (a11*b2-a12*b1)/det];
+  }
+  function rk4(p,d,s,V,dist,h){
+    const k1=deriv(p,d,s,V,dist);
+    const k2=deriv(p,d,s.map((v,i)=>v+h/2*k1[i]),V,dist);
+    const k3=deriv(p,d,s.map((v,i)=>v+h/2*k2[i]),V,dist);
+    const k4=deriv(p,d,s.map((v,i)=>v+h*k3[i]),V,dist);
+    return s.map((v,i)=>v+h/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));
+  }
+
+  // 倒立点まわりの線形化 (入力=電圧)
+  function linearModel(p){
+    const d=derived(p), a11=d.Mt+p.m, a12=p.m*d.l, det=a11*d.J-a12*a12;
+    const mgl=p.m*G*d.l, Bx=d.Kv+p.bc;
+    return {
+      A:[[0,0,1,0],[0,0,0,1],
+         [0,-a12*mgl/det,-d.J*Bx/det, a12*p.bp/det],
+         [0, a11*mgl/det, a12*Bx/det,-a11*p.bp/det]],
+      B:[0,0,d.J*d.Kf/det,-a12*d.Kf/det],
+      pole:Math.sqrt(a11*mgl/det)
+    };
+  }
+
+  const eye = n => Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>+(i===j)));
+  const mmul = (A,B) => A.map(r=>B[0].map((_,j)=>{ let s=0; for(let k=0;k<r.length;k++) s+=r[k]*B[k][j]; return s; }));
+  const mvec = (A,x) => A.map(r=>{ let s=0; for(let k=0;k<r.length;k++) s+=r[k]*x[k]; return s; });
+
+  // scaling & squaring + Taylor
+  function expm(M){
+    const n=M.length;
+    const nrm=Math.max(...M.map(r=>r.reduce((s,v)=>s+Math.abs(v),0)));
+    const sq=Math.max(0,Math.ceil(Math.log2(nrm||1))+2);
+    const S=M.map(r=>r.map(v=>v/2**sq));
+    let E=eye(n), T=eye(n);
+    for(let k=1;k<=14;k++){ T=mmul(T,S).map(r=>r.map(v=>v/k)); E=E.map((r,i)=>r.map((v,j)=>v+T[i][j])); }
+    for(let i=0;i<sq;i++) E=mmul(E,E);
+    return E;
+  }
+  // ZOH 離散化 (Van Loan)
+  function c2d(A,B,Ts){
+    const n=A.length;
+    const M=Array.from({length:n+1},(_,i)=>Array.from({length:n+1},(_,j)=>
+      i<n ? (j<n ? A[i][j]*Ts : B[i]*Ts) : 0));
+    const E=expm(M);
+    return { Ad:E.slice(0,n).map(r=>r.slice(0,n)), Bd:E.slice(0,n).map(r=>r[n]) };
+  }
+  // 離散リカッチ反復 (単入力). Joseph 形式 + 対称化で数値的な非対称発散を防ぐ
+  function dlqr(Ad,Bd,Qd,R){
+    const n=Ad.length;
+    let P=eye(n).map((r,i)=>r.map(v=>v*Qd[i])), K=new Array(n).fill(0);
+    for(let it=0; it<40000; it++){
+      const PB=mvec(P,Bd);
+      const BPB=Bd.reduce((s,v,k)=>s+v*PB[k],0);
+      K=Ad[0].map((_,j)=>PB.reduce((s,v,k)=>s+v*Ad[k][j],0)/(R+BPB));
+      const Acl=Ad.map((r,i)=>r.map((v,j)=>v-Bd[i]*K[j]));
+      const PA=mmul(P,Acl);
+      let diff=0, mx=0;
+      const Pn=eye(n).map((_,i)=>new Array(n).fill(0));
+      for(let i=0;i<n;i++) for(let j=i;j<n;j++){
+        let s=0; for(let k=0;k<n;k++) s+=Acl[k][i]*PA[k][j];
+        const v=(i===j?Qd[i]:0)+R*K[i]*K[j]+s;
+        Pn[i][j]=Pn[j][i]=v;
+        diff=Math.max(diff,Math.abs(v-P[i][j])); mx=Math.max(mx,Math.abs(v));
+      }
+      P=Pn;
+      if(diff<=1e-11*mx) break;
+    }
+    return K;
+  }
+
+  // 速度推定フィルタ (差分 + 1次LPF) のゲイン
+  const lpfGain = (fc,dt) => 1-Math.exp(-2*Math.PI*fc*dt);
+
+  // 遅延余裕[ms]: 連続系を 1ms で模擬し、周期 Ts のサンプル・速度推定・任意遅延を含めて安定判定 → 二分探索
+  function delayMargin(A,B,K,Ts,fc){
+    const h=0.001, {Ad,Bd}=c2d(A,B,h), sub=Math.max(1,Math.round(Ts/h)), a=lpfGain(fc,sub*h);
+    const N=24000;
+    const unstable = D => {
+      const q=[]; let qi=0, u=0, x=[0,0.01,0,0], px=0, pth=0.01, vx=0, vth=0, amp1=0, amp2=0;
+      for(let k=0;k<N;k++){
+        if(k%sub===0){
+          const dt=sub*h;
+          vx+=a*((x[0]-px)/dt-vx); vth+=a*((x[1]-pth)/dt-vth); px=x[0]; pth=x[1];
+          q.push(k+D, -(K[0]*x[0]+K[1]*x[1]+K[2]*vx+K[3]*vth));
+        }
+        while(qi<q.length && q[qi]<=k){ u=q[qi+1]; qi+=2; }
+        const nx=mvec(Ad,x); for(let i=0;i<4;i++) nx[i]+=Bd[i]*u; x=nx;
+        const m=Math.abs(x[1]);
+        if(!(m<1e3)) return true;
+        if(k>N/3 && k<=2*N/3) amp1=Math.max(amp1,m); else if(k>2*N/3) amp2=Math.max(amp2,m);
+      }
+      return amp2>amp1*0.98 && amp2>1e-4;
+    };
+    if(unstable(0)) return 0;
+    let lo=0, hi=600;
+    if(!unstable(hi)) return hi;
+    while(hi-lo>1){ const mid=(lo+hi)>>1; unstable(mid)?hi=mid:lo=mid; }
+    return lo;
+  }
+
+  // エネルギー法スイングアップ (台車加速度指令 → 電圧へ逆変換)
+  // dE/dt = -m·l·cosθ·θ̇·ẍ なので ẍ ∝ E·sgn(cosθ·θ̇) で E→Eoff へ単調に近づく
+  function swingV(p,d,x,g){
+    const th=x[1], thd=x[3];
+    const E=0.5*d.J*thd*thd + p.m*G*d.l*(Math.cos(th)-1); // 倒立静止で 0
+    const sgn=Math.sign(thd*Math.cos(th)) || 1;
+    let a=g.amax*clamp(g.kE*(E-g.Eoff),-1,1)*sgn - g.kx*x[0] - g.kv*x[2];
+    a=clamp(a,-g.alim,g.alim);
+    const V=((d.Mt+p.m)*a + (d.Kv+p.bc)*x[2] + p.fc*Math.tanh(x[2]/0.01))/d.Kf;
+    return clamp(V,-g.Vsw,g.Vsw);
+  }
+
+  // 通信路エミュレータ: 遅延 + ジッタ + 遅延スパイク (SignalR=TCPなので欠落せず順序保存)
+  function delayLine(send){
+    const q=[]; let last=0;
+    return {
+      push(msg,stamp,c){
+        let dl=c.lat + Math.random()*c.jit;
+        if(Math.random()*100 < c.spike) dl+=150;          // 再送による HOL ブロッキング相当
+        const at=Math.max(last, stamp+dl); last=at;       // 追い越し禁止
+        q.push({at,msg});
+      },
+      flush(t){ while(q.length && q[0].at<=t) send(q.shift().msg); },
+      get size(){ return q.length; }
+    };
+  }
+
+  return { G, now, clamp, wrap, defaultParams, derived, rk4, linearModel,
+    c2d, dlqr, mvec, lpfGain, delayMargin, swingV, delayLine };
+}
+
+/* ============================================================
+   プラント (仮想ハードウェア): 1ms 固定ステップ積分 + 仮想エンコーダ + ドライブ保護
+   ============================================================ */
+function plantMain(self, L){
+  "use strict";
+  const p=L.defaultParams(); let d=L.derived(p);
+  const DT=0.001, TEL_MS=33;
+  const net={ period:5, lat:0, jit:0, spike:0, noise:0, cmdTimeout:500 };
+  let s=[0,Math.PI,0,0], simT=0, t0=L.now();
+  let V=0, enabled=true, estopped=false;
+  let activeCmd=0, sessionOk=true, lastSeq=-1, running=false, lastCmdAt=0, timeoutFired=false;
+  let nextFb=0, fbSeq=0, e2e=0, rejected=0, slips=0, applied=0, epoch=0;
+  let dist={F:0,T:0}, distEnd=-1, telAt=0;
+  let port=null, uplink=null, shared=null;
+
+  const gauss = () => Math.sqrt(-2*Math.log(1-Math.random()))*Math.cos(2*Math.PI*Math.random());
+  const pulses = () => ({
+    cart: Math.round(s[0]/d.mpc + gauss()*net.noise),
+    pend: Math.round(s[1]/(2*Math.PI)*p.pprPend + gauss()*net.noise)
+  });
+
+  // MotionEvent: 定周期を待たず即送信 (通信遅延は受ける)
+  function motionEvent(kind, tw){
+    const pl=pulses();
+    uplink.push({type:"event", kind, cmdId:activeCmd, t:tw, cart:pl.cart, pend:pl.pend}, tw, net);
+    self.postMessage({type:"plantEvent", kind, cmdId:activeCmd, t:simT});
+  }
+  function driveOff(kind, tw){ enabled=false; V=0; running=false; motionEvent(kind, tw); }
+
+  function onLink(e){
+    const m=e.data;
+    if(m.type==="volt"){
+      if(m.cmdId<activeCmd){ rejected++; return; }          // 旧セッションの指令は破棄
+      if(m.cmdId>activeCmd){
+        activeCmd=m.cmdId; lastSeq=-1; timeoutFired=false; sessionOk=enabled;
+        if(!enabled) motionEvent("DRIVE_DISABLED", L.now());
+      }
+      if(!sessionOk || !enabled || m.seq<=lastSeq){ rejected++; return; }
+      lastSeq=m.seq; V=L.clamp(m.v,-p.Vmax,p.Vmax);
+      lastCmdAt=L.now(); e2e=lastCmdAt-m.basedOn; running=true; applied++;
+    } else if(m.type==="abort"){
+      if(m.cmdId>=activeCmd){ activeCmd=m.cmdId; V=0; running=false; }
+    }
+  }
+
+  self.onmessage = e => {
+    const m=e.data;
+    switch(m.type){
+      case "init":
+        port=m.link; port.onmessage=onLink;
+        uplink=L.delayLine(msg=>port.postMessage(msg));
+        if(m.sab){ shared={ f:new Float64Array(m.sab,8), seq:new Int32Array(m.sab,0,1) }; }
+        loop(); break;
+      case "net": Object.assign(net, m.cfg); break;
+      case "param":
+        Object.assign(p, m.p); d=L.derived(p); break;
+      case "reset":
+        s=[0, m.upright ? 0.02 : Math.PI, 0, 0];
+        V=0; running=false; enabled=true; estopped=false; sessionOk=true; dist={F:0,T:0}; epoch++;
+        break;
+      case "estop":
+        if(enabled || !estopped){ estopped=true; driveOff("ESTOP", L.now()); }
+        break;
+      case "push":
+        dist={F:0, T:m.dir*0.3}; distEnd=simT+0.05; break;
+    }
+  };
+
+  function loop(){
+    const tn=L.now();
+    let target=(tn-t0)/1000;
+    if(target-simT>0.2){ slips++; t0=tn-(simT+0.2)*1000; target=simT+0.2; } // 長時間停止後は時間を捨てる
+    while(simT+DT <= target+1e-9){
+      if(distEnd>=0 && simT>=distEnd){ dist={F:0,T:0}; distEnd=-1; }
+      s=L.rk4(p,d,s,enabled?V:0,dist,DT);
+      simT+=DT;
+      const tw=t0+simT*1000; // この積分ステップに対応する壁時計時刻
+      if(enabled && Math.abs(s[0])>p.rail+0.002) driveOff("LIMIT", tw);
+      if(running && !timeoutFired && tw-lastCmdAt>net.cmdTimeout){
+        timeoutFired=true; V=0; running=false; motionEvent("CMD_TIMEOUT", tw);
+      }
+      if(simT*1000 >= nextFb-1e-6){
+        const pl=pulses();
+        uplink.push({type:"fb", seq:fbSeq++, cmdId:activeCmd, t:tw,
+          cart:pl.cart, pend:pl.pend, e2e, enabled, epoch}, tw, net);
+        nextFb+=net.period;
+        if(nextFb < simT*1000) nextFb=simT*1000+net.period;
+      }
+    }
+    uplink.flush(L.now());
+
+    const Vout=enabled?V:0;
+    if(shared){ // seqlock: 奇数=書き込み中
+      Atomics.add(shared.seq,0,1);
+      shared.f.set([simT,s[0],s[1],s[2],s[3],Vout,enabled?1:0,e2e]);
+      Atomics.add(shared.seq,0,1);
+    }
+    if(tn-telAt>=TEL_MS){
+      telAt=tn;
+      self.postMessage({type:"tel", t:simT, x:s[0], th:s[1], xd:s[2], thd:s[3], V:Vout,
+        enabled, estopped, e2e, rejected, slips, applied, fbSeq, queue:uplink.size, activeCmd});
+    }
+    setTimeout(loop,1);
+  }
+  self.postMessage({type:"ready"});
+}
+
+/* ============================================================
+   コントローラ (バックエンド相当): 状態機械 / LQR / スイングアップ / 監視
+   ============================================================ */
+function ctrlMain(self, L){
+  "use strict";
+  const p=L.defaultParams(); let d=L.derived(p);
+  const net={ period:5, lat:0, jit:0, spike:0 };
+  const opt={ predict:false, xref:0, fc:25, wd:300 };
+  const Q=[40,60,1,0.5], R=0.6;
+  const SW={ kE:80, amax:3, kx:5, kv:3, Eoff:0.05, alim:5, Vsw:18 }; // グリッド探索で調整済み
+  const FALL=0.6, SOFT_MARGIN=0.05;
+
+  let mode="IDLE", cmdId=0, seq=0, reason="";
+  let port=null, downlink=null;
+  let Ad=null, Bd=null, K=[0,0,0,0], pole=0, margin=0;
+  const est={init:false, x:0, th:0, xd:0, thd:0, t:0, seq:-1, epoch:-1};
+  let startT=0;
+  let lastFbAt=0, fbInt=0, upDelay=0, e2eEst=0, vOut=0, xr=0, hist=[], ctlAt=0, fbCount=0, staleEv=0;
+  const ema=(o,n,a=0.1)=>o===0?n:o+a*(n-o);
+
+  function log(level,msg){ self.postMessage({type:"log", level, msg, mode, cmdId}); }
+  function setMode(m,why){
+    if(m===mode) return;
+    const prev=mode; mode=m; reason=why||"";
+    log(m==="FAULT"?"error":"info", `${prev} → ${m}${why?"  ("+why+")":""}`);
+    pushCtl(true);
+  }
+
+  function design(){
+    const lm=L.linearModel(p), Ts=net.period/1000;
+    ({Ad,Bd}=L.c2d(lm.A,lm.B,Ts));
+    K=L.dlqr(Ad,Bd,Q,R);
+    pole=lm.pole;
+    margin=L.delayMargin(lm.A,lm.B,K,Ts,opt.fc);
+    self.postMessage({type:"design", K, pole, margin, Ts:net.period});
+  }
+
+  function send(v, basedOn){
+    v=L.clamp(v,-p.Vmax,p.Vmax); vOut=v;
+    hist.push(v); if(hist.length>128) hist.shift();
+    downlink.push({type:"volt", cmdId, seq:seq++, v, basedOn}, L.now(), net);
+  }
+  function abort(){ vOut=0; downlink.push({type:"abort", cmdId}, L.now(), net); }
+  function fault(why){ if(mode==="FAULT") return; abort(); setMode("FAULT", why); }
+
+  // 既知の送信済み入力で N ステップ先の状態を予測 (簡易 Smith 型補償)
+  function predict(x,N){
+    N=Math.min(N,hist.length);
+    for(let j=N;j>=1;j--){
+      const nx=L.mvec(Ad,x), u=hist[hist.length-j];
+      for(let i=0;i<4;i++) nx[i]+=Bd[i]*u;
+      x=nx;
+    }
+    return x;
+  }
+
+  function control(tMeas){
+    if(mode!=="SWINGUP" && mode!=="BALANCE") return;
+    const thw=L.wrap(est.th);
+    if(mode==="SWINGUP"){
+      if(Math.abs(thw)<0.3 && Math.abs(est.thd)<4) setMode("BALANCE","倒立領域に到達");
+      else{
+        if(Math.abs(est.x)>p.rail-SOFT_MARGIN) return fault("ソフトリミット超過");
+        return send(L.swingV(p,d,[est.x,est.th,est.xd,est.thd],SW), tMeas);
+      }
+    }
+    if(Math.abs(thw)>FALL) return fault(`転倒検知 |θ|=${(Math.abs(thw)*57.3).toFixed(0)}°`);
+    if(Math.abs(est.x)>p.rail-SOFT_MARGIN) return fault("ソフトリミット超過");
+    xr+=L.clamp(opt.xref-xr,-0.3*net.period/1000,0.3*net.period/1000); // 目標位置は 0.3 m/s でランプ
+    let x=[est.x-xr, thw, est.xd, est.thd];
+    if(opt.predict) x=predict(x, Math.round(e2eEst/net.period));
+    send(-(K[0]*x[0]+K[1]*x[1]+K[2]*x[2]+K[3]*x[3]), tMeas);
+  }
+
+  function onFeedback(m){
+    const tn=L.now();
+    if(m.seq<=est.seq) return;
+    lastFbAt=tn;
+    if(m.t<startT) return;                                   // 開始指示より前の計測は使わない
+    if(m.epoch!==est.epoch){ est.init=false; est.epoch=m.epoch; } // プラントがリセットされた → 推定器を再初期化
+    const x=m.cart*d.mpc, th=m.pend*2*Math.PI/p.pprPend;
+    if(!est.init){ Object.assign(est,{init:true,x,th,xd:0,thd:0}); }
+    else{
+      const dt=(m.t-est.t)/1000;
+      if(dt>0){
+        const a=L.lpfGain(opt.fc,dt);
+        est.xd+=a*((x-est.x)/dt-est.xd);
+        est.thd+=a*((th-est.th)/dt-est.thd);
+        fbInt=ema(fbInt,m.t-est.t);
+      }
+      est.x=x; est.th=th;
+    }
+    est.t=m.t; est.seq=m.seq; fbCount++;
+    upDelay=ema(upDelay,tn-m.t);
+    if(m.e2e>0) e2eEst=ema(e2eEst,m.e2e,0.05);
+    control(m.t);
+  }
+
+  function onEvent(m){
+    if(m.cmdId<cmdId){ staleEv++; log("warn",`旧セッション(#${m.cmdId})のイベント ${m.kind} を破棄`); return; }
+    if(mode==="SWINGUP"||mode==="BALANCE") fault(`プラント通知: ${m.kind}`);
+    else log("warn",`プラント通知: ${m.kind}`);
+  }
+
+  function start(target){
+    if(mode!=="IDLE"){ log("warn",`${mode} 中は開始できません${mode==="FAULT"?" (異常リセットが必要)":""}`); return; }
+    cmdId++; seq=0; hist=[]; lastFbAt=startT=L.now(); e2eEst=0; est.init=false; xr=0;
+    setMode(target, `CommandId #${cmdId}`);
+  }
+
+  function pushCtl(force){
+    const tn=L.now();
+    if(!force && tn-ctlAt<50) return;
+    ctlAt=tn;
+    self.postMessage({type:"ctl", mode, reason, cmdId, v:vOut, xr, est:{x:est.x,th:L.wrap(est.th)},
+      fbInt, upDelay, e2eEst, fbCount, staleEv, queue:downlink?downlink.size:0});
+  }
+
+  function tick(){
+    const tn=L.now();
+    downlink.flush(tn);
+    const wd=Math.max(opt.wd, 3*net.period);
+    if((mode==="SWINGUP"||mode==="BALANCE") && tn-lastFbAt>wd)
+      fault(`ウォッチドッグ: ${wd}ms 帰還なし`);
+    pushCtl(false);
+    setTimeout(tick,5);
+  }
+
+  self.onmessage = e => {
+    const m=e.data;
+    switch(m.type){
+      case "init":
+        port=m.link;
+        port.onmessage = ev => ev.data.type==="fb" ? onFeedback(ev.data) : onEvent(ev.data);
+        downlink=L.delayLine(msg=>port.postMessage(msg));
+        design(); tick(); break;
+      case "net": {
+        const redesign = m.cfg.period!==undefined && m.cfg.period!==net.period;
+        Object.assign(net,m.cfg);
+        if(redesign) design();
+        break;
+      }
+      case "opt": Object.assign(opt,m.opt); break;
+      case "param": Object.assign(p,m.p); d=L.derived(p); design(); break;
+      case "op":
+        if(m.action==="balance") start("BALANCE");
+        else if(m.action==="swingup") start("SWINGUP");
+        else if(m.action==="stop"){ if(mode!=="IDLE"){ abort(); setMode("IDLE","オペレータ停止"); } }
+        else if(m.action==="clear"){ if(mode==="FAULT") setMode("IDLE","異常リセット"); }
+        break;
+    }
+  };
+  self.postMessage({type:"ready"});
+}
+
+
+
+</script>
+<script>
+"use strict";
+/* ============================================================
+   メインスレッド: Worker 起動 / 設定配信 / 描画のみ (物理計算は持たない)
+   ============================================================ */
+const LIB = sharedLib();
+const $ = id => document.getElementById(id);
+const PERIODS = [1,2,5,10,20,50,100];
+const PRESETS = {
+  ideal:  { periodIdx:0, lat:0,  jit:0,  spike:0 },
+  lan:    { periodIdx:2, lat:5,  jit:2,  spike:0 },
+  legacy: { periodIdx:6, lat:20, jit:5,  spike:0 },
+  wan:    { periodIdx:3, lat:40, jit:15, spike:1 }
+};
+const EVENT_LABEL = { ESTOP:"非常停止", LIMIT:"メカリミット到達でドライブ遮断",
+  CMD_TIMEOUT:"指令タイムアウトで電圧0", DRIVE_DISABLED:"ドライブ無効中の指令を拒否" };
+
+const cfg = { periodIdx:2, lat:0, jit:0, spike:0, noise:0, L:0.6, xref:0, predict:false };
+const ui = { plant:null, ctrl:null, tel:null, ctl:null, design:null, shared:null,
+  samples:[], lastT:-1, pushFx:null, bootAt:performance.now() };
+
+/* ---------- Worker 起動 (CSP で拒否されたらメインスレッドで同じ関数を実行) ---------- */
+function spawn(fn){
+  const wrap = (target, kind) => ({
+    kind,
+    post:(m,tr)=>target.postMessage(m,tr||[]),
+    listen:h=>{ target.onmessage = e => { if(e.data && e.data.type!=="ready") h(e.data); }; }
+  });
+  return new Promise(resolve=>{
+    let done=false, w=null;
+    const local = () => {
+      if(done) return; done=true;
+      try{ w && w.terminate(); }catch(_){}
+      const ch=new MessageChannel();
+      const fake={ postMessage:(m,tr)=>ch.port2.postMessage(m,tr||[]) };
+      Object.defineProperty(fake,"onmessage",{ set(h){ ch.port2.onmessage=h; } });
+      fn(fake, sharedLib());
+      resolve(wrap(ch.port1,"main"));
+    };
+    try{
+      const src = `${sharedLib.toString()}\n${fn.toString()}\n${fn.name}(self, sharedLib());`;
+      w = new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"})));
+      w.onerror = e => { e.preventDefault(); if(!done) local(); else addLog("error",`Worker エラー: ${e.message||"不明"}`,"system"); };
+      w.onmessage = e => { if(!done && e.data && e.data.type==="ready"){ done=true; resolve(wrap(w,"worker")); } };
+      setTimeout(local, 2000);
+    }catch(_){ local(); }
+  });
+}
+
+async function boot(){
+  const [plant, ctrl] = await Promise.all([spawn(plantMain), spawn(ctrlMain)]);
+  ui.plant=plant; ui.ctrl=ctrl;
+
+  plant.listen(m=>{
+    if(m.type==="tel") ui.tel=m;
+    else if(m.type==="plantEvent") addLog(m.kind==="CMD_TIMEOUT"||m.kind==="DRIVE_DISABLED"?"warn":"error",
+      `${EVENT_LABEL[m.kind]||m.kind} (CommandId #${m.cmdId})`,"プラント");
+  });
+  ctrl.listen(m=>{
+    if(m.type==="ctl") ui.ctl=m;
+    else if(m.type==="design") ui.design=m;
+    else if(m.type==="log") addLog(m.level,m.msg,"バック");
+  });
+
+  // 共有状態: cross-origin isolated のときだけ SharedArrayBuffer
+  let sab=null;
+  if(self.crossOriginIsolated && typeof SharedArrayBuffer!=="undefined"){
+    sab=new SharedArrayBuffer(8+8*8);
+    ui.shared={ seq:new Int32Array(sab,0,1), f:new Float64Array(sab,8) };
+  }
+  const link=new MessageChannel();
+  plant.post({type:"init", link:link.port1, sab},[link.port1]);
+  ctrl.post({type:"init", link:link.port2},[link.port2]);
+
+  const both = plant.kind==="worker" && ctrl.kind==="worker";
+  $("bRuntime").textContent = both ? "実行: Web Worker ×2" : "実行: メインスレッド (Worker 不可)";
+  $("bRuntime").classList.toggle("warn",!both);
+  $("bShared").textContent = sab ? "共有状態: SharedArrayBuffer" : "共有状態: postMessage";
+  $("bShared").classList.toggle("warn",!sab);
+
+  pushNet(); pushOpt(); pushParam();
+  plant.post({type:"reset", upright:false});
+  document.querySelectorAll("button:disabled").forEach(b=>b.disabled=false);
+  $("reason").textContent="準備完了";
+}
+
+/* ---------- 設定配信 ---------- */
+function pushNet(){
+  const n={ period:PERIODS[cfg.periodIdx], lat:cfg.lat, jit:cfg.jit, spike:cfg.spike };
+  ui.plant?.post({type:"net", cfg:{...n, noise:cfg.noise}});
+  ui.ctrl?.post({type:"net", cfg:n});
+}
+const pushOpt = () => ui.ctrl?.post({type:"opt", opt:{predict:cfg.predict, xref:cfg.xref}});
+function pushParam(){
+  ui.plant?.post({type:"param", p:{L:cfg.L}});
+  ui.ctrl?.post({type:"param", p:{L:cfg.L}});
+  rebuildRod();
+}
+
+function syncControls(){
+  $("sPeriod").value=cfg.periodIdx; $("oPeriod").textContent=`${PERIODS[cfg.periodIdx]} ms`;
+  $("sLat").value=cfg.lat;          $("oLat").textContent=`${cfg.lat} ms (往復 ${cfg.lat*2} ms)`;
+  $("sJit").value=cfg.jit;          $("oJit").textContent=`0〜${cfg.jit} ms`;
+  $("sSpike").value=cfg.spike;      $("oSpike").textContent=`${cfg.spike.toFixed(1)} %`;
+  $("sNoise").value=cfg.noise;      $("oNoise").textContent=`σ ${cfg.noise.toFixed(1)} count`;
+  $("sLen").value=cfg.L;            $("oLen").textContent=`${cfg.L.toFixed(2)} m`;
+  $("sXref").value=cfg.xref;        $("oXref").textContent=`${cfg.xref>=0?"+":""}${cfg.xref.toFixed(2)} m`;
+  $("cPredict").checked=cfg.predict;
+}
+function bindSlider(id,key,parse,after){
+  $(id).addEventListener("input",e=>{ cfg[key]=parse(e.target.value); syncControls(); after(); });
+}
+bindSlider("sPeriod","periodIdx",v=>parseInt(v,10),pushNet);
+bindSlider("sLat","lat",Number,pushNet);
+bindSlider("sJit","jit",Number,pushNet);
+bindSlider("sSpike","spike",Number,pushNet);
+bindSlider("sNoise","noise",Number,pushNet);
+bindSlider("sLen","L",Number,pushParam);
+bindSlider("sXref","xref",Number,pushOpt);
+$("cPredict").addEventListener("change",e=>{ cfg.predict=e.target.checked; pushOpt(); });
+document.querySelectorAll("[data-preset]").forEach(b=>b.addEventListener("click",()=>{
+  Object.assign(cfg, PRESETS[b.dataset.preset]); syncControls(); pushNet();
+}));
+
+/* ---------- 操作 ---------- */
+const op = action => ui.ctrl?.post({type:"op", action});
+function push(dir){
+  ui.plant?.post({type:"push", dir});
+  ui.pushFx={ dir, until:performance.now()+350 };
+}
+$("btnSwing").addEventListener("click",()=>op("swingup"));
+$("btnBalance").addEventListener("click",()=>{
+  ui.plant.post({type:"reset", upright:true});
+  setTimeout(()=>op("balance"),30); // リセット後の計測から使わせる
+});
+$("btnStop").addEventListener("click",()=>op("stop"));
+$("btnClear").addEventListener("click",()=>op("clear"));
+$("btnInit").addEventListener("click",()=>{ op("stop"); ui.plant.post({type:"reset", upright:false}); });
+$("btnEstop").addEventListener("click",()=>ui.plant?.post({type:"estop"}));
+$("btnPushL").addEventListener("click",()=>push(-1));
+$("btnPushR").addEventListener("click",()=>push(1));
+
+/* ---------- ログ ---------- */
+const logs=[];
+function addLog(level,msg,src){
+  const t=((performance.now()-ui.bootAt)/1000).toFixed(2);
+  logs.unshift({level,msg,src,t});
+  if(logs.length>60) logs.pop();
+  const ul=$("log"); ul.textContent="";
+  for(const l of logs){
+    const li=document.createElement("li"); li.className=l.level;
+    for(const [c,v] of [["t",`${l.t}s`],["src",l.src],["m",l.msg]]){
+      const s=document.createElement("span"); s.className=c; s.textContent=v; li.appendChild(s);
+    }
+    ul.appendChild(li);
+  }
+}
+
+/* ---------- 状態取得 (SAB は seqlock で整合性確認) ---------- */
+function readState(){
+  const sh=ui.shared;
+  if(sh){
+    for(let i=0;i<4;i++){
+      const a=Atomics.load(sh.seq,0);
+      if(a&1) continue;
+      const f=sh.f;
+      const v={ t:f[0], x:f[1], th:f[2], xd:f[3], thd:f[4], V:f[5], enabled:f[6]>0, e2e:f[7] };
+      if(Atomics.load(sh.seq,0)===a && a>0) return v;
+    }
+  }
+  return ui.tel;
+}
+
+/* ---------- 色 (テーマ切替に追従) ---------- */
+let colors={}, colorsAt=0;
+function palette(){
+  const now=performance.now();
+  if(now-colorsAt<1000) return colors;
+  colorsAt=now;
+  const cs=getComputedStyle(document.documentElement);
+  for(const k of ["bg","panel","panel2","line","grid","text","sub","accent","amber","violet","pink","ok","warn","danger"])
+    colors[k]=cs.getPropertyValue(`--${k}`).trim();
+  return colors;
+}
+function fitCanvas(c){
+  const dpr=Math.min(2,window.devicePixelRatio||1), w=c.clientWidth, h=c.clientHeight;
+  if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){ c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); }
+  const ctx=c.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx,w,h};
+}
+
+/* ---------- 側面図 ---------- */
+const RAIL_VIS=0.575, PULLEY_X=0.62, FLOOR_Y=-0.92;
+function draw2D(st){
+  const C=palette(), {ctx,w,h}=fitCanvas($("c2d"));
+  const s=Math.min(w/1.45, h/1.95), cx=w/2, cy=h*0.5;
+  const P=(x,y)=>[cx+x*s, cy-y*s];
+  ctx.clearRect(0,0,w,h);
+
+  // 床・支柱
+  ctx.strokeStyle=C.line; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(...P(-0.7,FLOOR_Y)); ctx.lineTo(...P(0.7,FLOOR_Y)); ctx.stroke();
+  ctx.lineWidth=5;
+  for(const sx of [-PULLEY_X,PULLEY_X]){ ctx.beginPath(); ctx.moveTo(...P(sx,-0.03)); ctx.lineTo(...P(sx,FLOOR_Y)); ctx.stroke(); }
+
+  // レール・目盛・ソフトリミット
+  ctx.lineWidth=4; ctx.strokeStyle=C.sub;
+  ctx.beginPath(); ctx.moveTo(...P(-PULLEY_X,-0.02)); ctx.lineTo(...P(PULLEY_X,-0.02)); ctx.stroke();
+  ctx.lineWidth=1; ctx.strokeStyle=C.line;
+  for(let i=-5;i<=5;i++){ const [px,py]=P(i/10,-0.045); ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px,py+(i%5?4:8)); ctx.stroke(); }
+  ctx.setLineDash([3,3]); ctx.strokeStyle=C.warn;
+  for(const lx of [-0.45,0.45]){ ctx.beginPath(); ctx.moveTo(...P(lx,0.07)); ctx.lineTo(...P(lx,-0.09)); ctx.stroke(); }
+  ctx.setLineDash([]);
+  ctx.fillStyle=C.sub; ctx.font="10px system-ui, sans-serif"; ctx.textAlign="center";
+  ctx.fillText("ソフトリミット", ...P(0.45,-0.13));
+
+  // ベルト・プーリ・モータ・ストッパ
+  ctx.strokeStyle=C.line; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(...P(-PULLEY_X,0.01)); ctx.lineTo(...P(PULLEY_X,0.01));
+  ctx.moveTo(...P(-PULLEY_X,-0.05)); ctx.lineTo(...P(PULLEY_X,-0.05)); ctx.stroke();
+  const rot = st ? st.x/0.015 : 0;
+  for(const px of [-PULLEY_X,PULLEY_X]){
+    const [qx,qy]=P(px,-0.02);
+    ctx.fillStyle=C.panel2; ctx.strokeStyle=C.sub; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(qx,qy,0.03*s,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(qx,qy); ctx.lineTo(qx+Math.cos(rot)*0.03*s, qy-Math.sin(rot)*0.03*s); ctx.stroke();
+  }
+  ctx.fillStyle=C.sub; ctx.fillText("モータ", ...P(-PULLEY_X,0.07));
+  ctx.fillStyle=C.line;
+  for(const sx of [-1,1]){ const [bx,by]=P(sx*RAIL_VIS-0.01,0.04); ctx.fillRect(bx,by,0.02*s,0.1*s); }
+
+  if(!st) return;
+
+  // 目標位置
+  const xr = ui.ctl ? ui.ctl.xr : 0;
+  const [tx,ty]=P(xr,-0.075);
+  ctx.fillStyle=C.accent; ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(tx-5,ty+8); ctx.lineTo(tx+5,ty+8); ctx.fill();
+
+  // バックが見ている状態 (遅れた推定値)
+  const ctl=ui.ctl;
+  if(ctl && ctl.fbCount>0){
+    ctx.setLineDash([5,4]); ctx.strokeStyle=C.sub; ctx.lineWidth=1.5; ctx.globalAlpha=0.9;
+    drawCart(ctx,P,s,ctl.est.x,ctl.est.th,null,null);
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+  }
+  // 実状態
+  drawCart(ctx,P,s,st.x,st.th, st.enabled?C.accent:C.danger, C.amber);
+
+  // 外乱エフェクト
+  if(ui.pushFx && performance.now()<ui.pushFx.until){
+    const d=ui.pushFx.dir, L=cfg.L*0.7;
+    const [ax,ay]=P(st.x+Math.sin(st.th)*L - d*0.16, Math.cos(st.th)*L);
+    ctx.strokeStyle=C.pink; ctx.fillStyle=C.pink; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+d*0.1*s,ay); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax+d*0.13*s,ay); ctx.lineTo(ax+d*0.09*s,ay-6); ctx.lineTo(ax+d*0.09*s,ay+6); ctx.fill();
+  }
+  if(!st.enabled){
+    ctx.fillStyle=C.danger; ctx.font="bold 13px system-ui, sans-serif";
+    ctx.fillText("ドライブ遮断中", ...P(0,0.85));
+  }
+}
+function drawCart(ctx,P,s,x,th,fill,rodColor){
+  const [x0,y0]=P(x-0.07,0.035), cw=0.14*s, ch=0.07*s;
+  const [px,py]=P(x,0), [ex,ey]=P(x+Math.sin(th)*cfg.L, Math.cos(th)*cfg.L);
+  if(fill){ ctx.fillStyle=fill; ctx.fillRect(x0,y0,cw,ch); }
+  else ctx.strokeRect(x0,y0,cw,ch);
+  ctx.lineCap="round";
+  if(rodColor){ ctx.strokeStyle=rodColor; ctx.lineWidth=Math.max(4,0.02*s); }
+  ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(ex,ey); ctx.stroke();
+  ctx.lineCap="butt";
+  if(rodColor){
+    ctx.fillStyle=palette().text;
+    ctx.beginPath(); ctx.arc(px,py,Math.max(3,0.012*s),0,Math.PI*2); ctx.fill();
+  }
+}
+$("c2d").addEventListener("pointerup",e=>{
+  const r=e.currentTarget.getBoundingClientRect(), st=readState();
+  const s=Math.min(r.width/1.45, r.height/1.95);
+  const tipX = st ? r.width/2 + (st.x+Math.sin(st.th)*cfg.L*0.7)*s : r.width/2;
+  push((e.clientX-r.left) < tipX ? 1 : -1); // タップした側から押す
+});
+
+/* ---------- 3D ---------- */
+let three=null;
+function init3D(){
+  const canvas=$("c3d");
+  if(!window.THREE){ canvas.style.display="none"; $("fallback3d").style.display="block"; return; }
+  try{
+    const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+    renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+    const scene=new THREE.Scene();
+    const camera=new THREE.PerspectiveCamera(38,1,0.05,50);
+    scene.add(new THREE.HemisphereLight(0xffffff,0x444455,0.75));
+    const sun=new THREE.DirectionalLight(0xffffff,0.7); sun.position.set(1.5,3,2.5); scene.add(sun);
+
+    const metal=new THREE.MeshPhongMaterial({color:0x8a94a3,shininess:60});
+    const dark=new THREE.MeshPhongMaterial({color:0x3a414c,shininess:30});
+    const box=(w,h,d,mat,x,y,z)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); scene.add(m); return m; };
+
+    const floor=new THREE.GridHelper(2.4,24,0x55606e,0x333a44); floor.position.y=FLOOR_Y; scene.add(floor);
+    for(const sx of [-PULLEY_X,PULLEY_X]) box(0.04,-FLOOR_Y,0.12,dark,sx,FLOOR_Y/2-0.03,-0.07);
+    box(1.28,0.025,0.05,metal,0,-0.02,-0.05);
+    box(1.24,0.006,0.012,dark,0,0.01,-0.09); box(1.24,0.006,0.012,dark,0,-0.05,-0.09);
+    for(const sx of [-1,1]) box(0.02,0.1,0.1,dark,sx*RAIL_VIS,0.01,-0.05);
+    const pulleys=[-PULLEY_X,PULLEY_X].map(px=>{
+      const g=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.03,24),metal);
+      g.rotation.x=Math.PI/2; g.position.set(px,-0.02,-0.09); scene.add(g); return g;
+    });
+    const motor=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.09,24),dark);
+    motor.rotation.x=Math.PI/2; motor.position.set(-PULLEY_X,-0.02,-0.16); scene.add(motor);
+
+    const cartMat=new THREE.MeshPhongMaterial({color:0x4fd1c5,shininess:40});
+    const cart=box(0.14,0.07,0.1,cartMat,0,0,-0.02);
+    const rodMat=new THREE.MeshPhongMaterial({color:0xffb347,shininess:50});
+    const pend=new THREE.Group(); scene.add(pend);
+    const rod=new THREE.Mesh(new THREE.BoxGeometry(0.02,1,0.014),rodMat); pend.add(rod);
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.05,12),metal);
+    shaft.rotation.x=Math.PI/2; shaft.position.z=-0.02; pend.add(shaft);
+
+    const ghostMat=new THREE.MeshBasicMaterial({color:0x98a0ac,wireframe:true,transparent:true,opacity:0.55});
+    const gCart=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.07,0.1),ghostMat); scene.add(gCart);
+    const gPend=new THREE.Group(); scene.add(gPend);
+    const gRod=new THREE.Mesh(new THREE.BoxGeometry(0.02,1,0.014),ghostMat); gPend.add(gRod);
+
+    let az=0.55, ev=0.18, drag=null, moved=0;
+    canvas.addEventListener("pointerdown",e=>{ drag={x:e.clientX,y:e.clientY,az,ev}; moved=0; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener("pointermove",e=>{
+      if(!drag) return;
+      moved=Math.max(moved,Math.hypot(e.clientX-drag.x,e.clientY-drag.y));
+      az=drag.az+(e.clientX-drag.x)*0.008;
+      ev=Math.max(-0.3,Math.min(1.1,drag.ev+(e.clientY-drag.y)*0.006));
+    });
+    canvas.addEventListener("pointerup",e=>{
+      if(drag && moved<5){ const r=canvas.getBoundingClientRect(); push(e.clientX-r.left < r.width/2 ? 1 : -1); }
+      drag=null;
+    });
+    ["pointercancel","pointerleave"].forEach(n=>canvas.addEventListener(n,()=>{ drag=null; }));
+
+    three={renderer,scene,camera,cart,cartMat,pend,rod,gCart,gPend,gRod,pulleys,angles:()=>({az,ev})};
+    rebuildRod();
+  }catch(err){
+    canvas.style.display="none"; $("fallback3d").style.display="block";
+  }
+}
+function rebuildRod(){
+  if(!three) return;
+  [three.rod, three.gRod].forEach(r=>{ r.scale.y=cfg.L; r.position.y=cfg.L/2; });
+}
+function render3D(st){
+  if(!three) return;
+  const {renderer,camera,cart,cartMat,pend,gCart,gPend,pulleys}=three;
+  const c=renderer.domElement, w=c.clientWidth, h=c.clientHeight;
+  if(w && h && c.width!==Math.round(w*renderer.getPixelRatio())){
+    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+  }
+  const {az,ev}=three.angles(), R=2.7;
+  camera.position.set(Math.sin(az)*Math.cos(ev)*R, Math.sin(ev)*R, Math.cos(az)*Math.cos(ev)*R);
+  camera.lookAt(0,-0.05,0);
+  if(st){
+    cart.position.x=st.x;
+    cartMat.color.setHex(st.enabled?0x4fd1c5:0xef5b5b);
+    pend.position.set(st.x,0,0.05);
+    pend.rotation.z=-st.th;
+    pulleys.forEach(p=>p.rotation.y=st.x/0.015);
+  }
+  const ctl=ui.ctl, showGhost=!!(ctl && ctl.fbCount>0);
+  gCart.visible=gPend.visible=showGhost;
+  if(showGhost){
+    gCart.position.set(ctl.est.x,0,-0.02);
+    gPend.position.set(ctl.est.x,0,0.05); gPend.rotation.z=-ctl.est.th;
+  }
+  renderer.render(three.scene,camera);
+}
+
+/* ---------- 時系列スコープ ---------- */
+const WINDOW=10;
+function sample(st){
+  if(!st || st.t===ui.lastT) return;
+  if(st.t<ui.lastT) ui.samples.length=0;
+  ui.lastT=st.t;
+  const ctl=ui.ctl;
+  ui.samples.push({
+    t:st.t, th:LIB.wrap(st.th)*57.2958, x:st.x, V:st.V, e2e:st.e2e,
+    thE: ctl&&ctl.fbCount>0 ? ctl.est.th*57.2958 : NaN,
+    xr: ctl ? ctl.xr : NaN,
+    run: ctl ? (ctl.mode==="BALANCE"||ctl.mode==="SWINGUP") : false
+  });
+  while(ui.samples.length && ui.samples[0].t < st.t-WINDOW-0.5) ui.samples.shift();
+}
+const niceRange = (m,steps) => steps.find(v=>v>=m) ?? steps[steps.length-1];
+function drawScope(){
+  const C=palette(), {ctx,w,h}=fitCanvas($("scope"));
+  ctx.clearRect(0,0,w,h);
+  const S=ui.samples; if(!S.length) return;
+  const tEnd=S[S.length-1].t, tStart=tEnd-WINDOW;
+  const margin = ui.design ? ui.design.margin : 0;
+
+  // 倒立制御中は制御中サンプルだけでレンジを決める (リセット前の吊り下げ状態で潰れないように)
+  const thSrc = S[S.length-1].run ? S.filter(s=>s.run) : S;
+  const thMax=niceRange(Math.max(...thSrc.map(s=>Math.abs(s.th)))*1.1,[5,10,20,45,90,180]);
+  const e2eMax=niceRange(Math.max(margin*1.4, ...S.map(s=>s.run?s.e2e*1.2:0)),[10,20,50,100,150,200,300,500,1000]);
+  const lanes=[
+    { title:"振子角 θ [deg]", lo:-thMax, hi:thMax, zero:true, gapOut:true,
+      traces:[{k:"th",c:C.amber,w:2},{k:"thE",c:C.sub,w:1.3,dash:[4,3]}] },
+    { title:"台車位置 x [m]", lo:-0.5, hi:0.5, zero:true, marks:[-0.45,0.45],
+      traces:[{k:"x",c:C.accent,w:2},{k:"xr",c:C.sub,w:1.3,dash:[4,3]}] },
+    { title:"印加電圧 [V]", lo:-24, hi:24, zero:true,
+      traces:[{k:"V",c:C.violet,w:1.5}] },
+    { title:"E2E遅延 [ms]", lo:0, hi:e2eMax, marks:margin?[margin]:[], markColor:C.danger,
+      traces:[{k:"e2e",c:C.pink,w:1.8,only:"run"}] }
+  ];
+  const padL=40, padR=8, gap=8, laneH=(h-gap*(lanes.length-1))/lanes.length;
+  ctx.font="11px system-ui, sans-serif";
+  lanes.forEach((ln,i)=>{
+    const top=i*(laneH+gap), bottom=top+laneH;
+    const X=t=>padL+(t-tStart)/WINDOW*(w-padL-padR);
+    const Y=v=>bottom-(v-ln.lo)/(ln.hi-ln.lo)*(laneH-4)-2;
+    ctx.fillStyle=C.panel2; ctx.fillRect(padL,top,w-padL-padR,laneH);
+    ctx.strokeStyle=C.grid; ctx.lineWidth=1;
+    for(let g=Math.ceil(tStart);g<=tEnd;g++){ ctx.beginPath(); ctx.moveTo(X(g),top); ctx.lineTo(X(g),bottom); ctx.stroke(); }
+    if(ln.zero){ ctx.strokeStyle=C.line; ctx.beginPath(); ctx.moveTo(padL,Y(0)); ctx.lineTo(w-padR,Y(0)); ctx.stroke(); }
+    (ln.marks||[]).forEach(v=>{
+      ctx.strokeStyle=ln.markColor||C.warn; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(padL,Y(v)); ctx.lineTo(w-padR,Y(v)); ctx.stroke(); ctx.setLineDash([]);
+    });
+    ctx.fillStyle=C.sub; ctx.textAlign="right";
+    ctx.fillText(String(ln.hi),padL-5,top+10); ctx.fillText(String(ln.lo),padL-5,bottom-2);
+    ctx.textAlign="left"; ctx.fillStyle=C.text; ctx.fillText(ln.title,padL+6,top+13);
+
+    ctx.save(); ctx.beginPath(); ctx.rect(padL,top,w-padL-padR,laneH); ctx.clip();
+    for(const tr of ln.traces){
+      ctx.strokeStyle=tr.c; ctx.lineWidth=tr.w; ctx.setLineDash(tr.dash||[]);
+      ctx.beginPath(); let pen=false, prev=null;
+      for(const s of S){
+        const v=s[tr.k];
+        const ok = isFinite(v) && (!tr.only || s[tr.only])
+          && (!ln.gapOut || (v>=ln.lo && v<=ln.hi))                 // レンジ外は端に貼り付けず途切れさせる
+          && (!ln.gapOut || prev===null || Math.abs(v-prev)<180);   // ±180° の巻き戻りで線を引かない
+        if(!ok){ pen=false; prev=isFinite(v)?v:null; continue; }
+        const px=X(s.t), py=Y(Math.max(ln.lo,Math.min(ln.hi,v)));
+        pen ? ctx.lineTo(px,py) : ctx.moveTo(px,py); pen=true; prev=v;
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.restore();
+  });
+}
+
+/* ---------- 表示更新 (10Hz) ---------- */
+const MODE_LABEL={ IDLE:"IDLE 待機", SWINGUP:"SWINGUP 振り上げ中", BALANCE:"BALANCE 倒立制御中", FAULT:"FAULT 異常停止" };
+const fmt=(v,d=1,u="")=> isFinite(v) ? `${v.toFixed(d)}${u}` : "—";
+let metricsAt=0;
+function updateMetrics(st){
+  const now=performance.now(); if(now-metricsAt<100) return; metricsAt=now;
+  const ctl=ui.ctl, tel=ui.tel, ds=ui.design;
+  if(ctl){
+    const el=$("mode"); el.dataset.m=ctl.mode; el.textContent=MODE_LABEL[ctl.mode]||ctl.mode;
+    $("reason").textContent=ctl.reason||"";
+    const running=ctl.mode==="SWINGUP"||ctl.mode==="BALANCE";
+    $("btnSwing").disabled = $("btnBalance").disabled = ctl.mode!=="IDLE";
+    $("btnStop").disabled=!running;
+    $("btnClear").disabled=ctl.mode!=="FAULT";
+    $("btnClear").classList.toggle("attn",ctl.mode==="FAULT");
+    $("mFb").textContent=fmt(ctl.fbInt,1," ms");
+    $("mUp").textContent=fmt(ctl.upDelay,1," ms");
+    $("mV").textContent=fmt(st?st.V:NaN,2," V");
+    $("mCmd").textContent=`#${ctl.cmdId} / ${tel?tel.rejected:0}`;
+    $("mQ").textContent=`${tel?tel.queue:0} / ${ctl.queue}`;
+  }
+  if(tel){
+    $("mSlip").textContent=`${tel.slips} 回`;
+    $("btnInit").classList.toggle("attn",!tel.enabled);
+  }
+  if(ds){
+    $("mPole").textContent=`${ds.pole.toFixed(2)} rad/s / ${(1000/ds.pole).toFixed(0)} ms`;
+    $("mK").textContent=ds.K.map(k=>k.toFixed(1)).join(", ");
+  }
+  // 遅延予算: 縦線(理論余裕)を 2/3 の位置に固定
+  const margin=ds?ds.margin:0, running=ctl&&(ctl.mode==="BALANCE"||ctl.mode==="SWINGUP");
+  const e2e = running && ctl.e2eEst>0 ? ctl.e2eEst : NaN;
+  $("bE2e").textContent=fmt(e2e,0," ms");
+  $("bMargin").textContent=margin?`${margin} ms`:"—";
+  const full=margin*1.5, fill=$("bFill");
+  fill.style.width = isFinite(e2e)&&full ? `${Math.min(100,e2e/full*100)}%` : "0%";
+  const ratio = isFinite(e2e)&&margin ? e2e/margin : 0;
+  fill.dataset.lv = ratio>=1 ? "danger" : ratio>=0.7 ? "warn" : "ok";
+  $("bMax").textContent=full?`${full.toFixed(0)} ms`:"—";
+  $("bNote").textContent = cfg.predict ? "予測補償中 — 縦線は補償なしの理論値"
+    : !running ? "制御中のみ計測" : ratio>=1 ? "理論余裕を超過 — 外乱で転倒しやすい" : "縦線が理論遅延余裕";
+}
+
+/* ---------- メインループ: 読んで描くだけ ---------- */
+function frame(){
+  const st=readState();
+  sample(st);
+  draw2D(st);
+  render3D(st);
+  drawScope();
+  updateMetrics(st);
+  requestAnimationFrame(frame);
+}
+
+syncControls();
+init3D();
+requestAnimationFrame(frame);
+boot().catch(err=>{
+  $("reason").textContent=`起動に失敗しました: ${err.message}`;
+  addLog("error",`起動失敗: ${err.message}`,"system");
+});
+
+</script>
+</body>
+</html>
