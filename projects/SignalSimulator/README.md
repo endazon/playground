@@ -98,4 +98,4 @@ DebuggingConsole が読み込む DLL は別ディレクトリに出力される�
 | ブランチ | 内容 |
 | --- | --- |
 | `archive/SignalSimulator/BinaryEditorBzForQt` | 2022-05 の master から分岐し 2 コミット（master 最終コミットは含まない）。Bz の Qt 移植着手（`BinaryEditorBz/qt/`、アドレス付きテキストビューア）と、複数スレッドからの呼び出し異常の修正（`SimulatorListDialog` の行削除処理など） |
-| `archive/SignalSimulator/pr-1-inverted-pendulum-sil-simulator` | PR #1（CLOSED・未マージ、2026-09-17）の 3 コミット。`InvertedPendulumSil/` に台車型倒立振子の SIL シミュレータを新規追加（.NET 10、Blazor WebAssembly のプラント ＋ ASP.NET Core のコントローラを SignalR で接続、LQR・スイングアップ、単体・結合・Playwright E2E テスト、Docker 構成） |
+| `archive/SignalSimulator/pr-1-inverted-pendulum-sil-simulator` | PR #1（CLOSED・未マージ、2026-09-17）の 3 コミット。`InvertedPendulumSil/` に台車型倒立振子の SIL シミュレータを新規追加（.NET 10、Blazor WebAssembly のプラント ＋ ASP.NET Core のコントローラを SignalR で接続、LQR・スイングアップ、単体・結合・Playwright E2E テスト、Docker 構成）。整理のうえ [`projects/InvertedPendulumSil`](../InvertedPendulumSil/README.md) として移設済みのため、このブランチは記録用 |

@@ -1,0 +1,152 @@
+@* 設計メモ。実装と一緒に配布したい判断の記録なので、README ではなく画面にも置いている。 *@
+<details class="memo">
+    <summary>設計メモ — 台車型倒立振子の純 SIL 構成</summary>
+    <div class="arch">
+        <h3>全体構成</h3>
+        <pre>┌─ バックエンド (ASP.NET Core) ── コントローラ ───────────┐
+│  状態機械 IDLE → SWINGUP → BALANCE / FAULT               │
+│  状態推定: パルス → 位置 / 差分+LPF で速度               │
+│  離散LQR (帰還周期で再設計) / エネルギー法スイングアップ │
+│  予測器(任意) / 転倒・ソフトリミット監視 / ウォッチドッグ│
+│  接続ごとに 1 本の制御ループ (Channel で直列化)          │
+└────────────────┬─────────────────────────┘
+   VoltageCommand (下り) │ │ EncoderFeedback (上り)
+   帰還受信ごとに1回     │ │ 周期可変 1〜100ms + MotionEvent 即時
+┌────────────────┴─────────────────────────┐
+│  SignalR Hub (MessagePack) + 遅延線エミュレータ           │
+└────────────────┬─────────────────────────┘
+┌────────────────┴─────────────────────────┐
+│─ Blazor WASM ── プラント (仮想ハードウェア) ────────────│
+│  1ms 固定ステップ RK4 (Stopwatch 基準の追いつき方式)      │
+│     台車+振子の非線形モデル / DCモータ(逆起電力)         │
+│     エンコーダ量子化 / メカストッパ                       │
+│     ドライブ保護: 非常停止・リミット・指令タイムアウト    │
+│               ↓ 50Hz で状態を push                       │
+│  [JS モジュール] rAF → 描画のみ (2D / 3D / スコープ)      │
+└──────────────────────────────────────────┘</pre>
+        <p>
+            前回の搬送機シミュレータの原則「バックは自分の指令が実行された前提で動かない」はそのまま維持しています。
+            変わったのは、指令が位置決め1回ではなく<b>帰還1回ごとの電圧指令</b>になり、制御ループ全体が通信路をまたいだ点です。
+        </p>
+
+        <h3>前回設計からの変更点</h3>
+        <div class="tw">
+            <table>
+                <thead>
+                    <tr><th>項目</th><th>搬送機 (前回)</th><th>倒立振子 (今回)</th><th>理由</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>下り指令</td><td><code>MoveCommand</code> を動作開始時に1回</td><td><code>VoltageCommand</code> を帰還受信ごと</td><td>純SILではバックが操作量そのものを決める</td></tr>
+                    <tr><td>帰還周期</td><td>100ms 固定</td><td>1〜100ms 可変 (既定 5ms)</td><td>周期は遅延余裕に直結するため実験パラメータにする</td></tr>
+                    <tr><td>ドライブ側保護</td><td>強制停止フラグ</td><td>非常停止 / メカリミット / 指令タイムアウト / 無効中の指令拒否</td><td>通信が途絶えても電圧を出し続けないことをプラント単独で保証する</td></tr>
+                    <tr><td>帰還の世代</td><td>CommandId のみ</td><td>CommandId + <code>epoch</code> (リセット世代)</td><td>リセット直後に古い計測値で転倒判定する競合を防ぐ</td></tr>
+                    <tr><td>時刻</td><td>—</td><td>全メッセージに計測時刻 <code>t</code> と基準計測時刻 <code>basedOn</code></td><td>E2E遅延を実測し、予測器と遅延予算表示に使う</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>通信プロトコル</h3>
+        <div class="tw">
+            <table>
+                <thead>
+                    <tr><th>向き</th><th>メッセージ</th><th>内容</th><th>送信タイミング</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>下り</td><td><code>VoltageCommand</code></td><td>cmdId, seq, 電圧, basedOn(元にした計測時刻)</td><td>帰還を受信して制御計算した直後</td></tr>
+                    <tr><td>下り</td><td><code>AbortCommand</code></td><td>cmdId</td><td>停止・異常時</td></tr>
+                    <tr><td>上り</td><td><code>EncoderFeedback</code></td><td>seq, cmdId, 計測時刻, 台車パルス, 振子パルス, E2E遅延, ドライブ有効, epoch</td><td>帰還周期ごと</td></tr>
+                    <tr><td>上り</td><td><code>MotionEvent</code></td><td>ESTOP / LIMIT / CMD_TIMEOUT / DRIVE_DISABLED + パルス</td><td>即時 (通信遅延は受ける)</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p>
+            プラントは <code>cmdId</code> が現行より古い指令と、<code>seq</code> が逆行した指令を破棄します。
+            ドライブ無効中に新しい <code>cmdId</code> が来た場合はそのセッションごと拒否し、
+            <code>DRIVE_DISABLED</code> をバックへ通知します。
+        </p>
+        <p>
+            E2E遅延だけはプラント側で測っています。<code>basedOn</code> は自分が付けた計測時刻なので、
+            <code>受信時刻 - basedOn</code> は同じ時計の差になり、サーバとブラウザの時計ズレの影響を受けません。
+            一方で「上り遅延」は 2 台の時計をまたぐため、NTP 方式のクロック同期で求めたオフセットを補正してから表示しています。
+        </p>
+
+        <h3>状態機械</h3>
+        <div class="tw">
+            <table>
+                <thead><tr><th>状態</th><th>動作</th><th>遷移</th></tr></thead>
+                <tbody>
+                    <tr><td>IDLE</td><td>指令を出さない</td><td>開始操作で CommandId を払い出して SWINGUP / BALANCE へ</td></tr>
+                    <tr><td>SWINGUP</td><td>エネルギー法 + 台車の中央復帰項</td><td>|θ| &lt; 0.3rad かつ |θ̇| &lt; 4rad/s で BALANCE へ</td></tr>
+                    <tr><td>BALANCE</td><td>離散LQR (予測器は任意)</td><td>|θ| &gt; 0.6rad、|x| &gt; 0.45m、帰還途絶、MotionEvent で FAULT へ</td></tr>
+                    <tr><td>FAULT</td><td>AbortCommand を送って停止</td><td>異常リセット操作でのみ IDLE へ (開始操作は受け付けない)</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>遅延余裕 — 純 SIL が成立する条件</h3>
+        <p>
+            倒立点の不安定極 λ は振子が短いほど大きくなり、許容できるループ遅延はおおむね 1/λ のオーダーに縮みます。
+            バック側は帰還周期・速度推定フィルタ・任意遅延を含めた線形閉ループを 1ms 刻みで模擬し、
+            発散しない最大遅延を二分探索して「理論遅延余裕」として表示します。
+        </p>
+        <div class="tw">
+            <table>
+                <thead>
+                    <tr><th>振子長</th><th>不安定極</th><th>周期 1ms</th><th>5ms</th><th>20ms</th><th>50ms</th><th>100ms</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>0.3 m</td><td class="n">7.5 rad/s</td><td class="n">58 ms</td><td class="n">57 ms</td><td class="n">52 ms</td><td class="n">41 ms</td><td class="n">35 ms</td></tr>
+                    <tr><td>0.6 m</td><td class="n">5.3 rad/s</td><td class="n">86 ms</td><td class="n">85 ms</td><td class="n">80 ms</td><td class="n">68 ms</td><td class="n">59 ms</td></tr>
+                    <tr><td>1.0 m</td><td class="n">4.1 rad/s</td><td class="n">110 ms</td><td class="n">109 ms</td><td class="n">105 ms</td><td class="n">95 ms</td><td class="n">86 ms</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p>
+            この表は <code>Ip.Shared.Tests</code> の <code>DelayMarginTests</code> が計算して検証しています。
+            さらに仮想時間の結合テスト (振子長 0.6m、周期 5ms、外乱あり) では、往復 80ms まで倒立を維持し、
+            90ms で転倒しました。理論値 85ms と整合しています。予測器を有効にすると往復 140ms でも維持できました。
+        </p>
+        <div class="warnbox">
+            この表が示すとおり、前回設計の「帰還 100ms 固定」は、長い振子なら LAN 内でぎりぎり成立します。
+            一方で、短い振子やインターネット越しの SignalR では余裕を超えます。
+            実機へ移行する際は、安定化ループをドライブ(組み込み側)に置き、バックは目標値とモード管理に専念する階層型に切り替えるべきです。
+            このシミュレータは、その判断を数値で裏付けるための実験台という位置づけです。
+        </div>
+
+        <h3>監視の多重化</h3>
+        <div class="tw">
+            <table>
+                <thead><tr><th>層</th><th>検知</th><th>守るもの</th></tr></thead>
+                <tbody>
+                    <tr><td>バック</td><td>転倒 (|θ|)、ソフトリミット (|x|)、ウォッチドッグ (max(300ms, 3×周期))、旧セッションのイベント破棄</td><td>制御ロジックの前提が崩れたことの検知</td></tr>
+                    <tr><td>プラント(ドライブ)</td><td>非常停止、メカリミット、指令タイムアウト 500ms、無効中の指令拒否</td><td>通信・バックが死んでも電圧を出し続けないこと</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>通信路エミュレーション</h3>
+        <ul>
+            <li>SignalR は WebSocket (TCP) 上で動くため、パケットは欠落せず順序も保たれます。損失は再送による遅延スパイクとして現れるので、「スパイク率」で +150ms の遅延を注入し、追い越しは禁止しています。</li>
+            <li>遅延は送信側 (上りはブラウザ、下りはサーバ) のキューとして実装しています。実ネットワークの遅延はそこに上乗せされるので、同一マシンで動かせば「注入した遅延 ≒ 実測 E2E 遅延」になります。</li>
+            <li>プラントは 1ms ステップをまとめて進めるため、計測時刻は送信処理の時刻ではなく積分ステップの時刻を使います。</li>
+        </ul>
+
+        <h3>実装上の注意</h3>
+        <ul>
+            <li>固定ステップループは <code>System.Threading.Timer</code> に依存させず、<code>Stopwatch</code> 基準で「何 ms 経ったか」を測って必要なステップ数だけ進めます。ブラウザのタイマは最小間隔も精度も保証されないためです。</li>
+            <li>物理モデル・LQR設計・遅延余裕計算・プロトコルは共有クラスライブラリ <code>Ip.Shared</code> に置いています。プラントとコントローラが同じコードを使うので、結合テストを xUnit でそのまま書けます。</li>
+            <li>SignalR の Hub メソッドは受信したものを Channel に積むだけにして、制御計算は接続ごとの単一ループで行います。Hub の呼び出しスレッドで重い処理をすると他の接続の受信まで遅れるためです。</li>
+            <li>マルチスレッド (<code>WasmEnableThreads</code>) と <code>SharedArrayBuffer</code> には COOP/COEP ヘッダが必要です。<code>Sil:CrossOriginIsolation</code> で配信できるようにしてありますが、既定は無効です (描画は JS 側の rAF に逃がしてあり、スレッドを使わなくても制御ループは乱れません)。</li>
+            <li>物理モデルは実時間に同期させています。そのため積分刻みは決定的ですが、通信タイミングは実行ごとに揺らぎます。完全な再現性が要るときは、同じ <code>ControllerCore</code> と <code>VirtualPlant</code> を仮想時間で回す <code>SilHarness</code> (テスト側) を使います。</li>
+        </ul>
+
+        <h3>おすすめの実験手順</h3>
+        <ul>
+            <li>「倒立から開始」で倒立させ、通信遅延を少しずつ上げながら外乱を加え、遅延予算バーが縦線を越えるあたりで倒れることを確かめる</li>
+            <li>予測器を有効にして同じ遅延で倒れにくくなることを確かめ、次にジッタを増やして予測がずれる様子を見る</li>
+            <li>振子長を 0.3m にして、理論遅延余裕が縮むことを確かめる</li>
+            <li>「前回設計」プリセットで 100ms 周期でも倒立する条件と、振子長を短くしたときに崩れる条件を比べる</li>
+            <li>非常停止のあと「異常リセット」(バック側の確認)だけ行って開始すると、プラントが DRIVE_DISABLED で拒否し、バックが再び FAULT に落ちることを確かめる。「プラント初期化」(現場側の復帰)で再開できる</li>
+        </ul>
+    </div>
+</details>
