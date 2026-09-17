@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{98A1A2EF-8258-4484-84EB-2901568125C3}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>CommandGenerator</RootNamespace>
+    <AssemblyName>CommandGenerator</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Target\01_Common\Extension\MyExtensionClass.cs" />
+    <Compile Include="Target\01_Common\Range\Range.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\Interface\IInput.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputDecimal.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputFile.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputHexadecimal.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputSelection.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Adapter\target\InputString.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Facade\Searcher.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Strategy\Interface\ILayout.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Strategy\MyLayoutClass.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Strategy\target\HorizontalityLayout.cs" />
+    <Compile Include="Target\02_Utility\InputDisplay\Strategy\target\VerticalLayout.cs" />
+    <Compile Include="Target\11_ListSetting\Interface\IListSetting.cs" />
+    <Compile Include="Target\11_ListSetting\Interface\target\ListSetting.cs" />
+    <Compile Include="Target\12_Mode\02_Communication\FormCommunicationDsplay.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\12_Mode\02_Communication\FormCommunicationDsplay.Designer.cs">
+      <DependentUpon>FormCommunicationDsplay.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\Class\Com\TcpClient.cs" />
+    <Compile Include="Target\Class\Display\InputScreen.cs" />
+    <Compile Include="Target\Class\FileOperation\CsvFile.cs" />
+    <Compile Include="Target\Class\FileOperation\JsonFile.cs" />
+    <Compile Include="Target\Class\Storage\CommandCsvStorage.cs" />
+    <Compile Include="Target\Class\Storage\CommandJsonStorage.cs" />
+    <Compile Include="Target\Class\Storage\InputScreenStorage.cs" />
+    <Compile Include="Target\12_Mode\02_Communication\FormCommunication.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\12_Mode\02_Communication\FormCommunication.Designer.cs">
+      <DependentUpon>FormCommunication.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\12_Mode\02_Communication\_FormCommunicationDsplay.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\12_Mode\02_Communication\_FormCommunicationDsplay.Designer.cs">
+      <DependentUpon>_FormCommunicationDsplay.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\12_Mode\01_Generate\FormGenerate.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\12_Mode\01_Generate\FormGenerate.Designer.cs">
+      <DependentUpon>FormGenerate.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\02_Utility\FormInputTextBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\02_Utility\FormInputTextBox.Designer.cs">
+      <DependentUpon>FormInputTextBox.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\FormMain.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\FormMain.Designer.cs">
+      <DependentUpon>FormMain.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\12_Mode\FormEdit.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\12_Mode\FormEdit.Designer.cs">
+      <DependentUpon>FormEdit.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Target\11_ListSetting\Form\FormMain.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Target\11_ListSetting\Form\FormMain.Designer.cs">
+      <DependentUpon>FormMain.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Settings.cs" />
+    <EmbeddedResource Include="Target\12_Mode\02_Communication\_FormCommunicationDsplay.resx">
+      <DependentUpon>_FormCommunicationDsplay.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Target\12_Mode\01_Generate\FormGenerate.resx">
+      <DependentUpon>FormGenerate.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Target\02_Utility\FormInputTextBox.resx">
+      <DependentUpon>FormInputTextBox.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Target\FormMain.resx">
+      <DependentUpon>FormMain.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Target\12_Mode\FormEdit.resx">
+      <DependentUpon>FormEdit.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Target\11_ListSetting\Form\FormMain.resx">
+      <DependentUpon>FormMain.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>PublicSettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Target\11_ListSetting\Class\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WinFormsCtrlLibInputScreen\WinFormsCtrlLibInputScreen.csproj">
+      <Project>{677D0BD5-DA1E-4F0D-AAD3-B42B0E6519E7}</Project>
+      <Name>WinFormsCtrlLibInputScreen</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

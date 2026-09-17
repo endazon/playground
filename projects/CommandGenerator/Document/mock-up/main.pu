@@ -1,0 +1,35 @@
+@startuml
+(*) --> "
+{{
+salt
+
+{+
+Command
+{* File }
+{#
+Command1       
+Command2
+...
+}
+}
+
+}}
+" as main
+
+main -right-> "
+{{
+salt
+
+{+
+Detail
+{#
+Detail1|param1       
+Detail2|param2
+...
+}
+}
+
+}}
+"
+
+@enduml
