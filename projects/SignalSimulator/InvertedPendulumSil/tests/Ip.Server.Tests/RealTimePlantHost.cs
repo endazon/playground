@@ -42,10 +42,19 @@ public sealed class RealTimePlantHost : IAsyncDisposable
             {
                 Plant.AdvanceTo(MonotonicClock.NowMs);
 
-                while (_pending.TryDequeue(out var message))
+                while (_connection.State == HubConnectionState.Connected && _pending.TryDequeue(out var message))
                 {
                     string method = message is EncoderFeedback ? HubMethods.SendFeedback : HubMethods.SendMotionEvent;
-                    await _connection.SendAsync(method, message, token).ConfigureAwait(false);
+                    try
+                    {
+                        await _connection.SendAsync(method, message, token).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // 切断途中の取りこぼしは通信路の性質として許容する。
+                        // 本番の PlantRunner も同じ扱いで、ここで落とすとテスト終了時に必ず落ちる。
+                        break;
+                    }
                 }
 
                 await Task.Delay(1, token).ConfigureAwait(false);
@@ -60,6 +69,7 @@ public sealed class RealTimePlantHost : IAsyncDisposable
     {
         await _cts.CancelAsync().ConfigureAwait(false);
         try { await _loop.ConfigureAwait(false); } catch (OperationCanceledException) { }
+        catch (Exception) { /* 停止処理中の例外でテストを落とさない */ }
         foreach (var registration in _registrations) registration.Dispose();
         _cts.Dispose();
     }

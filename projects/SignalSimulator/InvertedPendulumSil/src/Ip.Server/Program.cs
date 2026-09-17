@@ -3,6 +3,12 @@ using Ip.Server.Sessions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Blazor WASM クライアントの静的アセット (index.html を含む) は、既定では
+// Development 環境でしか合成されない。Release で `dotnet run` したときに
+// index.html が 404 になるのを防ぐため、環境によらず明示的に読み込む。
+// publish 済みの構成ではマニフェストが存在しないので何も起きない。
+builder.WebHost.UseStaticWebAssets();
+
 builder.Services.AddSingleton<ControllerSessionManager>();
 builder.Services
     .AddSignalR(options =>

@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/playwright-report/
+**/test-results/
+**/.vs/
+**/.vscode/
+**/*.user
+.git/
+.gitignore

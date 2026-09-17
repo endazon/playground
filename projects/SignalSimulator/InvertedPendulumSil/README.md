@@ -33,18 +33,57 @@
 
 ## 動かす
 
+### .NET SDK で動かす
+
 ```bash
 dotnet run --project src/Ip.Server
 # http://localhost:5210 を開く
 ```
 
 `Ip.Server` が Blazor WASM クライアントをホストするので、起動するプロセスは 1 つだけです。
+.NET 10 SDK が必要です。
+
+### Docker で動かす
 
 ```bash
-dotnet test        # 全テスト (単体 + 仮想時間の結合 + SignalR 経由の実時間結合)
+docker compose up --build      # http://localhost:5210
 ```
 
-.NET 10 SDK が必要です。
+`Dockerfile` は 3 つのターゲットを持ちます。
+
+| ターゲット | 用途 |
+| --- | --- |
+| `runtime` (既定) | publish 済みのアプリを `mcr.microsoft.com/dotnet/aspnet` 上で動かす。非 root 実行、`/healthz` のヘルスチェック付き |
+| `build` | Blazor WASM クライアントごと `dotnet publish` する中間段 |
+| `test` | `docker build --target test .` で .NET のテストを全部走らせる |
+
+TLS を傍受する企業プロキシの下でビルドする場合は、その CA 証明書を `docker/ca/*.crt` に
+置いてください (`docker/ca/README.md`)。ビルドの最初の段で信頼ストアに取り込まれます。
+
+## テスト
+
+3 つの層に分かれています。下に行くほど本物に近く、遅くなります。
+
+```bash
+dotnet test                                    # 1) 単体 + 2) 仮想時間の結合 + 3) 実時間の SignalR 結合
+cd e2e && npm ci && npx playwright test        # 4) ブラウザ結合 (Playwright)
+docker compose --profile e2e up --build \
+  --abort-on-container-exit --exit-code-from e2e   # 4) をコンテナ同士で実行
+```
+
+| 層 | 場所 | 何を確かめるか |
+| --- | --- | --- |
+| 単体 | `tests/Ip.Shared.Tests` | 行列指数・ZOH 離散化・離散 LQR・非線形モデルのエネルギー保存・遅延余裕の表 |
+| 仮想時間の結合 | `tests/Ip.Shared.Tests/SilHarness.cs` | プラント ↔ 遅延線 ↔ コントローラをロックステップで回し、遅延と倒立維持の境界を再現性のある形で検証 |
+| 実時間の結合 | `tests/Ip.Server.Tests` | 実際の SignalR + MessagePack を通して、サーバの制御ループが 5ms 周期に追従できるか |
+| ブラウザ結合 | `e2e/` | 実際の Chromium で Blazor WASM を起動し、操作・表示・保護動作・遅延の効き方を確認 |
+
+Playwright はローカル実行時、`BASE_URL` が無ければ自分で `dotnet run` してアプリを立ち上げます。
+`BASE_URL` を渡せば、すでに動いているアプリ (compose の `app` サービスなど) を相手にします。
+
+> プラントは実時間で動くため、E2E は必ず 1 ワーカーで直列に実行します。
+> 並列にすると CPU の奪い合いで制御ループの追従が乱れ、
+> 「遅延のせいで倒れた」のか「テスト環境が遅かった」のか区別できなくなります。
 
 ## プロジェクト構成
 
@@ -55,6 +94,8 @@ dotnet test        # 全テスト (単体 + 仮想時間の結合 + SignalR 経�
 | `src/Ip.Client` | Blazor WASM のプラントホストと UI (描画は JS モジュール) |
 | `tests/Ip.Shared.Tests` | 数値計算・物理・保護動作の単体テストと、仮想時間の結合テスト |
 | `tests/Ip.Server.Tests` | 実際の SignalR + MessagePack を通した実時間の結合テスト |
+| `e2e` | Playwright によるブラウザ結合テスト |
+| `Dockerfile` / `compose.yaml` | コンテナでのビルド・実行・テスト |
 
 制御ロジックとプラントを `Ip.Shared` に置いているのが要点です。
 アプリ (実時間) とテスト (仮想時間) が**同じコード**を動かすので、
@@ -132,6 +173,10 @@ dotnet test        # 全テスト (単体 + 仮想時間の結合 + SignalR 経�
   損失は再送による遅延スパイクとして現れるため、+150ms の注入と追い越し禁止で模擬しています。
 - **`SharedArrayBuffer` / `WasmEnableThreads` は使っていません。** 必要なら
   `Sil:CrossOriginIsolation` を `true` にすると COOP/COEP ヘッダを配信できます。
+- **静的アセットは `MapStaticAssets` で配信しています。** `_framework/*` は指紋付きで
+  配信されるため、ファイル名で引く `UseStaticFiles` では解決できません。
+  また Blazor WASM クライアントのアセットは既定では Development でしか合成されないので、
+  `UseStaticWebAssets()` を明示的に呼んでいます (publish 済み構成では何も起きません)。
 
 ## 今後
 

@@ -32,24 +32,26 @@
 
     <div class="panel">
         <div class="statusbar">
-            <span class="mode" data-m="@ModeKey">@ModeLabel</span>
-            <span class="reason">@StatusReason</span>
+            <span class="mode" data-m="@ModeKey" data-testid="mode">@ModeLabel</span>
+            <span class="reason" data-testid="reason">@StatusReason</span>
             <span class="badges">
-                <span class="badge @(Runner.Link == LinkState.Connected ? "" : "warn")">通信: @Runner.LinkDetail</span>
+                <span class="badge @(Runner.Link == LinkState.Connected ? "" : "warn")" data-testid="link">通信: @Runner.LinkDetail</span>
                 <span class="badge">時計同期: RTT @Fmt(Runner.ClockRoundTripMs, 1, " ms") / 補正 @Fmt(Runner.ClockOffsetMs, 0, " ms")</span>
             </span>
         </div>
 
         <div class="row">
-            <button disabled="@(!CanStart)" @onclick="@(() => Runner.OperateAsync(OperatorAction.SwingUp))">スイングアップ開始</button>
-            <button class="ghost" disabled="@(!CanStart)" @onclick="Runner.StartFromUprightAsync">倒立から開始</button>
-            <button class="ghost" disabled="@(!IsRunning)" @onclick="@(() => Runner.OperateAsync(OperatorAction.Stop))">停止</button>
-            <button class="ghost @(IsFaulted ? "attn" : "")" disabled="@(!IsFaulted)" @onclick="@(() => Runner.OperateAsync(OperatorAction.ClearFault))">異常リセット</button>
-            <button class="ghost @(Runner.Telemetry.DriveEnabled ? "" : "attn")" @onclick="Runner.InitializePlantAsync">プラント初期化</button>
+            <button data-testid="btn-swingup" disabled="@(!CanStart)" @onclick="@(() => Runner.OperateAsync(OperatorAction.SwingUp))">スイングアップ開始</button>
+            <button data-testid="btn-balance" class="ghost" disabled="@(!CanStart)"
+                    title="プラントを倒立姿勢に初期化してから開始します (ドライブ無効状態もここで解除されます)"
+                    @onclick="Runner.StartFromUprightAsync">倒立から開始</button>
+            <button data-testid="btn-stop" class="ghost" disabled="@(!IsRunning)" @onclick="@(() => Runner.OperateAsync(OperatorAction.Stop))">停止</button>
+            <button data-testid="btn-clear" class="ghost @(IsFaulted ? "attn" : "")" disabled="@(!IsFaulted)" @onclick="@(() => Runner.OperateAsync(OperatorAction.ClearFault))">異常リセット</button>
+            <button data-testid="btn-init" class="ghost @(Runner.Telemetry.DriveEnabled ? "" : "attn")" @onclick="Runner.InitializePlantAsync">プラント初期化</button>
             <span class="sep"></span>
-            <button class="ghost" aria-label="振子を左へ押す" @onclick="@(() => PushAsync(-1))">◀ 外乱</button>
-            <button class="ghost" aria-label="振子を右へ押す" @onclick="@(() => PushAsync(1))">外乱 ▶</button>
-            <button class="estop" @onclick="Runner.EmergencyStop">非常停止</button>
+            <button data-testid="btn-push-left" class="ghost" aria-label="振子を左へ押す" @onclick="@(() => PushAsync(-1))">◀ 外乱</button>
+            <button data-testid="btn-push-right" class="ghost" aria-label="振子を右へ押す" @onclick="@(() => PushAsync(1))">外乱 ▶</button>
+            <button data-testid="btn-estop" class="estop" @onclick="Runner.EmergencyStop">非常停止</button>
         </div>
 
         <div class="split">
@@ -58,20 +60,20 @@
                 <div class="presets" role="group" aria-label="プリセット">
                     @foreach (var (key, preset) in Presets)
                     {
-                        <button class="ghost" @onclick="@(() => ApplyPresetAsync(preset))">@key</button>
+                        <button class="ghost" data-testid="preset" @onclick="@(() => ApplyPresetAsync(preset))">@key</button>
                     }
                 </div>
 
                 <div class="sliders">
                     <label class="sl">
-                        帰還周期 <output>@Periods[_periodIndex] ms</output>
-                        <input type="range" min="0" max="@(Periods.Length - 1)" step="1" value="@_periodIndex"
-                               @oninput="OnPeriodChangedAsync" />
+                        帰還周期 <output data-testid="value-period">@Periods[_periodIndex] ms</output>
+                        <input type="range" data-testid="slider-period" min="0" max="@(Periods.Length - 1)" step="1"
+                               value="@_periodIndex" @oninput="OnPeriodChangedAsync" />
                         <small>変更するとバック側で離散LQRを再設計</small>
                     </label>
                     <label class="sl">
                         通信遅延(片道) <output>@_latency.ToString("F0") ms (往復 @((_latency * 2).ToString("F0")) ms)</output>
-                        <input type="range" min="0" max="150" step="1" value="@_latency"
+                        <input type="range" data-testid="slider-latency" min="0" max="150" step="1" value="@_latency"
                                @oninput="@(e => OnNetworkSliderAsync(e, v => _latency = v))" />
                     </label>
                     <label class="sl">
@@ -92,7 +94,7 @@
                     </label>
                     <label class="sl">
                         振子長 <output>@_length.ToString("F2") m</output>
-                        <input type="range" min="0.3" max="0.8" step="0.05" value="@_length"
+                        <input type="range" data-testid="slider-length" min="0.3" max="0.8" step="0.05" value="@_length"
                                @oninput="OnLengthChangedAsync" />
                     </label>
                     <label class="sl">
@@ -103,7 +105,7 @@
                 </div>
 
                 <label class="toggle">
-                    <input type="checkbox" checked="@_predict" @onchange="OnPredictChangedAsync" />
+                    <input type="checkbox" data-testid="toggle-predictor" checked="@_predict" @onchange="OnPredictChangedAsync" />
                     遅延補償(予測器)を使う — 計測済みの E2E 遅延ぶん先の状態を予測して制御
                 </label>
             </div>
@@ -112,26 +114,26 @@
                 <div class="budget">
                     <div class="budget-head">
                         <span>遅延予算 (計測→指令適用)</span>
-                        <span class="num"><b>@Fmt(E2eMs, 0, " ms")</b> / 余裕 <b>@(MarginMs > 0 ? $"{MarginMs} ms" : "—")</b></span>
+                        <span class="num"><b data-testid="budget-e2e">@Fmt(E2eMs, 0, " ms")</b> / 余裕 <b data-testid="budget-margin">@(MarginMs > 0 ? $"{MarginMs} ms" : "—")</b></span>
                     </div>
                     <div class="track">
-                        <div class="fill" data-lv="@FillLevel" style="width:@FillPercent.ToString("F1")%"></div>
+                        <div class="fill" data-testid="budget-fill" data-lv="@FillLevel" style="width:@FillPercent.ToString("F1")%"></div>
                         <div class="marker" title="理論遅延余裕"></div>
                     </div>
                     <div class="budget-foot">
                         <span>0</span>
-                        <span>@BudgetNote</span>
+                        <span data-testid="budget-note">@BudgetNote</span>
                         <span>@(BudgetFull > 0 ? $"{BudgetFull:F0} ms" : "—")</span>
                     </div>
                 </div>
 
                 <div class="metrics">
-                    <div class="metric"><span>実測帰還周期</span><b>@Fmt(Controller?.FeedbackIntervalMs ?? double.NaN, 1, " ms")</b></div>
-                    <div class="metric"><span>上り遅延(計測→バック受信)</span><b>@Fmt(Controller?.UplinkDelayMs ?? double.NaN, 1, " ms")</b></div>
-                    <div class="metric"><span>不安定極 / 時定数</span><b>@PoleText</b></div>
-                    <div class="metric"><span>LQR ゲイン K</span><b style="font-size:11.5px">@GainText</b></div>
-                    <div class="metric"><span>指令電圧</span><b>@Fmt(Runner.Telemetry.Volts, 2, " V")</b></div>
-                    <div class="metric"><span>CommandId / 破棄した指令</span><b>#@(Controller?.CommandId ?? 0) / @Runner.Telemetry.RejectedCommands</b></div>
+                    <div class="metric"><span>実測帰還周期</span><b data-testid="metric-feedback-interval">@Fmt(Controller?.FeedbackIntervalMs ?? double.NaN, 1, " ms")</b></div>
+                    <div class="metric"><span>上り遅延(計測→バック受信)</span><b data-testid="metric-uplink-delay">@Fmt(Controller?.UplinkDelayMs ?? double.NaN, 1, " ms")</b></div>
+                    <div class="metric"><span>不安定極 / 時定数</span><b data-testid="metric-pole">@PoleText</b></div>
+                    <div class="metric"><span>LQR ゲイン K</span><b data-testid="metric-gain" style="font-size:11.5px">@GainText</b></div>
+                    <div class="metric"><span>指令電圧</span><b data-testid="metric-volts">@Fmt(Runner.Telemetry.Volts, 2, " V")</b></div>
+                    <div class="metric"><span>CommandId / 破棄した指令</span><b data-testid="metric-command">#@(Controller?.CommandId ?? 0) / @Runner.Telemetry.RejectedCommands</b></div>
                     <div class="metric"><span>送信待ち(上り/下り)</span><b>@Runner.Telemetry.UplinkQueueLength / @(Controller?.DownlinkQueueLength ?? 0)</b></div>
                     <div class="metric"><span>時間スリップ</span><b>@Runner.Telemetry.TimeSlips 回</b></div>
                 </div>
@@ -146,7 +148,7 @@
 
     <div class="panel">
         <p class="group-title">イベントログ</p>
-        <ul class="log">
+        <ul class="log" data-testid="log">
             @if (Runner.Logs.Count == 0)
             {
                 <li class="empty">まだイベントはありません。「スイングアップ開始」か「倒立から開始」を押してください。</li>
