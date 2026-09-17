@@ -420,6 +420,8 @@
         _latency = preset.Latency;
         _jitter = preset.Jitter;
         _spike = preset.Spike;
+        Runner.NoteOperation(
+            $"プリセット「{Presets.First(p => p.Value.Key == preset.Key).Label}」を適用: 周期 {Periods[_periodIndex]} ms, 片道 {_latency:0} ms, ジッタ {_jitter:0} ms, スパイク {_spike:0.0} %");
         return ApplyNetworkAsync();
     }
 

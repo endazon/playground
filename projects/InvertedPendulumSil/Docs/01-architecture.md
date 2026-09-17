@@ -57,6 +57,7 @@
 | `Control` | `LinearizedModel`, `ControllerCore`, `SwingUpController`, `VelocityEstimator`, `DelayMarginAnalyzer` | 倒立点まわりの線形化、状態機械と制御則、エネルギー法スイングアップ、差分+LPF の速度推定、遅延余裕の二分探索 |
 | `Protocol` | `Messages`, `ClockSynchronizer` | 上下りメッセージ定義、受信値の矯正 (`Sanitize`)、NTP 方式のクロック同期 |
 | `Simulation` | `VirtualPlant`, `DelayLine` | 仮想ハードウェア (エンコーダ量子化・ドライブ保護含む)、遅延・ジッタ・再送スパイクのエミュレータ |
+| `Diagnostics` | `DiagnosticTrace` | コントローラ・プラント・遅延線の内部を外に出す診断トレース。ホスト側で `ILogger` へ橋渡しする ([07-logging.md](07-logging.md)) |
 
 `ControllerCore` は本プロジェクトで最も大きい型 (470 行) で、
 状態機械・状態推定・LQR 再設計・予測器・監視をまとめて持ちます。
@@ -71,6 +72,7 @@ ControllerSession (接続ごとに 1 インスタンス)
   └ 単一のループが Channel を読み、ControllerCore を呼び、指令を送り返す
         ↑
 ControllerSessionManager  … 接続とセッションの対応、上限 (Sil:MaxSessions) の管理、解放
+SessionHeartbeat          … Sil:HeartbeatSeconds ごとに全セッションの要約をログへ
 ```
 Hub のメソッドで直接制御計算をすると、その呼び出しスレッドが占有されて
 **他の接続の受信まで遅れます**。受信と計算を Channel で切り離すことで、
@@ -99,3 +101,7 @@ sim-view.js (JS モジュール)
 | --- | --- | --- |
 | `CrossOriginIsolation` | `false` | `true` で COOP/COEP ヘッダを配信する (`SharedArrayBuffer` を使う場合) |
 | `MaxSessions` | `64` | 同時に保持するコントローラセッションの上限 |
+| `HeartbeatSeconds` | `10` | 全セッションの要約をログに出す間隔 [s]。`0` 以下で無効 |
+
+ログのカテゴリとレベルは `Logging:LogLevel` で絞ります (`Ip.Controller` を `Trace` にすると帰還 1 本ごとの内容が出る)。
+詳細は [07-logging.md](07-logging.md)。

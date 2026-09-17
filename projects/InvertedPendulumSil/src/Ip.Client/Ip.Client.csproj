@@ -10,6 +10,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" PrivateAssets="all" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="10.0.12" />
+    <!-- wwwroot/appsettings.json の Logging セクションでブラウザ console のログレベルを絞るため -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup>
