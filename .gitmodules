@@ -1,0 +1,6 @@
+[submodule "projects/SignalSimulator/cmake/DownloadProject"]
+	path = projects/SignalSimulator/cmake/DownloadProject
+	url = https://github.com/Crascit/DownloadProject.git
+[submodule "projects/SignalSimulator/BinaryEditorBz/original"]
+	path = projects/SignalSimulator/BinaryEditorBz/original
+	url = https://gitlab.com/devill.tamachan/binaryeditorbz.git
