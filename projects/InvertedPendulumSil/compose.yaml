@@ -1,0 +1,46 @@
+name: inverted-pendulum-sil
+
+services:
+  # コントローラ (ASP.NET Core) + プラント (Blazor WASM) の配信
+  app:
+    build:
+      context: .
+      target: runtime
+    image: inverted-pendulum-sil:latest
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
+          pids: 256
+    # ループバックにだけ公開する。学習・実験用でありLAN に晒す必要がない。
+    # (e2e サービスは compose ネットワーク内の app:8080 に直接つなぐので影響しない)
+    ports:
+      - "127.0.0.1:5210:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  # Playwright によるブラウザ結合テスト。既定では起動せず、--profile e2e で実行する。
+  #   docker compose --profile e2e up --build --abort-on-container-exit --exit-code-from e2e
+  e2e:
+    profiles: ["e2e"]
+    build:
+      context: .
+      dockerfile: e2e/Dockerfile
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://app:8080
+      CI: "1"
+    volumes:
+      - ./e2e/playwright-report:/e2e/playwright-report
+      - ./e2e/test-results:/e2e/test-results

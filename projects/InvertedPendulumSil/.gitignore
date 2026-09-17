@@ -1,0 +1,14 @@
+# 本プロジェクト固有の除外。
+# リポジトリルートの .gitignore は .NET / Node の生成物を持たないため、ここで持つ。
+# (.dockerignore はビルドコンテキストの縮小用であり、役割が異なる)
+
+# .NET
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/
+
+# Node / Playwright
+node_modules/
+playwright-report/
+test-results/
