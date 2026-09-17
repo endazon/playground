@@ -1,0 +1,33 @@
+# 改行コードの正規化
+#
+# 本リポジトリのツール（tools/ 配下）は行指向のパーサを多数持つ。行末に CR（\r）が
+# 残ると、JS の `.` は CR に一致せず `$`（非 multiline）は文字列末尾のみに一致するため、
+# 行の正規表現が**黙って空振りする**（issue #255）。パーサ側も CRLF 耐性を持たせたが、
+# そもそも作業ツリーへ CRLF を入れないことが根治策である。
+#
+# 現況（2026-08-07 実測）: 追跡中の全ファイルが LF、`core.autocrlf` は false。
+# 以下の設定はその状態をそのまま固定するものであり、既存の作業ツリーを書き換えない。
+
+# 既定: Git がテキストと判定したものは、リポジトリ内も作業ツリーも LF に統一する。
+# バイナリは `text=auto` が自動判別して対象外にする。
+* text=auto eol=lf
+
+# 主要なテキスト形式は明示する（判定に頼らず意図を残すため）。
+*.md    text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+*.drawio text eol=lf
+
+# バイナリ（改行変換も差分表示も行わない）。
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.xlsx binary
+*.docx binary
+*.pptx binary

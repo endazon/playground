@@ -1,0 +1,14 @@
+{
+  // markdownlint-cli2 のオプションファイル。CI（.github/workflows/lint.yml の
+  // markdownlint-cli2-action）とローカル（tools/planning-support/docker-compose.yaml の
+  // markdownlint サービス）の両方が、作業ディレクトリ＝リポジトリルートから自動で読む。
+  // ルール設定は従来どおり .markdownlint.yml（--config）が持ち、本ファイルは ignores のみを持つ。
+  //
+  // ignores の理由（lychee の --exclude-path / check-doc-status.js の TBD 警告化と同じ根拠）:
+  //   projects/<name>/10_feedback/ の日付つき記録は、実装リポジトリ・draft/feedback/ から
+  //   統合した凍結済みの環流記録である（ADR-0048 / ADR-0029 決定 3・5）。本文プロズは
+  //   書き換えないため、記録内の MD028（blockquote 内空行）・MD040（言語未指定フェンス）等を
+  //   lint で是正することができない。凍結記録だけを検査対象から外す。
+  //   README.md（索引。凍結対象外・保守対象）はファイル名が日付始まりでないため対象に残る。
+  "ignores": ["projects/*/10_feedback/2*.md"]
+}
