@@ -64,6 +64,7 @@ Development では 1 秒ごとの集計まで出るので、状態遷移・帰�
 | [Docs/05-design-notes.md](Docs/05-design-notes.md) | 実装上の判断とその理由、既知の制約、今後の課題 |
 | [Docs/06-design-mock.md](Docs/06-design-mock.md) | 実装の出発点になった設計モック (単一 HTML) と、実装との差分 |
 | [Docs/07-logging.md](Docs/07-logging.md) | ログと診断トレース: 出口 (サーバ / ブラウザ / 画面)、カテゴリと絞り込み、読み方 |
+| [Docs/08-dimension-extension.md](Docs/08-dimension-extension.md) | 次元拡張 (多軸化・多リンク化・遅延の状態拡張ほか) の検討と、全案却下の記録 |
 
 ## プロジェクト構成
 
