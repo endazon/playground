@@ -131,8 +131,13 @@ fn requests_are_listed_without_instantiation() {
     }
     let dir = temp("list");
     let m = write_manifest(&dir, 9, serde_json::json!({}));
-    let (manifest, reqs) =
-        ipemu_engine::session::list_consent_requests(&m, &SessionOptions::default()).unwrap();
+    // write_manifest は sha256 を書かないので、ローカル開発モード (allow_unhashed) で列挙する。
+    // そうでなければ静的検査 (V2) で止まる (D45)
+    let local = SessionOptions {
+        allow_unhashed: true,
+        ..Default::default()
+    };
+    let (manifest, reqs) = ipemu_engine::session::list_consent_requests(&m, &local).unwrap();
     assert_eq!(manifest.id, "consent-test");
     let sha = sha_of(&root().join("build/components/tcp-reporter.wasm"));
     let keys: Vec<&str> = reqs.iter().map(|r| r.request_id.as_str()).collect();
@@ -336,6 +341,62 @@ fn v8_warns_on_overdeclaration_and_v12_checks_hash() {
     v["approval"]["capabilitiesHash"] = serde_json::json!(ipemu_core::capabilities_hash(&manifest));
     std::fs::write(&m, serde_json::to_vec(&v).unwrap()).unwrap();
     assert!(Session::load(&m, &opts).is_ok());
+}
+
+#[test]
+fn static_errors_fail_before_consent_and_instantiation() {
+    if !ready() {
+        return;
+    }
+    let dir = temp("static");
+    let (port, lines) = listener();
+    let m = write_manifest(&dir, port, serde_json::json!({}));
+    // init で接続する設定 + 宣言と合わない approval.capabilitiesHash (承認後に宣言が書き換わった想定)
+    let text = std::fs::read_to_string(&m).unwrap();
+    let mut v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    v["components"][1]["params"]["connectOnInit"] = serde_json::json!(true);
+    v["approval"] = serde_json::json!({ "approvedBy": "a", "approvedAt": "2026-11-05T00:00:00Z", "capabilitiesHash": "0".repeat(64) });
+    std::fs::write(&m, serde_json::to_vec(&v).unwrap()).unwrap();
+
+    /// 呼ばれたら失敗する provider (静的検査のエラーがあるなら同意を求めてはいけない)
+    struct MustNotAsk;
+    impl ConsentProvider for MustNotAsk {
+        fn ask(&self, rs: &[ConsentRequest]) -> anyhow::Result<Vec<ConsentAnswer>> {
+            panic!("静的検査に失敗する manifest で同意を求めた: {rs:?}")
+        }
+        fn name(&self) -> &'static str {
+            "must-not-ask"
+        }
+    }
+    let opts = SessionOptions {
+        allow_unhashed: true,
+        data_dir: Some(dir.join("data")),
+        consent: Some(Arc::new(MustNotAsk)),
+        ..Default::default()
+    };
+    let err = Session::load(&m, &opts).err().expect("V12 で失敗するはず");
+    assert!(
+        err.downcast_ref::<LaunchError>().is_none(),
+        "同意の段階まで進んではいけない: {err:#}"
+    );
+    let msg = format!("{err:#}");
+    assert!(msg.contains("V12"), "{msg}");
+
+    // 同意の列挙も静的検査で止まる
+    let err =
+        ipemu_engine::session::list_consent_requests(&m, &opts).expect_err("V12 で失敗するはず");
+    assert!(format!("{err:#}").contains("V12"), "{err:#}");
+
+    // 実体化 (init) されていない: 接続も届かず、データディレクトリ (同意ストア / fs) にも触れない
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    assert!(
+        lines.lock().unwrap().is_empty(),
+        "init が走って外部へ届いてはいけない"
+    );
+    assert!(
+        !dir.join("data").exists(),
+        "データディレクトリに触れてはいけない"
+    );
 }
 
 #[test]

@@ -5,7 +5,7 @@ use ipemu_core::desc::{PartDesc, PortDesc};
 use ipemu_core::engine::{Engine, Part};
 use ipemu_core::hal::{Firmware, HalRegs, TickStats};
 use ipemu_core::manifest::{ComponentSpec, Manifest};
-use ipemu_core::validate::{validate, ValidateOptions};
+use ipemu_core::validate::{validate, validate_static, ValidateOptions};
 use serde_json::json;
 
 /// テスト用の部品: 入力 `in` を gain 倍して `out` に出す (step ごとに 1 回)。
@@ -171,6 +171,39 @@ fn validation_checks_artifacts_and_hashes() {
         },
     );
     assert!(g.is_some() && d.warnings().any(|w| w.rule == "V2"), "{d}");
+}
+
+#[test]
+fn static_validation_needs_no_descriptions_and_gates_validate() {
+    // approval.capabilitiesHash が宣言と合わない manifest (承認後に書き換えられた想定)
+    let m = manifest(
+        json!([]),
+        json!({ "approval": { "approvedBy": "a", "approvedAt": "2026-11-05T00:00:00Z", "capabilitiesHash": "0".repeat(64) } }),
+    );
+    let d = validate_static(&m, ValidateOptions::default());
+    assert!(d.errors().any(|e| e.rule == "V12"), "{d}");
+
+    // validate は静的検査で止まり、記述 (resolver) を引かない
+    let mut never = |_: &ComponentSpec| -> anyhow::Result<PartDesc> {
+        panic!("静的検査のエラーがあるのに記述を引いた")
+    };
+    let (d2, g) = validate(&m, &mut never, ValidateOptions::default());
+    assert!(g.is_none());
+    assert_eq!(d2.items, d.items);
+
+    // 正しいハッシュなら静的検査は通り、記述を要する検査 (V4) は validate だけが出す
+    let mut m = manifest(json!([{"from": "a.nope", "to": "b.in"}]), json!({}));
+    m.approval = Some(
+        serde_json::from_value(json!({
+            "approvedBy": "a", "approvedAt": "2026-11-05T00:00:00Z",
+            "capabilitiesHash": ipemu_core::capabilities_hash(&m)
+        }))
+        .unwrap(),
+    );
+    let d = validate_static(&m, ValidateOptions::default());
+    assert!(!d.has_errors(), "{d}");
+    let (d, _) = validate(&m, &mut resolver, ValidateOptions::default());
+    assert!(d.errors().any(|e| e.rule == "V4"), "{d}");
 }
 
 #[test]

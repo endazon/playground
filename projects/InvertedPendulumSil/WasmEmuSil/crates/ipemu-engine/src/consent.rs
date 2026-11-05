@@ -174,23 +174,24 @@ impl FileConsent {
             }
         }
         Ok(Self {
-            grants: f
-                .grants
-                .into_iter()
-                .map(|s| s.to_ascii_lowercase())
-                .collect(),
-            denies: f
-                .denies
-                .into_iter()
-                .map(|s| s.to_ascii_lowercase())
-                .collect(),
+            grants: f.grants.iter().map(|k| normalize_key(k)).collect(),
+            denies: f.denies.iter().map(|k| normalize_key(k)).collect(),
             remember: f.remember,
         })
     }
 
     fn lookup(set: &HashSet<String>, r: &ConsentRequest) -> bool {
-        set.contains(&r.request_id.to_ascii_lowercase())
-            || set.contains(&format!("*:{}", r.capability).to_ascii_lowercase())
+        set.contains(&normalize_key(&r.request_id)) || set.contains(&format!("*:{}", r.capability))
+    }
+}
+
+/// 鍵の正規化: 小文字化するのは `<sha256>` 部分 (先頭 64 文字) だけ (D47)。
+/// capability 文字列は `fs:rw:<path>` のように大文字小文字を区別するパスを含むので、そのまま比較する
+/// (ホスト名は宣言の時点で小文字化済み)。`*:<capability>` も capability 部分はそのまま。
+fn normalize_key(key: &str) -> String {
+    match split_consent_key(key) {
+        Some((sha, cap)) => format!("{}:{cap}", sha.to_ascii_lowercase()),
+        None => key.to_owned(),
     }
 }
 
@@ -348,6 +349,87 @@ mod tests {
             remember: false,
         };
         assert!(FileConsent::from_file(exact, false).is_ok());
+    }
+
+    fn req(sha: &str, capability: &str) -> ConsentRequest {
+        ConsentRequest {
+            request_id: format!("{sha}:{capability}"),
+            instances: vec!["rep".into()],
+            artifact: "a@1.0.0".into(),
+            artifact_sha256: sha.into(),
+            capability: capability.into(),
+            reason: String::new(),
+            manifest_id: "m".into(),
+            revision: 1,
+        }
+    }
+
+    fn answers(c: &FileConsent, rs: &[ConsentRequest]) -> Vec<(String, bool)> {
+        c.ask(rs)
+            .unwrap()
+            .into_iter()
+            .map(|a| (a.request_id, a.grant))
+            .collect()
+    }
+
+    #[test]
+    fn keys_keep_capability_case_but_fold_sha256_case() {
+        let sha = "ab".repeat(32);
+        let upper_sha = sha.to_ascii_uppercase();
+        // 鍵の sha256 は大文字で書いても小文字と同一視する。パスの大文字小文字は区別する
+        let c = FileConsent::from_file(
+            ConsentFile {
+                version: 1,
+                grants: vec![format!("{upper_sha}:fs:rw:Logs")],
+                denies: vec![],
+                remember: false,
+            },
+            false,
+        )
+        .unwrap();
+        let rs = [req(&sha, "fs:rw:Logs"), req(&sha, "fs:rw:logs")];
+        assert_eq!(
+            answers(&c, &rs),
+            [(format!("{sha}:fs:rw:Logs"), true)],
+            "fs:rw:logs は別の鍵"
+        );
+        // 要求側の sha256 が大文字でも同じ鍵として引ける
+        assert_eq!(
+            answers(&c, &[req(&upper_sha, "fs:rw:Logs")]),
+            [(format!("{upper_sha}:fs:rw:Logs"), true)]
+        );
+
+        // 両方を区別して書ける (片方を許可、片方を拒否)
+        let c = FileConsent::from_file(
+            ConsentFile {
+                version: 1,
+                grants: vec![format!("{sha}:fs:rw:logs")],
+                denies: vec![format!("{sha}:fs:rw:Logs")],
+                remember: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            answers(&c, &rs),
+            [
+                (format!("{sha}:fs:rw:Logs"), false),
+                (format!("{sha}:fs:rw:logs"), true)
+            ]
+        );
+
+        // ワイルドカードも capability はそのまま比較する
+        let c = FileConsent::from_file(
+            ConsentFile {
+                version: 1,
+                grants: vec!["*:fs:rw:Logs".into()],
+                denies: vec![],
+                remember: false,
+            },
+            true,
+        )
+        .unwrap();
+        assert_eq!(answers(&c, &rs), [(format!("{sha}:fs:rw:Logs"), true)]);
     }
 
     #[test]
