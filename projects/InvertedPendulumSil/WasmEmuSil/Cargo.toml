@@ -5,6 +5,8 @@ members = [
     "crates/ipemu-core",
     "crates/ipemu-wasm",
     "crates/ipemu-engine",
+    "crates/ipemu-sign",
+    "crates/ipemu-server",
     "crates/ip-hal",
     "crates/ip-part-sdk",
     "crates/ip-cmath",
@@ -28,6 +30,7 @@ ip-hal = { path = "crates/ip-hal" }
 ip-part-sdk = { path = "crates/ip-part-sdk" }
 ipemu-core = { path = "crates/ipemu-core" }
 ipemu-wasm = { path = "crates/ipemu-wasm" }
+ipemu-sign = { path = "crates/ipemu-sign" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
@@ -37,7 +40,7 @@ wit-bindgen = { version = "0.63", default-features = false, features = ["macros"
 wasmtime = { version = "50", default-features = false, features = ["anyhow", "runtime", "cranelift", "component-model", "std", "cache", "parallel-compilation", "wat"] }
 wasmtime-wasi = { version = "50", default-features = false, features = ["p2"] }
 libloading = "0.9"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 sha2 = "0.11"
 hex = "0.4"
 proptest = "1"

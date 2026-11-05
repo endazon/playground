@@ -1,4 +1,6 @@
 //! ip-model の性質テスト (09-verification.md の L1)。外部の基準値に依存しない。
+// 行列の添字アクセスは数式どおりに読める方を優先する (clippy --tests)
+#![allow(clippy::needless_range_loop)]
 
 use ip_model::control::{swing_up_voltage, SwingUpGains};
 use ip_model::dynamics::{derivative, pendulum_energy, rk4_step, total_energy, Disturbance, State};

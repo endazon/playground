@@ -1,9 +1,9 @@
 # WasmEmuSil — WASM 部品で組む倒立振子エミュレータ (設計草案)
 
-> **状態: M1 (エンジン核) と M5 (capability、エンジン側) 実装済み。** headless のエンジンが、ローカル manifest から Rust 製の部品 (wasm) と
-> C 版 / Rust 版のファームウェア (wasm または native) を組み立て、スイングアップ → 倒立維持まで動きます。
-> 部品が TCP / ファイルを使う場合は manifest の宣言 → 同意 (`--consent-file`) を経て WASI preview 2 として付与されます。
-> サーバ配信・Electron シェル (M2〜M4) は別途進行中。設計は [`Docs/`](Docs/README.md)、進捗は [`Docs/08-decisions.md`](Docs/08-decisions.md)。
+> **状態: M1 (エンジン核)、M3/M4 (サーバ配信 + ポータル + 管理画面)、M5 (capability、エンジン側) 実装済み。** headless のエンジンが、
+> ローカル manifest または**配信サーバ**から Rust 製の部品 (wasm) と C 版 / Rust 版のファームウェアを取り寄せて組み立て、スイングアップ → 倒立維持まで動きます。
+> 部品が TCP / ファイルを使う場合は manifest の宣言 → 承認 (管理画面) → 同意 (`--consent-file`) を経て WASI preview 2 として付与されます。
+> Electron シェル (M2) は別途進行中。設計は [`Docs/`](Docs/README.md)、進捗は [`Docs/08-decisions.md`](Docs/08-decisions.md)。
 
 [`../NetworkedSil`](../NetworkedSil/README.md) と同じ台車型倒立振子を、
 **クライアント側で組み立てるエミュレータ**として実現します。
@@ -59,6 +59,24 @@ cargo run -q -p ipemu-engine -- inspect build/components/tcp-reporter.wasm   # i
 `dev/cartpole.manifest.json` は NetworkedSil の既定パラメータ (振子 0.6 m) で、0.5 s 後にスイングアップを自動開始し、
 約 6 s で倒立領域に入って LQR に切り替わります。`--record` で 10 ms ごとのスナップショットを CSV に出せます。
 
+## クイックスタート (M3/M4: サーバ配信)
+```bash
+cargo run -q -p ipemu-server -- keygen --out dev/keys                      # 署名鍵 (秘密鍵はコミットしない)
+(cd apps/web && pnpm install && pnpm build)                                # ポータル / 管理 SPA
+IPEMU_STORE=dev/store IPEMU_SIGNING_KEY=dev/keys/signing.json IPEMU_ADMIN_BOOTSTRAP_PASSWORD=admin-pass-123 \
+  IPEMU_LOG_FORMAT=text cargo run -q -p ipemu-server -- serve              # http://127.0.0.1:8080 (admin でログイン)
+```
+管理画面で部品 (`build/components/*.wasm`) と FW (`build/firmware/*.wasm`) を登録し、`dev/cartpole.manifest.json` を貼って下書き →
+別ユーザで承認 → 公開するとカタログに出ます。エンジンは API キー (管理画面「クライアント」) で取得して動かせます:
+```bash
+PUB=$(python3 -c "import json;print(json.load(open('dev/keys/public.json'))['keys'][0]['publicKey'])")
+cargo run -q -p ipemu-engine -- run --server http://127.0.0.1:8080 --api-key ipk_... --launch cartpole \
+    --trusted-key dev-2026=$PUB --run-seconds 20          # 取得 → 署名検証 → キャッシュ → 倒立維持
+cargo run -q -p ipemu-engine -- catalog --local            # キャッシュ済み構成。サーバを止めても起動できる
+docker compose up --build                                  # コンテナで動かす (compose.yaml)
+```
+手順の詳細は [`dev/README.md`](dev/README.md)、API と画面は [`Docs/06-server-app.md`](Docs/06-server-app.md) の「実装 (M3/M4)」。
+
 ## 何が変わるか (NetworkedSil との違い)
 | 観点 | NetworkedSil | WasmEmuSil |
 | --- | --- | --- |
@@ -94,17 +112,19 @@ WasmEmuSil/
   abi/wit/                   ✅ ip:emu パッケージの WIT (部品・ファームウェア・ホスト拡張)。deps/ に WASI 0.2.12 (M5)
   abi/ip_hal.h               ✅ ファームウェア HAL の C ヘッダ (wasm / native 共通)
   schemas/                   ✅ manifest の JSON Schema とサンプル
-  dev/cartpole.manifest.json ✅ ローカル開発用 manifest (path 参照・署名なし)
+  dev/cartpole.manifest.json ✅ ローカル開発用 manifest (path 参照・署名なし)。dev/README.md に署名鍵とサーバの手順
+  Dockerfile / compose.yaml  ✅ ipemu-server のコンテナ (ループバック公開、cap_drop、リソース上限)
   crates/
     ip-model/                ✅ 物理モデル・線形化・離散 LQR・スイングアップ・速度推定 (no_std, libm)
     ipemu-core/              ✅ manifest 解釈と検証 (V1〜V12)、capability 型・import 抽出・capabilitiesHash (JCS)、同意の型、配線グラフ、スケジューラ
     ipemu-wasm/              ✅ Wasmtime で部品 / FW を実体化、capability に応じた WASI p2 の付与 (wasi.rs)、native FW ローダ
-    ipemu-engine/            ✅ headless CLI (run / validate / inspect / consent / lqr)、セッション組み立て、同意ストア
+    ipemu-engine/            ✅ headless CLI (run / validate / inspect / consent / catalog / lqr)、セッション組み立て、同意ストア、bootstrap とキャッシュ
     ip-part-sdk/             ✅ 部品を Rust で書くための SDK (WIT バインディング + 入口マクロ)
     ip-hal/                  ✅ FW を Rust で書くための HAL (wasm import / native vtable) + 入口マクロ
     ip-cmath/                ✅ C 版 FW の wasm ビルド用 libm (Rust の libm を C ABI で公開)
+    ipemu-sign/              ✅ manifest の JCS 正規化と Ed25519 署名 / 検証 (サーバとエンジンで共有)
+    ipemu-server/            ✅ 配信 API (/api/v1) + 管理 API (/api/admin) + SPA の配信 (axum / sqlx SQLite)
     ipemu-ipc/                  (M2) シェル ⇄ エンジンの IPC 契約
-    ipemu-server/               (M3) 配信 API + ポータル / 管理 SPA の配信 (axum)
   components/                ✅ 部品 (Rust → wasm32-unknown-unknown → wasm-tools component new)
     plant-cartpole/  motor-driver/  encoder/  comm-link/
     tcp-reporter/            ✅ (M5) wasi:sockets / wasi:filesystem を使う検証用部品
@@ -115,7 +135,7 @@ WasmEmuSil/
   tests/golden/              ✅ ゴールデントレース
   apps/
     shell/                      (M2) Electron シェル: 汎用ブラウザ UI + 信頼 origin 限定のブリッジ + ipemu:// ハンドラ
-    web/                        (M3/M4) サーバが配信する SPA (Vite + React): ポータルと管理画面
+    web/                     ✅ サーバが配信する SPA (Vite + React): ポータル (カタログ / 詳細 / 起動 / 履歴) と管理画面
     ui-kit/                     (M2) 共有 UI (sim-view の移植、スコープ、トポロジ表示)
   Docs/
 ```
