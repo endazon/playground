@@ -210,3 +210,75 @@ ipemu-engine validate dev/cartpole.manifest.json        # サーバと同じ検�
 ipemu-engine inspect components/plant-cartpole.wasm     # WIT / describe の表示
 ipemu attach --port 54321                               # 動作中のエンジンの state を端末に流す
 ```
+
+## 実装 (M2)
+M2 で実装した範囲と、設計からの具体化。サーバ配信 (bootstrap / キャッシュ / telemetry) は M3、capability の実施と同意の中身は M5。
+
+### 契約 `crates/ipemu-ipc`
+- 上の表の全メソッド / 通知を Rust の型にし、`RequestBody` (`method` タグ + `params`) と `ResultBody` (同じタグで result 型) の
+  2 つの enum で「method → (params, result)」を TypeScript に伝える。`cargo test -p ipemu-ipc` (= `scripts/gen-ipc-types.sh`) が
+  ts-rs で `crates/ipemu-ipc/bindings/*.ts` を書き出し、pnpm workspace の `@ipemu/ipc-types` として `apps/` が使う。
+  生成物はコミットし、`check.sh` が `--check` で差分を検出する。
+- i64 / u64 は TS の `number` (仮想時刻 ns で 2^53 まで足りる。bigint は JSON / msgpack と相性が悪い)。
+- バイナリフレームは先頭 1 バイト (0x01 = state, 0x02 = scope) + MessagePack (名前付きフィールド)。TS 側は `@msgpack/msgpack`。
+- `session.launch` の `source` は `{kind: "local", manifestPath}` (開発) と `{kind: "server", …, credential}` (M3) の 2 形。
+  M2 のエンジンは `server` に `NOT_IMPLEMENTED (-32003)` を返す。
+- エラーコード: 標準 4 つ + `-32000 ENGINE_ERROR` / `-32001 NO_SESSION` / `-32002 RESTART_REQUIRED` / `-32003 NOT_IMPLEMENTED` /
+  `-32004 UNAUTHORIZED` / `-32005 NOT_FOUND` / `-32006 INVALID_STATE`。
+
+### エンジン `crates/ipemu-engine` (`serve` / `attach`)
+```text
+ipemu-engine serve [--manifest … --no-signature-check --firmware slot=wasm:… --param i.k=v --pacing realtime|fast|step
+                    --speed 1 --auto-start --watch slot=wasm:… --debug-friendly --catalog-dir dev --port 0 --token …
+                    --state-hz 50 --exit-on-stdin-close]
+  stdout 1 行目: {"port":…,"token":…,"pid":…,"ipcVersion":1,"engineVersion":"0.1.0"}。以降 stdout には何も出さない
+ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [--seconds 10]
+```
+| モジュール | 役割 |
+| --- | --- |
+| `control.rs` | **スケジューラ専用スレッド**上の制御器。IPC からの要求は `std::sync::mpsc` に積まれ、ステップ境界でだけ状態を変える。`run.*`、`param.set` (wasm 部品は `init` し直し、組み込み部品は `restartRequired`)、`firmware.load` (wasm = `CpuVirtual::attach_firmware` でホット、native = 上書きを記録して `restartRequired: true`)、`firmware.watch` (mtime 監視、更新 200ms 後に自動差替)、`scope.subscribe` (ステップごとに採り、`windowS` ぶんまとめて scope フレーム)、`catalog.local` (`--catalog-dir` の `*.manifest.json`)、`manifest.refresh` (ローカルは再検証して差分報告) |
+| `pacing.rs` | realtime の追いつき (壁時計 × speed との差ぶんステップ)、`maxSlipMs` 超過で原点を取り直す**時間スリップ**、`--debug-friendly` (デバッガ検出でも) は追いつかない。`SchedulerStats` (倍率 / µs/step / スリップ / 予算超過) を state に同梱 |
+| `triple_buffer.rs` | スケジューラ → tokio のスナップショット受け渡し。書き手は待たない |
+| `ipc_server.rs` | `127.0.0.1:0` の WebSocket (tokio-tungstenite)。`?token=` か `Authorization: Bearer` を**ハンドシェイクで**照合 (不一致は 401)。state は `state_hz` でトリプルバッファを読んで全接続へ broadcast、通知 / scope は到着順。遅い受け手は古いフレームを落とす。`client` モジュールはテストと `attach` 用 |
+| `session.rs` | M1 の `Session` に `swap_firmware` / `set_param` / `step` / `reset` と `options` (上書きの元) を追加。`ipemu-core` の `Part` に `as_any_mut` (既定 `None`) を足して cpu-virtual へ降りる |
+
+`debug-friendly` では wasm 呼び出しの予算 (`call_budget`) も無制限にする (ブレーク中に epoch で trap させない)。
+結合テスト (`crates/ipemu-engine/tests/ipc.rs`): 認証、describe、`run.start` → state 受信、**C 版 → Rust 版の wasm ホット差替で
+仮想時刻・Epoch・プラント状態が保たれ、新しい FW が倒立を引き継ぐ**、native は `restartRequired`、`param.set`、scope、実バイナリの serve。
+
+### シェル `apps/shell` (Electron 45)
+設計の節のとおり。要点と具体化:
+- タブは `BaseWindow` + `WebContentsView`。タブの種類 `web` (任意サイト, preload = bridge) / `sim` (`app://ui/` 固定, preload = simui) /
+  `home` (`app://shell/`, preload = shellui) で **preload と遷移できる範囲を固定**する。任意サイトのタブは `app://` に遷移できず、
+  `window.open` も web タブとして開く。権限要求 (カメラ等) は一律拒否。
+- ブリッジの注入可否は preload が main に同期で問い合わせ、main は **`event.senderFrame.url` の origin** を `trustedServers` と
+  厳密比較する (renderer の申告は使わない)。`ipemu:*` の各 IPC も同じ検査を通す。`launch` の `server` はページ自身の origin に限る。
+- `app://` は `protocol.handle` で配信。`app://ui/` の CSP は `default-src 'self'; connect-src 'self' ws://127.0.0.1:*` など、
+  `app://shell/` は `'self'` のみ。UI バンドルは **単一ファイルの tar.gz** (manifest の `ui.bundle`、`kind: "ui"`) を
+  `<userData>/ui-cache/<sha256>/` に展開して配信する (`untar.ts`: 絶対パス / `..` / リンクを拒否。manifest に sha256 があれば照合)。
+- `ipemu://launch?…` は `parseLaunchUrl` で厳格に解析し、**必ず確認ウィンドウ** (`confirm.html`、OS の dialog ではない) を出す。
+  信頼していないサーバは理由を表示して「起動する」を無効にする。開発用に `manifestPath=` (`allowLocalLaunch`) も受ける。
+  OS への登録は packaged 時のみ。
+- エンジンは `serve --exit-on-stdin-close --catalog-dir …` で spawn し、stdout 1 行目を読んで接続。`restartRequired` (native FW) では
+  直近の describe の `overrides` を launch に畳み込んで **同じ構成で spawn し直し**、`app://ui` のページに `endpoint-changed` を送る。
+- 同意ウィンドウ (`consent.html`) は `consent.required` 通知で開き、`consent.answer` を返す受け口まで (中身は M5)。
+
+### UI `apps/ui-kit` / `apps/sim-ui`
+- `ui-kit`: `EngineClient` (JSON-RPC + msgpack、生成型で `call("run.step", {n})` が型付け)、`sim-view.js` の移植
+  (側面図 / three.js を npm で同梱した 3D / スコープ)、トポロジ図 (latency 0 の配線で層を分け、snapshot の値を配線に添える)、
+  操作パネル (開始 / 停止 / リセット / ステップ / ペーシング / パラメータ / FW 差替と監視)、イベント一覧。
+  state は 50Hz で来るので React には 5Hz に間引いて渡し、canvas は rAF で `store.latest` を読む。
+- `sim-ui`: UI バンドル本体。接続先は `window.ipemuEngine` (シェル) → `?port=&token=` → 入力。`scope.subscribe` で
+  θ / x / V / duty を 200 Hz で購読。`vite build` → `build/ui/cartpole/`、`scripts/pack.mjs` → `build/ui/ui-cartpole.tar.gz`。
+  `dev/cartpole.manifest.json` の `ui.bundle` がこれを指す。
+
+### 動作確認
+```bash
+cargo build -p ipemu-engine && pnpm install && pnpm --filter @ipemu/sim-ui build
+pnpm --filter @ipemu/shell start           # Electron シェル (ホーム → ローカルカタログ → 組み立てる)
+# Electron なしの開発: エンジン + Vite dev server + ブラウザ
+cargo run -p ipemu-engine -- serve --manifest dev/cartpole.manifest.json --no-signature-check --pacing realtime --auto-start
+pnpm dev:ui     # http://localhost:5173/?port=<port>&token=<token>
+```
+![シェル](images/m2-shell.png)
+![シミュレータ UI (ブラウザ)](images/m2-sim-ui.png)

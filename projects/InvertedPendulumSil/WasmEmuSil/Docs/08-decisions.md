@@ -38,6 +38,14 @@
 | D33 | `wasi:io/*` の扱い (M5 で確定) | **独立した capability にせず**、net / fs / clock のいずれかがあるときだけ土台として link | 独立宣言: 単独では何もできない (ストリームは sockets / filesystem からしか得られない) のに同意項目が増える |
 | D34 | `validate` と同意 (M5 で確定) | **`validate` / `inspect` は deny-all 形で実体化する。同意は求めない。** 宣言と同じインターフェースを link するが許可リスト空・preopen なしで、describe / init は通り、接続・名前解決・ファイル操作はすべて拒否される (`WasiGrant::deny_all_for`、`CapabilityPlan::grant_for_validate`)。`run` は同意必須 | 同意なしで実グラントを付与: 「検証しただけ」のつもりで init 中の TCP 接続やファイル書き込みが起きる (却下)。validate でも同意: 開発者向けコマンドに同意ダイアログは不要。付与せず describe だけ: describe には実体化が要り、import 不足で検証自体ができない |
 | D35 | 拒否の扱い (M5 で確定) | **記憶された拒否は問い合わせずに起動不可**。`consent forget` で取り消す。1 件でも拒否 / 未同意があれば部分起動しない | 拒否のたびに再問い合わせ: 「拒否を記憶する」が成立しない |
+| D36 | IPC の要求 / 結果の型付け (M2 で確定) | **`method` タグ付き enum 2 本** (`RequestBody` / `ResultBody`) を ts-rs で生成し、TS は `Extract<…, {method: M}>` で引く。生成物 (`bindings/`) はコミットし `check.sh --check` で差分検出 | メソッドごとの trait / マクロ: 契約が 1 箇所に見えない。TS を手書き: 乖離に気づけない |
+| D37 | 64bit 整数の TS 表現 (M2 で確定) | **`number`** (`#[ts(type = "number")]`、`TS_RS_LARGE_INT=number`)。仮想時刻 ns で 2^53 ≈ 104 日 | bigint: JSON に載らず msgpack の decode も別経路になる |
+| D38 | state の配信経路 (M2 で確定) | スケジューラ → **トリプルバッファ** → tokio が `state_hz` で読んで broadcast。scope / 通知はチャネルで到着順 | state もチャネル: fast モードで I/O が詰まる。Mutex: 書き手が待つ |
+| D39 | シミュレータ UI の接続先 (M2 で確定) | **UI (app://ui) がエンジンの WS に直接つなぐ**。preload は port / token と再起動要求だけ渡す | main 経由で中継: 50Hz × 2 ホップで無駄。契約を 2 重に持つ |
+| D40 | UI バンドルの配布形 (M2 で確定、M3 と要整合) | **アーティファクトは単一ファイル。UI バンドルは tar.gz** (`kind: "ui"`)。シェルが `<userData>/ui-cache/<sha256>/` に展開 | ディレクトリ配信: sha256 で 1 つに同定できない。zip: 自前展開の実装量が多い (tar は 512 バイトヘッダのみ) |
+| D41 | タブの種類と preload (M2 で確定) | **web / sim / home の 3 種で preload と遷移範囲を固定**。任意サイトは `app://` に到達できない | 1 種の preload で URL により分岐: リダイレクト後の再判定を preload に頼ることになる |
+| D42 | Electron 本体の取得 (M2 で確定) | postinstall は GitHub Releases。遮断環境は **`ELECTRON_MIRROR` か `ELECTRON_SKIP_BINARY_DOWNLOAD=1`** (ビルド / テストは本体なしで可)。`check.sh` は後者 | Electron 本体をリポジトリに置く: 200MB |
+| D43 | 同意ダイアログの結合 (M2 で確定) | **`consent.answer` は制御器を経由せず IPC サーバから `ConsentBroker` へ直接渡す**。`Session::load` はスケジューラスレッド上で `ConsentProvider::ask` を同期的に呼び、未同意分を `consent.required` 通知にして回答が揃うまで Condvar で待つ (上限 `--consent-timeout`、既定 600 s)。`--consent-file` があればそちらを使う (headless) | 制御器のコマンドキュー経由: launch 中は制御器がブロックしているので回答を取り出せず自己デッドロック。launch を非同期化: Store を触るスレッドが増え、M1 の単一スレッド前提 (決定性) を崩す |
 
 ### D8 の調査結果: クロスプラットフォームで Chromium を同梱する手段
 | 方式 | Chromium の出所 | 成熟度 | Rust エンジンとの関係 | 評価 |
@@ -70,14 +78,16 @@ Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに�
 
 | # | 項目 | 選択肢 | 影響 |
 | --- | --- | --- | --- |
-| (なし) | | | |
+| Q12 | `ipemu://` のチケット交換と `session.launch` の server 形 (M2 で型だけ置いた) | (a) M3 セッションがエンジン側 `LaunchSource::Server` を実装 / (b) 契約を変える | M3。(a) なら契約は変更不要 |
+| Q14 | wasm ホット差替 (`firmware.load`) 時の再同意 | (a) 同じ instance の宣言に同意済みならビルド違いにも引き継ぐ (M2 の現状。sha256 が変わるので同意の鍵は厳密には別) / (b) 差替のたびに `consent.required` を出す | 開発ループの手数 vs 「別のコードに許可を引き継がない」原則。M5 と裁定 |
+| Q13 | VS の F5 手順の実機確認 (Windows) | M2 では Linux で native .so のロードと restartRequired の経路まで確認。Windows 実機は未確認 | 手順書の修正があれば 05 に反映 |
 
 ## マイルストーン (承認後)
 | M | 内容 | 完了条件 |
 | --- | --- | --- |
 | M0 | 設計 (本 PR) | 設計資料の承認 |
 | M1 ✅ | エンジン核 | ローカル manifest から plant / driver / encoder / comm-link (Rust 部品) + `fw-balance` (C 版と Rust 版、各 wasm と native) を組み立て、headless で倒立維持。決定性・性質・FW 同等性テストが `scripts/check.sh` で通る。**完了** (ip-model 12 / ipemu-core 8 / 結合 7 テスト) |
-| M2 | シェル | Electron の汎用ブラウザ UI + 信頼 origin ブリッジ + `ipemu://` ハンドラ + シミュレータ UI (sim-view 移植)。IPC 契約の TS 型生成。wasm ホット差替 / native 再起動。VS の F5 手順がドキュメントどおりに動く |
+| M2 ✅ | シェル | Electron の汎用ブラウザ UI + 信頼 origin ブリッジ + `ipemu://` ハンドラ + シミュレータ UI (sim-view 移植)。IPC 契約の TS 型生成。wasm ホット差替 / native 再起動。**完了** (ipemu-ipc 9 / エンジン結合 6 + 単体 6 / vitest 28 テスト、[07 の実装節](07-client-app.md#実装-m2))。VS の F5 手順は Windows 環境での確認が未了 (M3 以降の手元検証に持ち越し) |
 | M3 | サーバ配信 + ポータル | ログイン、カタログ、起動 (ブリッジ / `ipemu://` チケット)、manifests / artifacts API、署名、エンジンの bootstrap とキャッシュ、ローカルカタログでのオフライン起動、telemetry |
 | M4 | 管理画面 | 部品登録 (WIT 抽出)、manifest 編集と検証、承認 / 公開 / 公開範囲、ユーザとロール、API キー、監査 |
 | M5 ✅ (エンジン側) | capability | WASI p2 の sockets / filesystem を宣言 → 承認 (capabilitiesHash) → 同意で付与。拒否 / 未同意なら起動不可。検証用部品 `tcp-reporter` で実証。**エンジン側完了** (ipemu-core 12 / ipemu-wasm 3+7 / ipemu-engine 6 テスト)。同意 UI は M2 のシェルが `ConsentProvider` を IPC で実装する |

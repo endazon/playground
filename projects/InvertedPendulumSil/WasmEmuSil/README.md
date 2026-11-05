@@ -1,9 +1,11 @@
 # WasmEmuSil — WASM 部品で組む倒立振子エミュレータ (設計草案)
 
-> **状態: M1 (エンジン核) と M5 (capability、エンジン側) 実装済み。** headless のエンジンが、ローカル manifest から Rust 製の部品 (wasm) と
+> **状態: M1 (エンジン核)、M2 (シェル + IPC)、M5 (capability、エンジン側) 実装済み。** エンジンはローカル manifest から Rust 製の部品 (wasm) と
 > C 版 / Rust 版のファームウェア (wasm または native) を組み立て、スイングアップ → 倒立維持まで動きます。
-> 部品が TCP / ファイルを使う場合は manifest の宣言 → 同意 (`--consent-file`) を経て WASI preview 2 として付与されます。
-> サーバ配信・Electron シェル (M2〜M4) は別途進行中。設計は [`Docs/`](Docs/README.md)、進捗は [`Docs/08-decisions.md`](Docs/08-decisions.md)。
+> Electron シェルからエンジンを起動し、配信される UI バンドル (sim-view 移植) で 2D / 3D / スコープ / トポロジを見ながら
+> 開始・停止・ペーシング・パラメータ・ファームウェアのホット差替ができます。
+> 部品が TCP / ファイルを使う場合は manifest の宣言 → 同意 (シェルのダイアログ、headless では `--consent-file`) を経て WASI preview 2 として付与されます。
+> サーバ配信・ポータル・管理画面 (M3/M4) は別途進行中。設計は [`Docs/`](Docs/README.md)、進捗は [`Docs/08-decisions.md`](Docs/08-decisions.md)。
 
 [`../NetworkedSil`](../NetworkedSil/README.md) と同じ台車型倒立振子を、
 **クライアント側で組み立てるエミュレータ**として実現します。
@@ -39,7 +41,7 @@ cargo run -q -p ipemu-engine -- validate dev/cartpole.manifest.json --no-signatu
 cargo run -q -p ipemu-engine -- inspect build/components/plant-cartpole.wasm                # describe() を表示
 cargo run -q -p ipemu-engine -- lqr --length 0.6 --ts 0.005                                  # FW 用 LQR ゲイン
 
-./scripts/check.sh                     # fmt / clippy / 全ビルド / 全テスト / manifest 検証 (PR の前に通す)
+./scripts/check.sh                     # fmt / clippy / 全ビルド / 全テスト / manifest 検証 / pnpm lint・test・build (PR の前に通す)
 ```
 
 ### capability と同意 (M5)
@@ -56,6 +58,22 @@ cargo run -q -p ipemu-engine -- run --manifest dev/cartpole-tcp.manifest.json --
 #   validate は同意なしで通るが、capability は deny-all で付与されるので I/O は一切起きない
 cargo run -q -p ipemu-engine -- inspect build/components/tcp-reporter.wasm   # import 一覧と必要な宣言の目安
 ```
+
+## クイックスタート (M2: シェル + UI)
+前提: 上に加えて Node 22+ と pnpm 10 (`corepack enable`)。
+```bash
+cargo build -p ipemu-engine                       # シェルが spawn するエンジン (target/debug でも可)
+pnpm install                                      # Electron 本体は GitHub Releases から取る。遮断環境は
+                                                  #   ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ pnpm install
+pnpm --filter @ipemu/sim-ui build                 # UI バンドル → build/ui/ui-cartpole.tar.gz (dev manifest の ui.bundle)
+pnpm --filter @ipemu/shell start                  # シェル起動 → ホームのローカルカタログから「組み立てる」
+
+# Electron を使わずに UI を開発する (エンジン + Vite dev server + ブラウザ)
+cargo run -p ipemu-engine -- serve --manifest dev/cartpole.manifest.json --no-signature-check --pacing realtime --auto-start
+pnpm dev:ui                                       # http://localhost:5173/?port=<port>&token=<token> (serve の 1 行目)
+cargo run -p ipemu-engine -- attach --port <port> --token <token>   # 端末で state を眺める
+```
+![シェル](Docs/images/m2-shell.png)
 `dev/cartpole.manifest.json` は NetworkedSil の既定パラメータ (振子 0.6 m) で、0.5 s 後にスイングアップを自動開始し、
 約 6 s で倒立領域に入って LQR に切り替わります。`--record` で 10 ms ごとのスナップショットを CSV に出せます。
 
@@ -70,7 +88,7 @@ cargo run -q -p ipemu-engine -- inspect build/components/tcp-reporter.wasm   # i
 | 部品の差し替え | ソース変更と再デプロイ | 構成情報の編集と部品 WASM の登録。クライアント本体は更新不要 |
 | 対象の広がり | 倒立振子専用 | クライアントは対象を知らない。部品・ファームウェア・UI・構成はすべて配信物で、別の機構も登録だけで動く |
 | 起動の入口 | ブラウザで URL を開く | シェル (または通常のブラウザ) でサーバのポータルを開き、カタログから「起動」 |
-| 実装言語 | C# (.NET 10) | エンジン / サーバ / 部品: Rust、UI: TypeScript、ファームウェア: C / C++ / Rust |
+| 実装言語 | C# (.NET 10) | エンジン / サーバ / 部品: Rust、UI / シェル: TypeScript (React, Electron)、ファームウェア: C / C++ / Rust |
 
 ## ドキュメント
 | ドキュメント | 内容 |
@@ -99,11 +117,11 @@ WasmEmuSil/
     ip-model/                ✅ 物理モデル・線形化・離散 LQR・スイングアップ・速度推定 (no_std, libm)
     ipemu-core/              ✅ manifest 解釈と検証 (V1〜V12)、capability 型・import 抽出・capabilitiesHash (JCS)、同意の型、配線グラフ、スケジューラ
     ipemu-wasm/              ✅ Wasmtime で部品 / FW を実体化、capability に応じた WASI p2 の付与 (wasi.rs)、native FW ローダ
-    ipemu-engine/            ✅ headless CLI (run / validate / inspect / consent / lqr)、セッション組み立て、同意ストア
+    ipemu-engine/            ✅ headless CLI (run / validate / inspect / consent / lqr)、IPC サーバ (serve / attach)、実時間ペーシング、ホット差替、同意ストア
     ip-part-sdk/             ✅ 部品を Rust で書くための SDK (WIT バインディング + 入口マクロ)
     ip-hal/                  ✅ FW を Rust で書くための HAL (wasm import / native vtable) + 入口マクロ
     ip-cmath/                ✅ C 版 FW の wasm ビルド用 libm (Rust の libm を C ABI で公開)
-    ipemu-ipc/                  (M2) シェル ⇄ エンジンの IPC 契約
+    ipemu-ipc/               ✅ シェル ⇄ エンジンの IPC 契約 (JSON-RPC + MessagePack)。ts-rs で bindings/ に TS 型を生成
     ipemu-server/               (M3) 配信 API + ポータル / 管理 SPA の配信 (axum)
   components/                ✅ 部品 (Rust → wasm32-unknown-unknown → wasm-tools component new)
     plant-cartpole/  motor-driver/  encoder/  comm-link/
@@ -111,11 +129,13 @@ WasmEmuSil/
   firmware/
     fw-balance-c/            ✅ C: freestanding wasm + native。CMake と launch.vs.json (VS 用) 同梱
     fw-balance-rs/           ✅ 同じ仕様の Rust 実装 (cdylib: wasm と native)
-  scripts/                   ✅ build-components.sh / build-firmware.sh / check.sh
+  scripts/                   ✅ build-components.sh / build-firmware.sh / gen-ipc-types.sh / check.sh
+  package.json, pnpm-workspace.yaml ✅ TypeScript 側 (apps/*, ipemu-ipc の bindings) の pnpm workspace
   tests/golden/              ✅ ゴールデントレース
   apps/
-    shell/                      (M2) Electron シェル: 汎用ブラウザ UI + 信頼 origin 限定のブリッジ + ipemu:// ハンドラ
+    shell/                   ✅ Electron シェル: 汎用ブラウザ UI + 信頼 origin 限定のブリッジ + ipemu:// ハンドラ + app:// + エンジン監視
     web/                        (M3/M4) サーバが配信する SPA (Vite + React): ポータルと管理画面
-    ui-kit/                     (M2) 共有 UI (sim-view の移植、スコープ、トポロジ表示)
+    ui-kit/                  ✅ 共有 UI (IPC クライアント、sim-view の移植、スコープ、トポロジ、操作パネル)
+    sim-ui/                  ✅ シミュレータ UI バンドル (manifest の ui.bundle。build/ui/ に tar.gz)
   Docs/
 ```
