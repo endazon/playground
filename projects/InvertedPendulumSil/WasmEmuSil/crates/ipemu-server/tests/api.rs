@@ -145,6 +145,12 @@ fn cartpole_body(id: &str) -> Value {
     .unwrap();
     v["id"] = json!(id);
     v["scheduler"]["pacing"] = json!("fast");
+    // UI バンドル (M2 が dev manifest に足したもの) は登録しないので外す
+    v.as_object_mut().unwrap().remove("ui");
+    v["artifacts"]
+        .as_object_mut()
+        .unwrap()
+        .remove("ui-cartpole@0.1.0");
     for (_, a) in v["artifacts"].as_object_mut().unwrap().iter_mut() {
         a.as_object_mut().unwrap().remove("path");
         a["url"] = json!("placeholder");

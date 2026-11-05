@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>アクセスの同意</title>
+    <link rel="stylesheet" href="./shell.css" />
+  </head>
+  <body>
+    <div class="page" style="margin-top: 14px">
+      <div>
+        <h1>部品が OS の資源へのアクセスを求めています</h1>
+        <div class="sub">manifest で宣言され管理者が承認した capability です。拒否するとこの構成は起動しません (部分的に動いた結果を信じないため)。</div>
+      </div>
+      <section class="panel"><div class="kv" id="kv"></div></section>
+      <div class="row" style="justify-content: flex-end">
+        <button class="btn danger" id="deny">拒否</button>
+        <button class="btn" id="once">今回だけ許可</button>
+        <button class="btn primary" id="remember">許可して記憶する</button>
+      </div>
+    </div>
+    <script type="module" src="./consent.ts"></script>
+  </body>
+</html>

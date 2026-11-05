@@ -1,0 +1,15 @@
+[package]
+name = "ipemu-ipc"
+description = "シェル ⇄ エンジンの IPC 契約 (JSON-RPC 2.0 の要求 / 通知と MessagePack のバイナリフレーム)。TypeScript 型を生成する"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+rmp-serde = { workspace = true }
+ts-rs = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }

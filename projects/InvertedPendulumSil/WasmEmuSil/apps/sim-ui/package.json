@@ -1,0 +1,27 @@
+{
+  "name": "@ipemu/sim-ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "シミュレータ UI バンドル (manifest の ui.bundle として配られる)。build/ui/cartpole/ と build/ui/ui-cartpole.tar.gz に出力",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/pack.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@ipemu/ipc-types": "workspace:*",
+    "@ipemu/ui-kit": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.9",
+    "vitest": "^3.2.4"
+  }
+}

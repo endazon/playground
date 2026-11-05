@@ -1,0 +1,27 @@
+{
+  "name": "@ipemu/shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron シェル: 汎用ブラウザ UI + 信頼 origin 限定のブリッジ + ipemu:// ハンドラ + エンジンの起動・監視 + app:// プロトコル",
+  "type": "commonjs",
+  "main": "dist/main/index.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "pnpm run build && electron . --no-sandbox-if-root",
+    "start:dev": "node scripts/build.mjs && vite build && electron ."
+  },
+  "dependencies": {
+    "@ipemu/ipc-types": "workspace:*",
+    "@ipemu/ui-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "electron": "^45.2.3",
+    "esbuild": "^0.25.10",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.9",
+    "vitest": "^3.2.4"
+  }
+}
