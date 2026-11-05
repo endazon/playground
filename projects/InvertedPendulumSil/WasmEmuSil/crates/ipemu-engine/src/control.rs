@@ -6,6 +6,8 @@
 //! - スナップショットをトリプルバッファへ、イベント・スコープを送信キューへ
 //! - `firmware.watch`: ビルド成果物の更新を検知して自動で差し替える
 
+use crate::bootstrap::{bootstrap, BootstrapOptions, Telemetry};
+use crate::cache::Cache;
 use crate::pacing::{Due, Pacer, MAX_BATCH};
 use crate::session::{FirmwareSource, FirmwareSwap, ParamChange, Session, SessionOptions};
 use crate::triple_buffer::{triple_buffer, Reader, Writer};
@@ -47,6 +49,16 @@ pub struct ControllerConfig {
     pub consent: Option<std::sync::Arc<dyn crate::consent::ConsentProvider>>,
     /// 同意ストアを読み書きしない (テスト用)
     pub no_consent_store: bool,
+    /// bootstrap のキャッシュ (None なら `Cache::default_dir`)
+    pub cache_dir: Option<PathBuf>,
+    /// manifest 署名の検証に使う公開鍵 (同梱鍵 + 追加分)
+    pub trusted_keys: ipemu_sign::TrustedKeys,
+    /// 署名のない配信 manifest を許す (`--no-signature-check`)
+    pub allow_unsigned: bool,
+    /// サーバに問い合わせずキャッシュだけで起動する
+    pub offline: bool,
+    /// hello / telemetry を送る (D18)
+    pub telemetry: bool,
 }
 
 impl std::fmt::Debug for ControllerConfig {
@@ -58,6 +70,10 @@ impl std::fmt::Debug for ControllerConfig {
             .field("data_dir", &self.data_dir)
             .field("consent", &self.consent.as_ref().map(|c| c.name()))
             .field("no_consent_store", &self.no_consent_store)
+            .field("cache_dir", &self.cache_dir)
+            .field("allow_unsigned", &self.allow_unsigned)
+            .field("offline", &self.offline)
+            .field("telemetry", &self.telemetry)
             .finish()
     }
 }
@@ -71,6 +87,11 @@ impl Default for ControllerConfig {
             data_dir: None,
             consent: None,
             no_consent_store: false,
+            cache_dir: None,
+            trusted_keys: ipemu_sign::TrustedKeys::default(),
+            allow_unsigned: false,
+            offline: false,
+            telemetry: true,
         }
     }
 }
@@ -178,6 +199,13 @@ struct Controller {
     last_watch_check: Instant,
     last_state_publish: Instant,
     values_buf: Vec<f64>,
+    /// サーバ配信のセッションでの実行要約の送信先 (ローカル manifest / オフラインなら None)
+    telemetry: Option<Telemetry>,
+    telemetry_started: bool,
+    /// キャッシュ構成でのオフライン起動
+    offline: bool,
+    /// 組み立てに使った manifest の生 JSON (manifest.refresh の差分判定用。Manifest 構造体の再 serialize は既定値が埋まるので比較に使えない)
+    loaded_manifest_json: Option<serde_json::Value>,
 }
 
 impl Controller {
@@ -207,6 +235,10 @@ impl Controller {
             last_watch_check: Instant::now(),
             last_state_publish: Instant::now(),
             values_buf: Vec::new(),
+            telemetry: None,
+            telemetry_started: false,
+            offline: false,
+            loaded_manifest_json: None,
         }
     }
 
@@ -417,6 +449,25 @@ impl Controller {
         }
     }
 
+    /// 実行要約の送信 (best-effort。失敗しても止めない)
+    fn send_telemetry(&self, event: &str, detail: serde_json::Value) {
+        if let Some(t) = &self.telemetry {
+            if let Err(e) = t.send(event, detail) {
+                eprintln!("telemetry: {e:#}");
+            }
+        }
+    }
+
+    fn open_cache(&self) -> Result<Cache, RpcError> {
+        Cache::new(
+            self.cfg
+                .cache_dir
+                .clone()
+                .unwrap_or_else(Cache::default_dir),
+        )
+        .map_err(RpcError::from)
+    }
+
     fn emit_run_event(&self, _t: i64) {
         let st = self.run_status();
         let msg = match self.run {
@@ -583,6 +634,13 @@ impl Controller {
                     self.run = RunState::Running;
                     self.pacer.resync(self.t_ns());
                     self.emit_run_event(self.t_ns());
+                    if !self.telemetry_started {
+                        self.telemetry_started = true;
+                        self.send_telemetry(
+                            "started",
+                            serde_json::json!({"pacing": self.pacing.mode}),
+                        );
+                    }
                 }
                 j(self.run_status())
             }
@@ -768,15 +826,65 @@ impl Controller {
     // ------------------------------------------------------------------ launch / describe
 
     fn launch(&mut self, p: LaunchParams) -> Result<SessionDescription, RpcError> {
+        // 取得元: ローカル manifest か、サーバ (M3 の bootstrap。キャッシュにそろえて同じ Session::load に渡す)
+        let mut bootstrapped = None;
         let (manifest_path, allow_unhashed) = match &p.source {
             LaunchSource::Local {
                 manifest_path,
                 allow_unhashed,
             } => (PathBuf::from(manifest_path), *allow_unhashed),
-            LaunchSource::Server { .. } => {
-                return Err(RpcError::not_implemented(
-                    "サーバからの取得 (bootstrap) は M3 で実装します。source.kind = local を使ってください",
-                ))
+            LaunchSource::Server {
+                server,
+                manifest_id,
+                revision,
+                credential,
+                offline,
+            } => {
+                let cache = self.open_cache()?;
+                let mut bo = BootstrapOptions::new(server, manifest_id, cache);
+                bo.revision = *revision;
+                bo.credential = credential.as_ref().map(to_bootstrap_credential);
+                bo.trusted_keys = self.cfg.trusted_keys.clone();
+                bo.allow_unsigned = self.cfg.allow_unsigned;
+                bo.offline = self.cfg.offline || *offline;
+                bo.telemetry = self.cfg.telemetry;
+                if bo.credential.is_none() && !bo.offline {
+                    return Err(RpcError::invalid_params(
+                        "source.credential がありません (オフライン起動なら offline: true)",
+                    ));
+                }
+                self.progress(
+                    BootstrapStage::Manifest,
+                    format!("{server} から `{manifest_id}` を取得"),
+                    Some(0.05),
+                );
+                let b = match bootstrap(&bo) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        self.progress(BootstrapStage::Failed, format!("{e:#}"), None);
+                        return Err(RpcError::engine(format!("{e:#}")));
+                    }
+                };
+                self.progress(
+                    BootstrapStage::Artifacts,
+                    format!(
+                        "rev {} {} (取得 {} / キャッシュ {}, 署名 {})",
+                        b.revision,
+                        if b.from_cache {
+                            "[オフライン / キャッシュ構成]"
+                        } else {
+                            "from server"
+                        },
+                        b.downloaded,
+                        b.cache_hits,
+                        b.verified_key_id.as_deref().unwrap_or("なし")
+                    ),
+                    Some(0.25),
+                );
+                let path = b.manifest_path.clone();
+                bootstrapped = Some((b, bo.cache));
+                // 配信 manifest は sha256 必須 (allow_unhashed は署名の有無には効かない)
+                (path, false)
             }
         };
         let mut opts = SessionOptions {
@@ -802,6 +910,9 @@ impl Controller {
                 ..Default::default()
             });
         }
+        if let Some((b, cache)) = &bootstrapped {
+            opts = b.session_options(cache, opts);
+        }
 
         // 実行中のセッションがあれば止めて置き換える (v1 は同時 1 セッション: D16)
         if self.session.is_some() {
@@ -815,11 +926,15 @@ impl Controller {
                 None,
             );
         }
+        self.send_telemetry("stopped", serde_json::json!({"reason": "replaced"}));
         self.session = None;
         self.scopes.clear();
         self.watches.clear();
         self.fault = None;
         self.pending_steps = 0;
+        self.telemetry = None;
+        self.telemetry_started = false;
+        self.offline = false;
 
         self.progress(
             BootstrapStage::Manifest,
@@ -839,10 +954,37 @@ impl Controller {
         let session = match Session::load(&manifest_path, &opts) {
             Ok(s) => s,
             Err(e) => {
+                if let Some((b, _)) = &bootstrapped {
+                    if let Some(t) = b.telemetry() {
+                        let _ = t.send(
+                            "error",
+                            serde_json::json!({"phase": "load", "error": format!("{e:#}")}),
+                        );
+                    }
+                }
                 self.progress(BootstrapStage::Failed, format!("{e:#}"), None);
                 return Err(RpcError::engine(format!("{e:#}")));
             }
         };
+        self.loaded_manifest_json = match &bootstrapped {
+            Some((b, _)) => Some(b.manifest.clone()),
+            None => std::fs::read_to_string(&manifest_path)
+                .ok()
+                .and_then(|t| serde_json::from_str(&t).ok()),
+        };
+        if let Some((b, _)) = &bootstrapped {
+            self.telemetry = b.telemetry();
+            self.offline = b.from_cache;
+            if b.from_cache {
+                self.event(
+                    EventKind::Engine,
+                    Level::Warn,
+                    None,
+                    "サーバに届かないため、キャッシュ構成で起動しました (オフライン)".into(),
+                    None,
+                );
+            }
+        }
         self.progress(BootstrapStage::Instantiate, "組み立て完了", Some(0.9));
 
         let sched = &session.manifest.scheduler;
@@ -970,7 +1112,7 @@ impl Controller {
                 });
             }
         }
-        let ui = ui_bundle_info(&s.manifest_dir, m);
+        let ui = ui_bundle_info(&s.manifest_dir, m, &s.options);
         let overrides = Overrides {
             firmware: s
                 .options
@@ -1026,12 +1168,13 @@ impl Controller {
             credential: match &launch.source {
                 LaunchSource::Local { .. } => CredentialKind::None,
                 LaunchSource::Server { credential, .. } => match credential {
-                    Credential::ApiKey { .. } => CredentialKind::ApiKey,
-                    _ => CredentialKind::User,
+                    Some(Credential::ApiKey { .. }) => CredentialKind::ApiKey,
+                    Some(_) => CredentialKind::User,
+                    None => CredentialKind::None,
                 },
             },
             ui,
-            offline: false,
+            offline: self.offline,
             warnings,
             engine,
         })
@@ -1148,9 +1291,9 @@ impl Controller {
                 let mut diags = ipemu_core::validate::Diagnostics::default();
                 ipemu_core::validate::validate_schema(&json, &mut diags);
                 let revision = json.get("revision").and_then(|r| r.as_u64()).unwrap_or(0) as u32;
-                let current = serde_json::to_value(&s.manifest).unwrap_or_default();
                 Ok(ManifestRefreshResult {
-                    changed: revision != s.manifest.revision || current != json,
+                    changed: revision != s.manifest.revision
+                        || self.loaded_manifest_json.as_ref() != Some(&json),
                     revision,
                     diagnostics: diags
                         .items
@@ -1163,14 +1306,53 @@ impl Controller {
                         .collect(),
                 })
             }
-            LaunchSource::Server { .. } => {
-                Err(RpcError::not_implemented("manifest.refresh (サーバ) は M3"))
+            LaunchSource::Server {
+                server,
+                manifest_id,
+                revision,
+                credential,
+                ..
+            } => {
+                // サーバへ問い合わせ直し、最新 (または指定 revision) が今のものと違うかを報告する (置き換えは session.launch で)
+                let mut bo = BootstrapOptions::new(server, manifest_id, self.open_cache()?);
+                bo.revision = *revision;
+                bo.credential = credential.as_ref().map(to_bootstrap_credential);
+                bo.trusted_keys = self.cfg.trusted_keys.clone();
+                bo.allow_unsigned = self.cfg.allow_unsigned;
+                bo.telemetry = false;
+                let b = bootstrap(&bo).map_err(RpcError::from)?;
+                Ok(ManifestRefreshResult {
+                    changed: b.revision != s.manifest.revision
+                        || self.loaded_manifest_json.as_ref() != Some(&b.manifest),
+                    revision: b.revision,
+                    diagnostics: Vec::new(),
+                })
             }
         }
     }
 
     fn catalog_local(&self) -> CatalogLocalResult {
         let mut entries = Vec::new();
+        // bootstrap のキャッシュにある構成 (サーバに届かなくても起動できる)
+        if let Ok(cache) = self.open_cache() {
+            for e in cache.load_catalog().entries {
+                entries.push(CatalogEntry {
+                    id: e.manifest_id.clone(),
+                    revision: e.revision,
+                    name: e.name.clone(),
+                    description: None,
+                    server: Some(e.server.clone()),
+                    source: LaunchSource::Server {
+                        server: e.server.clone(),
+                        manifest_id: e.manifest_id.clone(),
+                        revision: Some(e.revision),
+                        credential: None,
+                        offline: true,
+                    },
+                    last_launched: Some(e.last_launched_at.clone()),
+                });
+            }
+        }
         for dir in &self.cfg.catalog_dirs {
             let Ok(rd) = std::fs::read_dir(dir) else {
                 continue;
@@ -1227,16 +1409,38 @@ fn port_info(p: &ipemu_core::PortDesc) -> PortInfo {
     }
 }
 
+fn to_bootstrap_credential(c: &Credential) -> crate::bootstrap::Credential {
+    match c {
+        Credential::SessionToken { token } => crate::bootstrap::Credential::Token(token.clone()),
+        Credential::Ticket { ticket } => crate::bootstrap::Credential::Ticket(ticket.clone()),
+        Credential::ApiKey { key } => crate::bootstrap::Credential::ApiKey(key.clone()),
+    }
+}
+
 /// manifest の `ui.bundle` を UiBundleInfo に写す。アーティファクトは単一ファイル (tar.gz)。
-fn ui_bundle_info(manifest_dir: &Path, m: &ipemu_core::Manifest) -> Option<UiBundleInfo> {
+/// 配信 manifest では bootstrap の resolver がキャッシュ (`sha256/..`) のパスを返す。
+fn ui_bundle_info(
+    manifest_dir: &Path,
+    m: &ipemu_core::Manifest,
+    opts: &SessionOptions,
+) -> Option<UiBundleInfo> {
     let ui = m.ui.as_ref()?;
     let bundle = ui.get("bundle")?.as_str()?;
     let art = m.artifacts.get(bundle)?;
-    let rel = art
-        .path
-        .clone()
-        .or_else(|| art.url.as_ref()?.strip_prefix("file:").map(str::to_owned))?;
-    let path = manifest_dir.join(rel);
+    let path = match opts
+        .artifact_resolver
+        .as_ref()
+        .and_then(|r| (r.0)(bundle, art).ok().flatten())
+    {
+        Some(p) => p,
+        None => {
+            let rel = art
+                .path
+                .clone()
+                .or_else(|| art.url.as_ref()?.strip_prefix("file:").map(str::to_owned))?;
+            manifest_dir.join(rel)
+        }
+    };
     let path = path.canonicalize().unwrap_or(path);
     Some(UiBundleInfo {
         artifact: bundle.to_owned(),

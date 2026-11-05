@@ -184,7 +184,7 @@ fn binary_frames_roundtrip_with_kind_byte() {
         state: RunState::Running,
         pacing: PacingMode::Realtime,
         speed: 1.0,
-        values: vec![0.1, -3.14, f64::INFINITY],
+        values: vec![0.1, -3.25, f64::INFINITY],
         stats: SchedulerStats {
             realtime_ratio: 1.0,
             step_wall_us: 12.5,

@@ -223,8 +223,10 @@ M2 で実装した範囲と、設計からの具体化。サーバ配信 (bootst
   生成物はコミットし、`check.sh` が `--check` で差分を検出する。
 - i64 / u64 は TS の `number` (仮想時刻 ns で 2^53 まで足りる。bigint は JSON / msgpack と相性が悪い)。
 - バイナリフレームは先頭 1 バイト (0x01 = state, 0x02 = scope) + MessagePack (名前付きフィールド)。TS 側は `@msgpack/msgpack`。
-- `session.launch` の `source` は `{kind: "local", manifestPath}` (開発) と `{kind: "server", …, credential}` (M3) の 2 形。
-  M2 のエンジンは `server` に `NOT_IMPLEMENTED (-32003)` を返す。
+- `session.launch` の `source` は `{kind: "local", manifestPath}` (開発) と `{kind: "server", server, manifestId, revision?, credential?, offline}` の 2 形。
+  `server` は M3 の `bootstrap` (取得 → 署名検証 → キャッシュ) を通してから同じ `Session::load` に渡す。`credential` は
+  `sessionToken` / `ticket` / `apiKey` の 3 種で、`offline: true` (ローカルカタログからの起動) のときだけ省略できる。
+  `catalog.local` は bootstrap のキャッシュにある構成も (`offline: true` の source で) 列挙する。
 - `consent.required` の本文は `ipemu_core::consent::ConsentRequest` と同形 (`instances[]`, `artifact`, `artifactSha256`, …)。
   `consent.answer` は `ConsentAnswer` と同形。
 - エラーコード: 標準 4 つ + `-32000 ENGINE_ERROR` / `-32001 NO_SESSION` / `-32002 RESTART_REQUIRED` / `-32003 NOT_IMPLEMENTED` /
@@ -240,16 +242,19 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
 ```
 | モジュール | 役割 |
 | --- | --- |
-| `control.rs` | **スケジューラ専用スレッド**上の制御器。IPC からの要求は `std::sync::mpsc` に積まれ、ステップ境界でだけ状態を変える。`run.*`、`param.set` (wasm 部品は `init` し直し、組み込み部品は `restartRequired`)、`firmware.load` (wasm = `CpuVirtual::attach_firmware` でホット、native = 上書きを記録して `restartRequired: true`)、`firmware.watch` (mtime 監視、更新 200ms 後に自動差替)、`scope.subscribe` (ステップごとに採り、`windowS` ぶんまとめて scope フレーム)、`catalog.local` (`--catalog-dir` の `*.manifest.json`)、`manifest.refresh` (ローカルは再検証して差分報告) |
+| `control.rs` | **スケジューラ専用スレッド**上の制御器。IPC からの要求は `std::sync::mpsc` に積まれ、ステップ境界でだけ状態を変える。`run.*`、`param.set` (wasm 部品は `init` し直し、組み込み部品は `restartRequired`)、`firmware.load` (wasm = `CpuVirtual::attach_firmware` でホット、native = 上書きを記録して `restartRequired: true`)、`firmware.watch` (mtime 監視、更新 200ms 後に自動差替)、`scope.subscribe` (ステップごとに採り、`windowS` ぶんまとめて scope フレーム)、`catalog.local` (`--catalog-dir` の `*.manifest.json` + bootstrap キャッシュの構成)、`manifest.refresh` (ローカルは再検証して差分報告、サーバは取得し直して revision / 本文の差分を報告)。`source.kind = "server"` の launch は `bootstrap` を経由し、`describe().offline` にキャッシュ起動かを載せ、telemetry (started / stopped / error) を送る |
 | `pacing.rs` | realtime の追いつき (壁時計 × speed との差ぶんステップ)、`maxSlipMs` 超過で原点を取り直す**時間スリップ**、`--debug-friendly` (デバッガ検出でも) は追いつかない。`SchedulerStats` (倍率 / µs/step / スリップ / 予算超過) を state に同梱 |
 | `triple_buffer.rs` | スケジューラ → tokio のスナップショット受け渡し。書き手は待たない |
 | `ipc_server.rs` | `127.0.0.1:0` の WebSocket (tokio-tungstenite)。`?token=` か `Authorization: Bearer` を**ハンドシェイクで**照合 (不一致は 401)。`Origin` ヘッダがあれば許可リスト (既定 `app://ui`、`--allow-origin`) と厳密一致しなければ 403 (Origin の無い CLI / シェル main はトークンのみ)。state は `state_hz` でトリプルバッファを読んで全接続へ broadcast、通知 / scope は到着順。遅い受け手は古いフレームを落とす。`client` モジュールはテストと `attach` 用 |
-| `session.rs` | M1 の `Session` に `swap_firmware` / `set_param` / `step` / `reset` と `options` (上書きの元) を追加。`ipemu-core` の `Part` に `as_any_mut` (既定 `None`) を足して cpu-virtual へ降りる。ホット差替は M5 の 2 パス構造に乗せ、宣言と import の整合 (V7) を確認し、**差し替え先の sha256 で同意を取り直してから** (同じビルドなら聞かない) grant を付与する。未同意・拒否なら古いファームウェアを残す (D44) |
+| `session.rs` | M1 の `Session` に `swap_firmware` / `set_param` / `step` / `reset` と `options` (上書きの元) を追加。`ipemu-core` の `Part` に `as_any_mut` (既定 `None`) を足して cpu-virtual へ降りる。ホット差替は M5 の 2 パス構造に乗せ、宣言と import の整合 (V7) を確認し、**差し替え先の sha256 で同意を取り直してから** (同じビルドなら聞かない) grant を付与する。未同意・拒否なら古いファームウェアを残す (D49) |
 | `consent_ipc.rs` | `ConsentBroker`: M5 の `ConsentProvider` を IPC で実装。`consent.required` を流し、`consent.answer` を Condvar で待つ |
 
 `debug-friendly` では wasm 呼び出しの予算 (`call_budget`) も無制限にする (ブレーク中に epoch で trap させない)。
-結合テスト (`crates/ipemu-engine/tests/ipc.rs`): 認証、describe、`run.start` → state 受信、**C 版 → Rust 版の wasm ホット差替で
-仮想時刻・Epoch・プラント状態が保たれ、新しい FW が倒立を引き継ぐ**、native は `restartRequired`、`param.set`、scope、実バイナリの serve。
+結合テスト (`crates/ipemu-engine/tests/ipc.rs`): 認証 (トークン / Origin)、describe、`run.start` → state 受信、**C 版 → Rust 版の wasm ホット差替で
+仮想時刻・Epoch・プラント状態が保たれ、新しい FW が倒立を引き継ぐ**、native は `restartRequired`、`param.set`、scope、実バイナリの serve、
+同意の IPC 往復 (拒否で起動しない / 許可で起動 / ホット差替は新しい sha256 で再同意)。
+`tests/ipc_server_launch.rs`: in-process のサーバに公開した構成を `source.kind = "server"` + API キーで取得して倒立、
+`catalog.local` にキャッシュ済み構成が載り、サーバ停止後に `offline: true` で再起動できる (`describe().offline`)。
 
 ### シェル `apps/shell` (Electron 45)
 設計の節のとおり。要点と具体化:
@@ -268,7 +273,7 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
   直近の describe の `overrides` を launch に畳み込んで **同じ構成で spawn し直し**、`app://ui` のページに `endpoint-changed` を送る。
 - 同意ウィンドウ (`consent.html`) は `consent.required` 通知で開き、`consent.answer` を返す。エンジン側は `ConsentBroker`
   (`crates/ipemu-engine/src/consent_ipc.rs`) が M5 の `ConsentProvider` を IPC で実装する: `Session::load` がスケジューラスレッド上で
-  `ask` を呼ぶと未同意分を通知し、回答が揃うまで待つ。`consent.answer` は制御器を経由せず IPC サーバから直接ブローカへ届く (D43)。
+  `ask` を呼ぶと未同意分を通知し、回答が揃うまで待つ。`consent.answer` は制御器を経由せず IPC サーバから直接ブローカへ届く (D48)。
   `--consent-file` を渡した `serve` はダイアログを出さずファイルで答える (headless)。
 
 ### UI `apps/ui-kit` / `apps/sim-ui`

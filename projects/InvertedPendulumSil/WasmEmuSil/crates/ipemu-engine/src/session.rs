@@ -10,7 +10,7 @@ use ipemu_core::builtins::{CpuVirtual, CpuVirtualParams};
 use ipemu_core::capability::ImportInfo;
 use ipemu_core::consent::ConsentRequest;
 use ipemu_core::hal::{Firmware, LogLevel};
-use ipemu_core::manifest::{ComponentSpec, Manifest};
+use ipemu_core::manifest::{ArtifactRef, ComponentSpec, Manifest};
 use ipemu_core::validate::{validate, validate_schema, DescResolver, Diagnostics, ValidateOptions};
 use ipemu_core::{Engine, Part, PartDesc};
 use ipemu_wasm::{NativeFirmware, Runtime, WasmFirmware, WasmPart};
@@ -42,6 +42,20 @@ impl FirmwareSource {
     }
 }
 
+/// アーティファクト名 (`name@version`) と参照からローカルパスを引くフック。
+/// bootstrap がキャッシュ (`sha256/ab/cd/<hex>`) を指すために使う。None を返すと既定の解決 (path / file:) に戻る。
+pub type ArtifactResolverFn =
+    dyn Fn(&str, &ArtifactRef) -> anyhow::Result<Option<PathBuf>> + Send + Sync;
+
+#[derive(Clone)]
+pub struct ArtifactResolver(pub Arc<ArtifactResolverFn>);
+
+impl std::fmt::Debug for ArtifactResolver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ArtifactResolver(..)")
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct SessionOptions {
     /// slot 名 → ファームウェアの上書き
@@ -60,6 +74,8 @@ pub struct SessionOptions {
     /// 検証のみ (`validate`): 同意を求めず、capability は deny-all 形で付与する (D34)。
     /// 実体化・describe・init は走るが、接続・名前解決・ファイル操作はすべて拒否される
     pub validate_only: bool,
+    /// アーティファクトの解決フック (配信 manifest をキャッシュから組み立てるとき。M3)
+    pub artifact_resolver: Option<ArtifactResolver>,
 }
 
 impl std::fmt::Debug for SessionOptions {
@@ -73,6 +89,7 @@ impl std::fmt::Debug for SessionOptions {
             .field("consent", &self.consent.as_ref().map(|c| c.name()))
             .field("no_consent_store", &self.no_consent_store)
             .field("validate_only", &self.validate_only)
+            .field("artifact_resolver", &self.artifact_resolver)
             .finish()
     }
 }
@@ -185,11 +202,17 @@ fn resolve_artifact_path(
     manifest_dir: &Path,
     manifest: &Manifest,
     name: &str,
+    opts: &SessionOptions,
 ) -> anyhow::Result<PathBuf> {
     let a = manifest
         .artifacts
         .get(name)
         .ok_or_else(|| anyhow!("アーティファクト `{name}` が manifest にありません"))?;
+    if let Some(r) = &opts.artifact_resolver {
+        if let Some(p) = (r.0)(name, a)? {
+            return Ok(p);
+        }
+    }
     if let Some(p) = &a.path {
         return Ok(manifest_dir.join(p));
     }
@@ -197,7 +220,7 @@ fn resolve_artifact_path(
         if let Some(p) = u.strip_prefix("file:") {
             return Ok(manifest_dir.join(p));
         }
-        bail!("アーティファクト `{name}` は url ({u}) でしか指定されていません。M1 のエンジンはローカル path のみ対応です")
+        bail!("アーティファクト `{name}` は url ({u}) でしか指定されていません。サーバから取得するには --server で起動してください")
     }
     bail!("アーティファクト `{name}` に path も url もありません")
 }
@@ -254,7 +277,7 @@ impl Session {
         for c in &manifest.components {
             let p = match (&c.artifact, c.kind.as_deref()) {
                 (Some(a), None) => {
-                    let path = resolve_artifact_path(manifest_dir, &manifest, a)?;
+                    let path = resolve_artifact_path(manifest_dir, &manifest, a, opts)?;
                     let w = load_wasm(&path, a, manifest.artifacts[a].sha256.as_deref())
                         .with_context(|| format!("部品 `{}` ({a})", c.instance))?;
                     plan.push(PlanEntry {
@@ -732,7 +755,7 @@ fn locate_firmware(
                     slot.slot
                 )
             })?;
-            let path = resolve_artifact_path(manifest_dir, manifest, name)?;
+            let path = resolve_artifact_path(manifest_dir, manifest, name, opts)?;
             Ok(FirmwareBytes::Wasm(load_wasm(
                 &path,
                 name,
@@ -775,7 +798,7 @@ pub fn list_consent_requests(
     for c in &manifest.components {
         match (&c.artifact, c.kind.as_deref()) {
             (Some(a), None) => {
-                let path = resolve_artifact_path(manifest_dir, &manifest, a)?;
+                let path = resolve_artifact_path(manifest_dir, &manifest, a, opts)?;
                 let w = load_wasm(&path, a, manifest.artifacts[a].sha256.as_deref())?;
                 plan.push(PlanEntry {
                     instance: c.instance.clone(),

@@ -3,8 +3,12 @@
 //! M1: ローカルの manifest (署名なし・`path` 参照) を読み、部品 (wasm) と組み込み部品を実体化し、
 //! ファームウェアを装着して headless で回す。
 //! M2: `serve` で IPC サーバ (ループバック WebSocket) を立て、スケジューラ専用スレッド上の制御器
-//! ([`control`]) が実時間ペーシング ([`pacing`]) とホット差替を行う。サーバからの取得 (bootstrap) は M3。
+//! ([`control`]) が実時間ペーシング ([`pacing`]) とホット差替を行う。
+//! M3: `bootstrap` がサーバから署名付き manifest とアーティファクトを取り寄せ、キャッシュ経由で同じ `Session` に渡す。
+//! M5: capability の計画と同意。
 
+pub mod bootstrap;
+pub mod cache;
 pub mod capability;
 pub mod consent;
 pub mod consent_ipc;
@@ -15,9 +19,12 @@ pub mod recorder;
 pub mod session;
 pub mod triple_buffer;
 
+pub use bootstrap::{bootstrap, BootstrapOptions, Bootstrapped, Credential, Telemetry};
+pub use cache::{Cache, LocalCatalog};
 pub use capability::{CapabilityPlan, DataDirs};
 pub use consent::{ConsentOutcome, ConsentProvider, ConsentStore, FileConsent, NoConsent};
 pub use recorder::{Recorder, TraceHash};
 pub use session::{
-    FirmwareSource, FirmwareSwap, LaunchError, ParamChange, Session, SessionOptions,
+    ArtifactResolver, FirmwareSource, FirmwareSwap, LaunchError, ParamChange, Session,
+    SessionOptions,
 };

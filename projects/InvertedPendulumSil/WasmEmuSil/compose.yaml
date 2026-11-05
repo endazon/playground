@@ -1,0 +1,43 @@
+name: wasmemusil
+
+services:
+  # 配信 API + 管理 API + ポータル / 管理 SPA。TLS 終端はリバースプロキシ (Caddy / nginx) に任せる
+  server:
+    build:
+      context: .
+      target: runtime
+    image: ipemu-server:latest
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 768M
+          pids: 256
+    # ループバックにだけ公開する。LAN / インターネットに出すときはリバースプロキシを前に置く
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # 外から見える URL。ipemu:// リンクと、シェルが信頼する origin の照合に使う
+      IPEMU_PUBLIC_URL: ${IPEMU_PUBLIC_URL:-http://127.0.0.1:8080}
+      # 初回起動時だけ使う admin の初期パスワード (未設定なら生成してログに出す)。ログイン後に変更を強制する
+      IPEMU_ADMIN_BOOTSTRAP_PASSWORD: ${IPEMU_ADMIN_BOOTSTRAP_PASSWORD:-}
+      IPEMU_LOG_FORMAT: ${IPEMU_LOG_FORMAT:-json}
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      # アーティファクト (内容アドレス) と SQLite。バックアップはこのディレクトリの丸ごとコピー
+      - ./store:/data/store
+      # 署名鍵: `cargo run -p ipemu-server -- keygen --out dev/keys` で作る (dev/README.md)。秘密鍵はコミットしない
+      - ./dev/keys:/keys:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s

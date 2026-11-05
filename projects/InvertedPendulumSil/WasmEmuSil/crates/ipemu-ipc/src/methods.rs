@@ -129,15 +129,22 @@ pub enum LaunchSource {
         #[serde(default)]
         allow_unhashed: bool,
     },
-    /// サーバのカタログ (M3)
+    /// サーバのカタログ (M3 の bootstrap: 取得 → 署名検証 → キャッシュ)
     #[serde(rename_all = "camelCase")]
     Server {
         server: String,
         manifest_id: String,
+        /// None なら既定 revision
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[ts(optional)]
         revision: Option<u32>,
-        credential: Credential,
+        /// None はキャッシュからのオフライン起動 (`offline: true`) のときだけ許される
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        credential: Option<Credential>,
+        /// サーバに問い合わせず、キャッシュ (ローカルカタログ) から起動する
+        #[serde(default)]
+        offline: bool,
     },
 }
 

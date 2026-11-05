@@ -138,3 +138,19 @@ ipemu-engine --manifest ./dev/cartpole.manifest.json \
              --no-signature-check     # ローカルファイルの manifest のときだけ許す
 ```
 上書きが効いていることは UI のヘッダに常時表示します (配布構成と開発構成の取り違えを防ぐため)。
+
+## 実装 (M3/M4): 署名と版の扱い
+署名の規則は [`../crates/ipemu-sign`](../crates/ipemu-sign) に集約し、サーバとエンジンが同じコードを使う。正規化とハッシュは M5 の `ipemu-core` の実装に乗る (D38)。
+
+- **署名対象**: `signature` を除いた manifest 全体を RFC 8785 (JCS, `ipemu_core::jcs::canonicalize`) で正規化したバイト列。`approval` は含む。
+- **`approval.capabilitiesHash`**: `ipemu_core::capabilities_hash` (D31: `{instance: Capabilities}` を型経由で正規化 → JCS → sha256)。
+  サーバは承認時にこれを記録し、公開時に `approval` へ載せて署名する。V12 ではエンジン側の `validate` が本文から再計算して照合し
+  (署名鍵を持つ者でも承認なしに capability を変えられない)、`ipemu_sign::verify_manifest` も同じ照合を行う。
+- **鍵の形式**: raw 32 バイトの hex を JSON に包む (D37)。公開鍵 `{"keyId","alg":"ed25519","publicKey"}`、秘密鍵 `{"keyId","alg","seed"}`。
+  クライアントは `crates/ipemu-engine/keys/trusted-keys.json` (コンパイル時に埋め込み) と `IPEMU_TRUSTED_KEYS` / `--trusted-key keyId=hex` / `IPEMU_TRUSTED_KEYS_FILE` の和集合を信頼する。
+- **版**: `revision` はサーバが採番し (下書き作成時に `max+1`)、本文の `id` / `revision` をサーバが揃える。承認済み / 公開済みの本文は変更不可 (D39)。
+  **公開範囲とカタログの既定 revision は本文の外** (DB のメタデータ) なので、巻き戻しや公開範囲の変更で署名はやり直さない。
+- **配信用 manifest の `artifacts`**: サーバが登録済みアーティファクトから `sha256` / `size` / `kind` / `url` (`/api/v1/artifacts/{name}/{version}`) を補完し、`path` は除去する。
+  エンジンは `url` をサーバ基準で絶対化して取得し、キャッシュ (`sha256/ab/cd/<hex>`) に置いてから `Session::load` に渡す。
+- **V7 / V8**: サーバは登録時に `ipemu_core::imports::component_imports` で import 一覧を保存し、manifest 検証では `DescResolver::imports` でそれを
+  `ipemu_core::validate` に渡す (部品は自身の import、`builtin:cpu-virtual` は既定ファームウェアの import)。エンジンは起動時に実物から再抽出して同じ規則で照合する。

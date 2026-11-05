@@ -12,7 +12,7 @@ cargo fmt --all -- --check
 
 if [ $QUICK -eq 0 ]; then
   step "cargo clippy (native crates)"
-  cargo clippy -p ip-model -p ipemu-core -p ipemu-wasm -p ipemu-engine -p ip-hal -p ip-part-sdk -- -D warnings
+  cargo clippy -p ip-model -p ipemu-core -p ipemu-wasm -p ipemu-engine -p ip-hal -p ip-part-sdk -p ipemu-sign -p ipemu-server --tests -- -D warnings
   step "build components (wasm)"
   ./scripts/build-components.sh release
   step "build firmware (wasm + native)"
@@ -33,10 +33,10 @@ if command -v pnpm >/dev/null 2>&1; then
   ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install --frozen-lockfile --silent
   step "pnpm lint (eslint + tsc)"
   pnpm run --silent lint
-  step "pnpm test (vitest: ui-kit / shell)"
+  step "pnpm test (vitest: ui-kit / shell / web)"
   pnpm run --silent test
   if [ $QUICK -eq 0 ]; then
-    step "pnpm build (UI バンドル + シェル)"
+    step "pnpm build (UI バンドル + シェル + web)"
     pnpm run --silent build
   fi
 else

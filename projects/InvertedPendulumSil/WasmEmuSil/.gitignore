@@ -10,3 +10,7 @@ node_modules/
 firmware/fw-balance-c/gen/*.o
 # Electron シェルのビルド (esbuild / vite)
 apps/shell/dist/
+# 署名鍵 (ipemu-server keygen) とローカル実行時の保存領域
+dev/keys/
+dev/store/
+store/

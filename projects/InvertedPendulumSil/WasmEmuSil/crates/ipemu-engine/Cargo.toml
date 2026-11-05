@@ -26,7 +26,13 @@ tokio = { workspace = true, features = ["process"] }
 tokio-tungstenite = { workspace = true }
 futures-util = { workspace = true }
 rand = { workspace = true }
+ipemu-sign = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 
 [dev-dependencies]
 sha2 = { workspace = true }
 hex = { workspace = true }
+ipemu-server = { path = "../ipemu-server" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "multipart", "rustls-tls"] }

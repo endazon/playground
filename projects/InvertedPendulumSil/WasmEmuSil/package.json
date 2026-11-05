@@ -2,7 +2,7 @@
   "name": "wasmemusil",
   "private": true,
   "type": "module",
-  "description": "WasmEmuSil の TypeScript 側 (pnpm workspace): ui-kit / sim-ui / shell。Rust 側は Cargo ワークスペース",
+  "description": "WasmEmuSil の TypeScript 側 (pnpm workspace): ui-kit / sim-ui / shell (M2)、web (M3/M4 のポータル / 管理 SPA)。Rust 側は Cargo ワークスペース",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22"
@@ -13,7 +13,8 @@
     "lint": "eslint . && pnpm run typecheck",
     "test": "pnpm -r --filter './apps/**' run test",
     "dev:ui": "pnpm --filter @ipemu/sim-ui run dev",
-    "shell": "pnpm --filter @ipemu/shell run start"
+    "shell": "pnpm --filter @ipemu/shell run start",
+    "dev:web": "pnpm --filter ipemu-web run dev"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

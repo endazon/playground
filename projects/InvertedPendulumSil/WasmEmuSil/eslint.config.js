@@ -11,6 +11,7 @@ export default tseslint.config(
       "build/**",
       "target/**",
       "crates/ipemu-ipc/bindings/**", // ts-rs の生成物
+      "apps/web/**", // M3/M4 のポータル / 管理 SPA は自前の lint (tsc) を持つ
       "firmware/**",
     ],
   },

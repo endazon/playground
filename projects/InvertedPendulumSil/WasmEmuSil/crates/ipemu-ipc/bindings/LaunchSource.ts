@@ -8,4 +8,16 @@ export type LaunchSource = { "kind": "local", manifestPath: string,
 /**
  * sha256 / 署名のない manifest を許す (`--no-signature-check`)
  */
-allowUnhashed: boolean, } | { "kind": "server", server: string, manifestId: string, revision?: number, credential: Credential, };
+allowUnhashed: boolean, } | { "kind": "server", server: string, manifestId: string, 
+/**
+ * None なら既定 revision
+ */
+revision?: number, 
+/**
+ * None はキャッシュからのオフライン起動 (`offline: true`) のときだけ許される
+ */
+credential?: Credential, 
+/**
+ * サーバに問い合わせず、キャッシュ (ローカルカタログ) から起動する
+ */
+offline: boolean, };
