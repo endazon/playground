@@ -39,4 +39,21 @@ pnpm --filter @ipemu/shell start                 # ビルドして electron を�
   OS への登録は packaged のときだけ (`electron .` では実行ファイルが electron 自身のため)
 - 配布 zip: `scripts/package.sh` (Docs/07 の「配布 (M6)」)
 - テスト: `pnpm --filter @ipemu/shell test` (origin 判定、URL 解析、tar 展開、app:// の経路、設定)。
-  Electron を実際に動かす E2E は Playwright の `_electron` で手元で行う (Xvfb 可)。スクリーンショットは `Docs/images/m2-shell*.png`
+  Electron を実際に動かす E2E は下の「E2E スモークテスト」。スクリーンショットは `Docs/images/m2-shell*.png`
+
+## E2E スモークテスト
+
+`e2e/smoke.mjs` が Playwright の `_electron` でシェルを実際に動かす (一時 userData、`scripts/check.sh` には含めない)。
+確認するのは、ローカルカタログからの起動と sim UI の状態受信、信頼 origin だけへのブリッジ注入 (https 必須)、
+web タブの `app://` 遷移拒否、`app://ui` の外部 fetch の CSP 拒否、`ipemu://` 確認ウィンドウ、
+`window.ipemu.launch({manifestPath})` と `allowLocalLaunch` (監査 M2-1) の 6 つ。
+
+```bash
+cd projects/InvertedPendulumSil/WasmEmuSil
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ node node_modules/.pnpm/electron@*/node_modules/electron/install.js   # Electron 本体 (check.sh は取らない)
+pnpm --filter @ipemu/shell build && cargo build -p ipemu-engine   # + build/components, build/firmware, build/ui (scripts/check.sh で揃う)
+xvfb-run -a node apps/shell/e2e/smoke.mjs        # 全シナリオ。`... smoke.mjs 4` で 4 番だけ
+```
+
+`playwright` は `require` で解決できる必要がある (グローバル導入、または `PLAYWRIGHT_DIR=<node_modules>`)。
+root での実行は Playwright が `--no-sandbox` を足す。終了コードは全シナリオ成功で 0。

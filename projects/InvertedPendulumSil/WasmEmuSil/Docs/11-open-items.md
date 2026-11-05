@@ -40,7 +40,7 @@ M6 は完了しました。詳細は各資料にあります。
 ## 3. 小さな残作業
 | 項目 | 内容 | 規模 |
 | --- | --- | --- |
-| Electron の E2E の再実行 | Xvfb + Playwright (`_electron`) によるシェルの結合確認は M2 のときに手元で 1 回実施しただけ。監査修正 M2-1 でシェルの main プロセスを変えたので再確認する。M6 の統合時に実施予定 | 小 |
+| Electron の E2E の再実行 | 完了。`apps/shell/e2e/smoke.mjs` (Xvfb + Playwright `_electron`、一時 userData、`xvfb-run -a node apps/shell/e2e/smoke.mjs`) に 6 シナリオを常設して全て合格した: ローカルカタログ起動と sim UI の状態受信 / 信頼 origin だけのブリッジ注入 (http は loopback かつ `allowLocalhost` のときだけ) / web タブの `app://` 遷移拒否 / `app://ui` の外部 fetch の CSP 拒否 / `ipemu://` 確認ウィンドウ / M2-1 (`allowLocalLaunch`)。実行中に M2-1 の既定値が `true` のままだったのを検出し修正した。skip したシナリオはない。Electron 本体が要るので `scripts/check.sh` には入れていない | 完了 |
 | 拒否した宛先の通知 | capability で拒否した接続先は `WasmPart::take_denied_destinations()` で取り出せるが、IPC の `event` 通知には載せていない (07-client-app.md) | 小 |
 
 ## 4. 判断を保留しているもの
