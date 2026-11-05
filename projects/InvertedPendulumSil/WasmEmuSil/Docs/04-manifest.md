@@ -51,10 +51,11 @@ manifest は「どの部品を、どのパラメータで、どう配線し、�
 | V9 | 単位 (`unit`) が配線の両端で一致しない | Warning |
 | V10 | `wasi:clocks` / `wasi:random` を与える部品がある (決定性の保証外) | Warning |
 | V11 | `rateDivider` と `tickHz` が `baseStepNs` の整数倍で表現できる | Error |
-| V12 | `signature` が公開鍵で検証でき、`approval.capabilitiesHash` が本文と一致する (クライアントのみ) | Error |
+| V12 | `signature` が公開鍵で検証でき (クライアントのみ)、`approval.capabilitiesHash` が capability 宣言と一致する (`approval` があれば常に。M5 で実装) | Error |
 
 V3 / V7 / V8 は wasm バイナリの WIT を読む必要があるため、サーバはアップロード時に WIT を抽出して
 メタデータに保存し、manifest 検証ではそれを参照します。クライアントはコンパイル時に実物と再照合します。
+import の抽出は `ipemu_core::imports::component_imports(&[u8])` (M5。下の「実装 (M5)」参照)。
 
 ## capability 宣言
 ```jsonc
@@ -71,6 +72,44 @@ V3 / V7 / V8 は wasm バイナリの WIT を読む必要があるため、サ�
 - 宣言は `approval.capabilitiesHash` に含めて署名されるため、承認後に書き換えると V12 で落ちます。
 - クライアント側の同意は `(artifact sha256, capability 文字列)` を鍵に記憶します。部品を更新すると再同意になります。
   これは意図した挙動です (別のコードに同じ許可を引き継がない)。
+
+### 実装 (M5)
+- 宣言は `ipemu_core::capability::Capabilities` (serde) として manifest に型付きで載る (`components[].capabilities`)。
+  `net.tcpConnect / tcpListen / udp` の要素は `HostPort` (IP リテラル・ホスト名・`*.` サブドメイン) として解釈時に検査する。
+  `fs[].path` は相対パスで `..` を含まないこと (`FsGrant::is_confined_path`)。`hostExt` は `KNOWN_HOST_EXT` (現在 `serial-port`) のみ。
+- **capability 文字列** (同意の鍵・UI 表示・`--consent-file` に使う 1 件ずつの表現):
+  `net.tcpConnect:<host:port>` / `net.tcpListen:<host:port>` / `net.udp:<host:port>` / `fs:<ro|rw>:<path>` / `clock` / `random` / `hostExt:<name>`。
+  `Capabilities::items()` が宣言順に展開する。
+- **import の抽出** (`ipemu_core::imports::component_imports`): `wasmparser` でコンポーネントの最上位 import 名を読む
+  (`wasm-tools component wit` の import 行と同じ集合)。入れ子のモジュール / コンポーネントは見ない。
+  関数もリソースも持たない型だけの instance import (例: filesystem が使う `wasi:clocks/wall-clock` の `datetime`) は
+  `typesOnly = true` とし、Wasmtime も Linker 定義を要求しないので V7 / V8 の対象外。
+- **V7 / V8** は `Capabilities::check_imports(&[ImportInfo])` に集約した。対応表:
+
+  | import | 必要な宣言 |
+  | --- | --- |
+  | `wasi:sockets/tcp*` | `net.tcpConnect` か `net.tcpListen` |
+  | `wasi:sockets/udp*` | `net.udp` |
+  | `wasi:sockets/network`, `instance-network`, `ip-name-lookup` | `net` のいずれか |
+  | `wasi:filesystem/*` | `fs` |
+  | `wasi:clocks/*` (関数を持つもの) | `clock: true` |
+  | `wasi:random/*` | `random: true` |
+  | `wasi:io/*` | `net` / `fs` / `clock` のいずれか (土台として付与) |
+  | `ip:emu/<name>` (host-ext.wit) | `hostExt: ["<name>"]` |
+  | `wasi:cli/*`、その他の `wasi:*`、未知の名前 | **常に Error** (提供しない) |
+
+  V8 (過剰宣言) は `net` / `fs` / `clock` / `random` / `hostExt` の各宣言に対応する import がないときに Warning。
+  `validate` の `DescResolver` に `imports()` が増え、`None` を返す文脈 (閉包だけの簡易 resolver) では V7 / V8 を省略する。
+  サーバは登録時に抽出した import を保存して同じ関数を呼べばよい。
+- **`approval.capabilitiesHash`** = `sha256(JCS({ "<instance>": <capabilities>, … }))` (hex 小文字)。
+  - 対象は宣言が空でない instance のみ。値は `Capabilities` の serde 出力 (既定値のフィールドは省く) なので、
+    `"clock": false` の有無のような表記差では変わらない。instance 名の順序にも依存しない。
+  - JCS (RFC 8785) は `ipemu_core::jcs::canonicalize(&serde_json::Value) -> String` に実装した
+    (キーは UTF-16 コード単位順、数値は ES6 表記)。manifest 署名 (M3) の入力正規化にも同じ関数を使える。
+  - 計算は `ipemu_core::capability::capabilities_hash(&Manifest) -> String`、正規形の取得は `capabilities_document`。
+    **サーバ (M3/M4) は承認時にこの関数で値を埋める。** クライアントは `validate` の V12 (ハッシュ部分) で再計算して照合し、
+    不一致なら Error。署名 (Ed25519) の検証は V12 の残り半分で、M3 のブートストラップ側で行う。
+- `approval` は `ipemu_core::capability::Approval` として型付き (`approvedBy / approvedAt / reason? / capabilitiesHash`)。
 
 ## 版と公開範囲
 ```text

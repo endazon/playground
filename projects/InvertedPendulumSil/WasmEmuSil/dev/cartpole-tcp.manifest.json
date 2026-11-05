@@ -1,0 +1,266 @@
+{
+  "manifestVersion": 1,
+  "id": "dev-cartpole-tcp",
+  "revision": 1,
+  "name": "開発用: 台車型倒立振子 + tcp-reporter (capability の実証)",
+  "description": "cartpole.manifest.json に、振子角を 100 ms ごとに 127.0.0.1:9000 へ TCP で送り logs/theta.csv にも追記する部品を足したもの。net / fs の capability 宣言と同意 (--consent-file) が要る。",
+  "scheduler": {
+    "baseStepNs": 1000000,
+    "pacing": "fast",
+    "snapshotDivider": 10
+  },
+  "artifacts": {
+    "plant-cartpole@0.1.0": {
+      "kind": "part",
+      "path": "../build/components/plant-cartpole.wasm"
+    },
+    "motor-driver@0.1.0": {
+      "kind": "part",
+      "path": "../build/components/motor-driver.wasm"
+    },
+    "encoder@0.1.0": {
+      "kind": "part",
+      "path": "../build/components/encoder.wasm"
+    },
+    "comm-link@0.1.0": {
+      "kind": "part",
+      "path": "../build/components/comm-link.wasm"
+    },
+    "fw-balance-c@0.1.0": {
+      "kind": "firmware",
+      "path": "../build/firmware/fw-balance-c.wasm"
+    },
+    "fw-balance-rs@0.1.0": {
+      "kind": "firmware",
+      "path": "../build/firmware/fw-balance-rs.wasm"
+    },
+    "tcp-reporter@0.1.0": {
+      "kind": "part",
+      "path": "../build/components/tcp-reporter.wasm"
+    }
+  },
+  "components": [
+    {
+      "instance": "plant",
+      "artifact": "plant-cartpole@0.1.0",
+      "params": {
+        "cartMass": 0.6,
+        "poleMass": 0.15,
+        "pendulumLength": 0.6,
+        "cartViscousFriction": 1.0,
+        "cartCoulombFriction": 0.4,
+        "pivotFriction": 0.0008,
+        "rotorInertia": 2e-05,
+        "railStroke": 0.5,
+        "stopperStiffness": 20000.0,
+        "stopperDamping": 150.0,
+        "motor": {
+          "kt": 0.05,
+          "ke": 0.05,
+          "resistance": 2.0,
+          "pulleyRadius": 0.015
+        },
+        "initial": {
+          "theta": 3.141592653589793
+        }
+      }
+    },
+    {
+      "instance": "driver",
+      "artifact": "motor-driver@0.1.0",
+      "params": {
+        "busVoltage": 24.0,
+        "commandTimeoutMs": 500,
+        "limitM": 0.501
+      }
+    },
+    {
+      "instance": "enc-cart",
+      "artifact": "encoder@0.1.0",
+      "params": {
+        "ppr": 2000,
+        "mode": "linear",
+        "metersPerRev": 0.09424777960769379
+      }
+    },
+    {
+      "instance": "enc-pend",
+      "artifact": "encoder@0.1.0",
+      "params": {
+        "ppr": 4096,
+        "mode": "angular"
+      }
+    },
+    {
+      "instance": "mcu",
+      "kind": "builtin:cpu-virtual",
+      "params": {
+        "tickHz": 1000,
+        "timingModel": {
+          "kind": "fuel",
+          "nsPerFuel": 2.0
+        },
+        "peripherals": {
+          "enc": 2,
+          "pwm": 1,
+          "gpioIn": 2,
+          "gpioOut": 2,
+          "uart": 1
+        }
+      },
+      "firmware": {
+        "slot": "balance",
+        "world": "ip:emu/firmware@0.1.0",
+        "default": "fw-balance-c@0.1.0",
+        "allowOverride": [
+          "wasm",
+          "native"
+        ],
+        "params": {
+          "controlHz": 200.0,
+          "k0": -7.889597821567535,
+          "k1": -37.63375843811985,
+          "k2": -12.20611182672061,
+          "k3": -7.22676247663797,
+          "cartMass": 0.6,
+          "poleMass": 0.15,
+          "pendulumLength": 0.6,
+          "cartViscousFriction": 1.0,
+          "cartCoulombFriction": 0.4,
+          "pivotFriction": 0.0008,
+          "rotorInertia": 2e-05,
+          "pulleyRadius": 0.015,
+          "kt": 0.05,
+          "ke": 0.05,
+          "resistance": 2.0,
+          "maxVoltage": 24.0,
+          "railStroke": 0.5,
+          "busVoltage": 24.0,
+          "cartMetersPerCount": 4.712388980384689e-05,
+          "pendCountsPerRev": 4096,
+          "velocityCutoffHz": 25.0,
+          "autoStart": "swingup",
+          "autoStartDelayMs": 500
+        }
+      }
+    },
+    {
+      "instance": "link-mon",
+      "artifact": "comm-link@0.1.0",
+      "params": {
+        "delayMs": 20,
+        "jitterMs": 5,
+        "spikePercent": 1.0,
+        "spikeMs": 150,
+        "sampleEveryMs": 5,
+        "seed": 7
+      }
+    },
+    {
+      "instance": "reporter",
+      "artifact": "tcp-reporter@0.1.0",
+      "rateDivider": 10,
+      "params": {
+        "host": "127.0.0.1",
+        "port": 9000,
+        "everyMs": 100,
+        "file": "logs/theta.csv"
+      },
+      "capabilities": {
+        "net": {
+          "tcpConnect": [
+            "127.0.0.1:9000"
+          ]
+        },
+        "fs": [
+          {
+            "path": "logs",
+            "mode": "rw"
+          }
+        ]
+      }
+    },
+    {
+      "instance": "snap",
+      "kind": "builtin:snapshot",
+      "params": {
+        "ports": [
+          "plant.x",
+          "plant.theta",
+          "plant.x-dot",
+          "plant.theta-dot",
+          "driver.voltage",
+          "driver.drive-enabled",
+          "driver.fault",
+          "mcu.pwm0",
+          "mcu.exec-ns",
+          "mcu.overruns",
+          "link-mon.out",
+          "link-mon.spikes",
+          "reporter.sent",
+          "reporter.errors"
+        ]
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "plant.x",
+      "to": "enc-cart.input"
+    },
+    {
+      "from": "plant.theta",
+      "to": "enc-pend.input"
+    },
+    {
+      "from": "plant.x",
+      "to": "driver.position"
+    },
+    {
+      "from": "enc-cart.count",
+      "to": "mcu.enc0",
+      "latency": 0
+    },
+    {
+      "from": "enc-pend.count",
+      "to": "mcu.enc1",
+      "latency": 0
+    },
+    {
+      "from": "mcu.pwm0",
+      "to": "driver.duty",
+      "latency": 0
+    },
+    {
+      "from": "mcu.gpio-out0",
+      "to": "driver.enable",
+      "latency": 0
+    },
+    {
+      "from": "mcu.gpio-out1",
+      "to": "driver.heartbeat",
+      "latency": 0
+    },
+    {
+      "from": "driver.voltage",
+      "to": "plant.voltage",
+      "latency": 0
+    },
+    {
+      "from": "driver.fault",
+      "to": "mcu.gpio-in0"
+    },
+    {
+      "from": "driver.drive-enabled",
+      "to": "mcu.gpio-in1"
+    },
+    {
+      "from": "plant.theta",
+      "to": "link-mon.in"
+    },
+    {
+      "from": "plant.theta",
+      "to": "reporter.value"
+    }
+  ]
+}

@@ -11,3 +11,13 @@
 
 設計の背景は [`../../Docs/03-component-model.md`](../../Docs/03-component-model.md) と
 [`../../Docs/05-firmware.md`](../../Docs/05-firmware.md) を参照。
+
+## WASI (M5)
+| ファイル | 内容 |
+| --- | --- |
+| `capabilities.wit` | エンジンが capability として提供する WASI p2 の範囲 (`wasi-capabilities` world)、エンジン側 bindgen 用の world |
+| `deps/*.wit` | WASI 0.2.12 の WIT (wasmtime-wasi 50 に同梱のものをそのまま置く)。`wasi:cli` は意図的に含めない |
+
+部品 / ファームウェアが WASI を使うときは `wasi-capabilities` world を `wit-bindgen` で生成して import し、
+manifest の `capabilities` に宣言する。宣言のない import はエンジンが link しないので実体化で失敗する
+([`../../Docs/07-client-app.md`](../../Docs/07-client-app.md))。

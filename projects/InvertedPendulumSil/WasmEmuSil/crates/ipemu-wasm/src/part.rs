@@ -1,13 +1,16 @@
 //! wasm 部品 (`ip:emu/part-world`) を `ipemu_core::Part` として動かす。
 
 use crate::runtime::Runtime;
+use crate::wasi::{WasiGrant, WasiHost, WasiState};
 use anyhow::Context;
 use ipemu_core::desc::{PartDesc, PortDesc, PortKind};
 use ipemu_core::hal::LogLevel;
+use ipemu_core::ImportInfo;
 use ipemu_core::Part;
 use std::path::Path;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::Store;
+use wasmtime_wasi::{WasiCtxView, WasiView};
 
 mod bindings {
     wasmtime::component::bindgen!({
@@ -24,6 +27,20 @@ pub struct PartHost {
     pub logs: Vec<(LogLevel, String)>,
     pub traces: Vec<(u32, f64)>,
     pub instance_name: String,
+    /// 付与された capability の WASI 状態 (付与なしでも空の ctx を持つが、link しないので到達しない)
+    pub wasi: WasiState,
+}
+
+impl WasiView for PartHost {
+    fn ctx(&mut self) -> WasiCtxView<'_> {
+        self.wasi.view()
+    }
+}
+
+impl WasiHost for PartHost {
+    fn wasi(&mut self) -> &mut WasiState {
+        &mut self.wasi
+    }
 }
 
 impl bindings::ip::emu::host::Host for PartHost {
@@ -108,19 +125,35 @@ impl WasmPart {
         Self::compile(rt, &bytes)
     }
 
-    /// 実体化して describe() を読む。
+    /// 実体化して describe() を読む (capability なし = サンドボックス既定)。
     pub fn instantiate(
         rt: &Runtime,
         component: &Component,
         instance_name: &str,
     ) -> anyhow::Result<Self> {
+        Self::instantiate_with(rt, component, instance_name, WasiGrant::default())
+    }
+
+    /// 付与する capability を指定して実体化する。`grant` にないインターフェースは link しないので、
+    /// 宣言外の import を持つ部品はここで `unresolved import` として失敗する。
+    pub fn instantiate_with(
+        rt: &Runtime,
+        component: &Component,
+        instance_name: &str,
+        grant: WasiGrant,
+    ) -> anyhow::Result<Self> {
         let mut linker: Linker<PartHost> = Linker::new(&rt.engine);
         bindings::PartWorld::add_to_linker::<_, HasSelf<_>>(&mut linker, |h| h)?;
+        crate::wasi::add_to_linker(&mut linker, &grant)
+            .with_context(|| format!("部品 `{instance_name}` への capability の付与"))?;
+        let nondeterministic = grant.nondeterministic();
         let host = PartHost {
             now_ns: 0,
             logs: Vec::new(),
             traces: Vec::new(),
             instance_name: instance_name.to_owned(),
+            wasi: WasiState::new(grant)
+                .with_context(|| format!("部品 `{instance_name}` の WASI 文脈"))?,
         };
         let mut store = Store::new(&rt.engine, host);
         let epoch_budget = rt.epoch_budget();
@@ -133,7 +166,11 @@ impl WasmPart {
             .with_context(|| {
                 format!("部品 `{instance_name}` の実体化に失敗 (import 不足か world 不一致)")
             })?;
-        let desc = convert_desc(world.ip_emu_part().call_describe(&mut store)?);
+        let mut desc = convert_desc(world.ip_emu_part().call_describe(&mut store)?);
+        // clock / random を与えた部品は自己申告によらず決定性の保証外
+        if nondeterministic {
+            desc.deterministic = false;
+        }
         let n_out = desc.scalar_output_count();
         Ok(Self {
             store,
@@ -145,9 +182,27 @@ impl WasmPart {
         })
     }
 
-    /// 実体化せずに describe() だけ読む (サーバの登録時・manifest 検証用)。
+    /// 実体化せずに describe() だけ読む (capability を使わない部品向け。WASI を import する部品は失敗する)。
     pub fn describe_component(rt: &Runtime, component: &Component) -> anyhow::Result<PartDesc> {
         Ok(Self::instantiate(rt, component, "describe")?.desc)
+    }
+
+    /// manifest (宣言) がない文脈で describe() を読む: サーバの部品登録時 (M3 `server/src/inspect.rs`)、`inspect`。
+    ///
+    /// バイナリの import を調べ、対応する WASI インターフェースをすべて **deny-all** 形
+    /// (許可リスト空・preopen なし。clock / random は link) で link して実体化し、describe と import 一覧を返す。
+    /// describe / init の中で I/O を試みても拒否されるだけで外部には届かない。
+    /// `wasi:cli` など提供しない import があれば実体化で失敗する (= 登録時に弾ける)。
+    pub fn describe_component_sandboxed(
+        rt: &Runtime,
+        bytes: &[u8],
+    ) -> anyhow::Result<(PartDesc, Vec<ImportInfo>)> {
+        let imports = ipemu_core::imports::component_imports(bytes)?;
+        let caps = ipemu_core::Capabilities::covering_imports(&imports);
+        let grant = WasiGrant::deny_all_for(&caps);
+        let component = Self::compile(rt, bytes)?;
+        let part = Self::instantiate_with(rt, &component, "describe", grant)?;
+        Ok((part.desc, imports))
     }
 
     fn arm(&mut self) {
@@ -156,6 +211,16 @@ impl WasmPart {
 
     pub fn drain_traces(&mut self) -> Vec<(u32, f64)> {
         std::mem::take(&mut self.store.data_mut().traces)
+    }
+
+    /// 付与された capability。
+    pub fn grant(&self) -> &WasiGrant {
+        &self.store.data().wasi.grant
+    }
+
+    /// 許可リストで拒否した宛先 (診断用)。
+    pub fn take_denied_destinations(&mut self) -> Vec<String> {
+        self.store.data().wasi.allow.take_denied()
     }
 }
 

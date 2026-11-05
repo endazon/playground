@@ -7,9 +7,11 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-default = ["schema"]
+default = ["schema", "imports"]
 # JSON Schema による V1 検証。サーバ / エンジンでは有効、極小ビルドでは外せる
 schema = ["dep:jsonschema"]
+# wasm バイナリからの import 抽出 (V7 / V8 の入力)。wasmparser だけで Wasmtime には依存しない
+imports = ["dep:wasmparser"]
 
 [dependencies]
 serde = { workspace = true }
@@ -17,3 +19,10 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 jsonschema = { version = "0.60", optional = true, default-features = false }
+wasmparser = { version = "0.261", optional = true, default-features = false, features = ["std", "component-model", "validate"] }
+sha2 = { workspace = true }
+hex = { workspace = true }
+ryu-js = "1"
+
+[dev-dependencies]
+wat = "1"

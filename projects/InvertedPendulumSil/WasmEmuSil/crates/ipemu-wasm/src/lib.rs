@@ -5,9 +5,12 @@ pub mod firmware_native;
 pub mod firmware_wasm;
 pub mod part;
 pub mod runtime;
+pub mod wasi;
 
 pub use firmware_native::NativeFirmware;
 pub use firmware_wasm::WasmFirmware;
 pub use part::WasmPart;
 pub use runtime::Runtime;
+pub use wasi::{WasiGrant, WasiState};
 pub use wasmtime;
+pub use wasmtime_wasi;

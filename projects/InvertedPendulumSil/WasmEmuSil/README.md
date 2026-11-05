@@ -1,8 +1,9 @@
 # WasmEmuSil — WASM 部品で組む倒立振子エミュレータ (設計草案)
 
-> **状態: M1 (エンジン核) 実装済み。** headless のエンジンが、ローカル manifest から Rust 製の部品 4 種 (wasm) と
+> **状態: M1 (エンジン核) と M5 (capability、エンジン側) 実装済み。** headless のエンジンが、ローカル manifest から Rust 製の部品 (wasm) と
 > C 版 / Rust 版のファームウェア (wasm または native) を組み立て、スイングアップ → 倒立維持まで動きます。
-> サーバ配信・Electron シェル・capability (M2〜M5) は未着手。設計は [`Docs/`](Docs/README.md)、進捗は [`Docs/08-decisions.md`](Docs/08-decisions.md)。
+> 部品が TCP / ファイルを使う場合は manifest の宣言 → 同意 (`--consent-file`) を経て WASI preview 2 として付与されます。
+> サーバ配信・Electron シェル (M2〜M4) は別途進行中。設計は [`Docs/`](Docs/README.md)、進捗は [`Docs/08-decisions.md`](Docs/08-decisions.md)。
 
 [`../NetworkedSil`](../NetworkedSil/README.md) と同じ台車型倒立振子を、
 **クライアント側で組み立てるエミュレータ**として実現します。
@@ -40,6 +41,21 @@ cargo run -q -p ipemu-engine -- lqr --length 0.6 --ts 0.005                     
 
 ./scripts/check.sh                     # fmt / clippy / 全ビルド / 全テスト / manifest 検証 (PR の前に通す)
 ```
+
+### capability と同意 (M5)
+`dev/cartpole-tcp.manifest.json` は上の構成に、振子角を 100 ms ごとに TCP で送りファイルにも追記する部品 `tcp-reporter` を足したものです。
+部品が使う `wasi:sockets` / `wasi:filesystem` は manifest の `capabilities` に宣言され (未宣言なら V7 で拒否)、
+初回は利用者の同意が要ります。headless では同意ファイルで渡します。
+```bash
+nc -lk 127.0.0.1 9000 &                                                     # 受け側 (任意)
+cargo run -q -p ipemu-engine -- consent list --manifest dev/cartpole-tcp.manifest.json --no-signature-check
+#   → 同意が要る鍵 (sha256:capability) と --consent-file の雛形が出る。雛形を consent.json に保存して:
+cargo run -q -p ipemu-engine -- run --manifest dev/cartpole-tcp.manifest.json --no-signature-check \
+    --run-seconds 5 --consent-file consent.json --data-dir ./build/data
+#   同意ファイルなしなら終了コード 3 (未同意)、拒否があれば 4。ファイルは ./build/data/ipemu/data/logs/theta.csv にできる
+#   validate は同意なしで通るが、capability は deny-all で付与されるので I/O は一切起きない
+cargo run -q -p ipemu-engine -- inspect build/components/tcp-reporter.wasm   # import 一覧と必要な宣言の目安
+```
 `dev/cartpole.manifest.json` は NetworkedSil の既定パラメータ (振子 0.6 m) で、0.5 s 後にスイングアップを自動開始し、
 約 6 s で倒立領域に入って LQR に切り替わります。`--record` で 10 ms ごとのスナップショットを CSV に出せます。
 
@@ -75,15 +91,15 @@ cargo run -q -p ipemu-engine -- lqr --length 0.6 --ts 0.005                     
 ```text
 WasmEmuSil/
   Cargo.toml                 ✅ ワークスペース
-  abi/wit/                   ✅ ip:emu パッケージの WIT (部品・ファームウェア・ホスト拡張)
+  abi/wit/                   ✅ ip:emu パッケージの WIT (部品・ファームウェア・ホスト拡張)。deps/ に WASI 0.2.12 (M5)
   abi/ip_hal.h               ✅ ファームウェア HAL の C ヘッダ (wasm / native 共通)
   schemas/                   ✅ manifest の JSON Schema とサンプル
   dev/cartpole.manifest.json ✅ ローカル開発用 manifest (path 参照・署名なし)
   crates/
     ip-model/                ✅ 物理モデル・線形化・離散 LQR・スイングアップ・速度推定 (no_std, libm)
-    ipemu-core/              ✅ manifest 解釈と検証 (V1〜V11)、配線グラフ、スケジューラ、builtin:cpu-virtual
-    ipemu-wasm/              ✅ Wasmtime で部品 / FW を実体化、native FW ローダ (libloading)
-    ipemu-engine/            ✅ headless CLI (run / validate / inspect / lqr) とセッション組み立て
+    ipemu-core/              ✅ manifest 解釈と検証 (V1〜V12)、capability 型・import 抽出・capabilitiesHash (JCS)、同意の型、配線グラフ、スケジューラ
+    ipemu-wasm/              ✅ Wasmtime で部品 / FW を実体化、capability に応じた WASI p2 の付与 (wasi.rs)、native FW ローダ
+    ipemu-engine/            ✅ headless CLI (run / validate / inspect / consent / lqr)、セッション組み立て、同意ストア
     ip-part-sdk/             ✅ 部品を Rust で書くための SDK (WIT バインディング + 入口マクロ)
     ip-hal/                  ✅ FW を Rust で書くための HAL (wasm import / native vtable) + 入口マクロ
     ip-cmath/                ✅ C 版 FW の wasm ビルド用 libm (Rust の libm を C ABI で公開)
@@ -91,6 +107,7 @@ WasmEmuSil/
     ipemu-server/               (M3) 配信 API + ポータル / 管理 SPA の配信 (axum)
   components/                ✅ 部品 (Rust → wasm32-unknown-unknown → wasm-tools component new)
     plant-cartpole/  motor-driver/  encoder/  comm-link/
+    tcp-reporter/            ✅ (M5) wasi:sockets / wasi:filesystem を使う検証用部品
   firmware/
     fw-balance-c/            ✅ C: freestanding wasm + native。CMake と launch.vs.json (VS 用) 同梱
     fw-balance-rs/           ✅ 同じ仕様の Rust 実装 (cdylib: wasm と native)

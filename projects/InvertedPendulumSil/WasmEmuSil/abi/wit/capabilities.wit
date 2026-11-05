@@ -1,0 +1,38 @@
+package ip:emu@0.1.0;
+
+/// エンジンが capability として提供する WASI preview 2 の範囲 (`deps/` に同梱した 0.2.12)。
+/// 部品 / ファームウェアはこの world から必要なものだけを import する
+/// (`wasm-tools component new` は core モジュールが参照しない import を落とす)。
+/// manifest の宣言 (04-manifest.md) との対応:
+///   net   → wasi:sockets/* (+ 土台の wasi:io/*)
+///   fs    → wasi:filesystem/* (+ wasi:io/*)。wasi:clocks/wall-clock は型 (datetime) だけが参照され、実体は link しない
+///   clock → wasi:clocks/*
+///   random→ wasi:random/random
+/// wasi:cli/* は提供しない (stdout 等を暗黙に与えない)。
+world wasi-capabilities {
+    import wasi:io/error@0.2.12;
+    import wasi:io/poll@0.2.12;
+    import wasi:io/streams@0.2.12;
+    import wasi:sockets/network@0.2.12;
+    import wasi:sockets/instance-network@0.2.12;
+    import wasi:sockets/tcp@0.2.12;
+    import wasi:sockets/tcp-create-socket@0.2.12;
+    import wasi:sockets/udp@0.2.12;
+    import wasi:sockets/udp-create-socket@0.2.12;
+    import wasi:sockets/ip-name-lookup@0.2.12;
+    import wasi:filesystem/types@0.2.12;
+    import wasi:filesystem/preopens@0.2.12;
+    import wasi:clocks/wall-clock@0.2.12;
+    import wasi:clocks/monotonic-clock@0.2.12;
+    import wasi:random/random@0.2.12;
+}
+
+/// エンジン側: 許可ホストに限定した名前解決を自前で実装するための world (ipemu-wasm の bindgen 用)。
+world name-lookup-host {
+    import wasi:sockets/ip-name-lookup@0.2.12;
+}
+
+/// エンジン側: hostExt の bindgen 用。1 インターフェース = 1 capability で個別に link する。
+world host-ext {
+    import serial-port;
+}

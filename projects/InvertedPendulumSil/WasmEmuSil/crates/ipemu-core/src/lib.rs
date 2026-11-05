@@ -5,13 +5,20 @@
 //! [`hal::Firmware`] トレイトで抽象化し、実体は `ipemu-wasm` が与える。
 
 pub mod builtins;
+pub mod capability;
+pub mod consent;
 pub mod desc;
 pub mod engine;
 pub mod graph;
 pub mod hal;
+#[cfg(feature = "imports")]
+pub mod imports;
+pub mod jcs;
 pub mod manifest;
 pub mod validate;
 
+pub use capability::{capabilities_hash, Capabilities, Capability, ImportInfo};
+pub use consent::{consent_key, ConsentAnswer, ConsentRequest};
 pub use desc::{PartDesc, PortDesc, PortKind};
 pub use engine::{Engine, Part, StepError};
 pub use manifest::Manifest;
