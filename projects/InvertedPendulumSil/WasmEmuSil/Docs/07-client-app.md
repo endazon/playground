@@ -13,7 +13,9 @@ v1 で同時に動くセッションは 1 つで、別の構成を起動する�
 
 ## IPC 契約 (`crates/ipemu-ipc`)
 ```text
-transport : ループバック WebSocket (127.0.0.1:<ephemeral>)。接続時にトークンを要求
+transport : ループバック WebSocket (127.0.0.1:<ephemeral>)。接続時にトークンを要求。
+            ブラウザからの接続 (Origin ヘッダあり) は許可 origin (既定 app://ui、--allow-origin で追加) に一致しなければ
+            トークンが正しくても 403 (トークン漏えい時に任意の Web ページが繋がる経路を塞ぐ多層防御)
 discovery : エンジンが起動直後に stdout の 1 行目へ {"port": 54321, "token": "…"} を出す
             シェルが spawn したときは環境変数 IPEMU_IPC_TOKEN でも渡す
 text frame: JSON-RPC 2.0  (要求 / 応答 / 通知)
@@ -241,7 +243,7 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
 | `control.rs` | **スケジューラ専用スレッド**上の制御器。IPC からの要求は `std::sync::mpsc` に積まれ、ステップ境界でだけ状態を変える。`run.*`、`param.set` (wasm 部品は `init` し直し、組み込み部品は `restartRequired`)、`firmware.load` (wasm = `CpuVirtual::attach_firmware` でホット、native = 上書きを記録して `restartRequired: true`)、`firmware.watch` (mtime 監視、更新 200ms 後に自動差替)、`scope.subscribe` (ステップごとに採り、`windowS` ぶんまとめて scope フレーム)、`catalog.local` (`--catalog-dir` の `*.manifest.json`)、`manifest.refresh` (ローカルは再検証して差分報告) |
 | `pacing.rs` | realtime の追いつき (壁時計 × speed との差ぶんステップ)、`maxSlipMs` 超過で原点を取り直す**時間スリップ**、`--debug-friendly` (デバッガ検出でも) は追いつかない。`SchedulerStats` (倍率 / µs/step / スリップ / 予算超過) を state に同梱 |
 | `triple_buffer.rs` | スケジューラ → tokio のスナップショット受け渡し。書き手は待たない |
-| `ipc_server.rs` | `127.0.0.1:0` の WebSocket (tokio-tungstenite)。`?token=` か `Authorization: Bearer` を**ハンドシェイクで**照合 (不一致は 401)。state は `state_hz` でトリプルバッファを読んで全接続へ broadcast、通知 / scope は到着順。遅い受け手は古いフレームを落とす。`client` モジュールはテストと `attach` 用 |
+| `ipc_server.rs` | `127.0.0.1:0` の WebSocket (tokio-tungstenite)。`?token=` か `Authorization: Bearer` を**ハンドシェイクで**照合 (不一致は 401)。`Origin` ヘッダがあれば許可リスト (既定 `app://ui`、`--allow-origin`) と厳密一致しなければ 403 (Origin の無い CLI / シェル main はトークンのみ)。state は `state_hz` でトリプルバッファを読んで全接続へ broadcast、通知 / scope は到着順。遅い受け手は古いフレームを落とす。`client` モジュールはテストと `attach` 用 |
 | `session.rs` | M1 の `Session` に `swap_firmware` / `set_param` / `step` / `reset` と `options` (上書きの元) を追加。`ipemu-core` の `Part` に `as_any_mut` (既定 `None`) を足して cpu-virtual へ降りる。ホット差替は M5 の 2 パス構造に乗せ、宣言と import の整合 (V7) を確認し、**差し替え先の sha256 で同意を取り直してから** (同じビルドなら聞かない) grant を付与する。未同意・拒否なら古いファームウェアを残す (D44) |
 | `consent_ipc.rs` | `ConsentBroker`: M5 の `ConsentProvider` を IPC で実装。`consent.required` を流し、`consent.answer` を Condvar で待つ |
 
@@ -284,6 +286,7 @@ cargo build -p ipemu-engine && pnpm install && pnpm --filter @ipemu/sim-ui build
 pnpm --filter @ipemu/shell start           # Electron シェル (ホーム → ローカルカタログ → 組み立てる)
 # Electron なしの開発: エンジン + Vite dev server + ブラウザ
 cargo run -p ipemu-engine -- serve --manifest dev/cartpole.manifest.json --no-signature-check --pacing realtime --auto-start
+#   ブラウザからつなぐときは Origin 検査に通すため --allow-origin http://localhost:5173 を足す
 pnpm dev:ui     # http://localhost:5173/?port=<port>&token=<token>
 ```
 ![シェル](images/m2-shell.png)

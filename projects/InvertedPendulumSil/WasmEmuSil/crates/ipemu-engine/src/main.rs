@@ -126,6 +126,10 @@ enum Cmd {
         /// 同意ダイアログの回答を待つ上限 [s]
         #[arg(long, default_value_t = 600)]
         consent_timeout: u64,
+        /// `Origin` ヘッダ付き (ブラウザ) の接続で許す origin を追加する (既定 app://ui)。
+        /// Vite の dev server から UI を開くときは `--allow-origin http://localhost:5173`
+        #[arg(long = "allow-origin")]
+        allow_origins: Vec<String>,
         #[command(flatten)]
         cap: CapabilityArgs,
     },
@@ -382,6 +386,7 @@ fn real_main() -> anyhow::Result<()> {
             catalog_dirs,
             exit_on_stdin_close,
             consent_timeout,
+            allow_origins,
             cap,
         } => serve(ServeArgs {
             manifest,
@@ -399,6 +404,7 @@ fn real_main() -> anyhow::Result<()> {
             catalog_dirs,
             exit_on_stdin_close,
             consent_timeout,
+            allow_origins,
             cap,
         }),
         Cmd::Attach {
@@ -577,6 +583,7 @@ struct ServeArgs {
     catalog_dirs: Vec<PathBuf>,
     exit_on_stdin_close: bool,
     consent_timeout: u64,
+    allow_origins: Vec<String>,
     cap: CapabilityArgs,
 }
 
@@ -697,6 +704,11 @@ fn serve(a: ServeArgs) -> anyhow::Result<()> {
                 port: a.port,
                 token,
                 state_hz: a.state_hz,
+                allowed_origins: ipc_server::DEFAULT_ALLOWED_ORIGINS
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(a.allow_origins.iter().cloned())
+                    .collect(),
             },
             ctrl.clone(),
             state_r,

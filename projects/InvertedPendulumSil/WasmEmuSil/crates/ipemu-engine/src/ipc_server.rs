@@ -4,6 +4,9 @@
 //! - 文字列フレーム = JSON-RPC 2.0 の要求 → 制御器に渡して応答を返す
 //! - バイナリフレーム = state (トリプルバッファから `state_hz` で読む) と scope、通知の JSON を全接続へ配る
 //! - 1 シェル + 複数の観測専用接続 (CLI / テスト) を許す。遅い受け手は古いフレームを取りこぼす (broadcast)
+//! - ブラウザからの接続 (`Origin` ヘッダあり) は許可リスト (既定 `app://ui`) に一致しなければトークンが正しくても拒否する。
+//!   トークン漏えい時に任意の Web ページがローカルエンジンへつながる経路を塞ぐ多層防御。`Origin` の無い接続
+//!   (CLI / テスト / シェル main) はトークンのみ
 
 use crate::consent_ipc::ConsentBroker;
 use crate::control::{ControllerHandle, Outbound};
@@ -27,7 +30,12 @@ pub struct ServerConfig {
     pub token: String,
     /// state フレームの送信レート
     pub state_hz: f64,
+    /// `Origin` ヘッダ付き (ブラウザ) の接続で許す origin。既定は `app://ui` だけ
+    pub allowed_origins: Vec<String>,
 }
+
+/// 既定の許可 origin (シェルが配信するシミュレータ UI)。
+pub const DEFAULT_ALLOWED_ORIGINS: &[&str] = &["app://ui"];
 
 /// 起動済みサーバ。
 pub struct Server {
@@ -97,9 +105,17 @@ pub async fn start(
     };
 
     let token = Arc::new(cfg.token.clone());
+    let origins: Arc<Vec<String>> = Arc::new(
+        cfg.allowed_origins
+            .iter()
+            .map(|o| o.trim().trim_end_matches('/').to_ascii_lowercase())
+            .filter(|o| !o.is_empty())
+            .collect(),
+    );
     let accept = {
         let bcast = bcast.clone();
         let token = token.clone();
+        let origins = origins.clone();
         tokio::spawn(async move {
             loop {
                 let Ok((stream, peer)) = listener.accept().await else {
@@ -109,8 +125,10 @@ pub async fn start(
                 let rx = bcast.subscribe();
                 let token = token.clone();
                 let consent = consent.clone();
+                let origins = origins.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = handle_connection(stream, peer, token, ctrl, rx, consent).await
+                    if let Err(e) =
+                        handle_connection(stream, peer, token, origins, ctrl, rx, consent).await
                     {
                         eprintln!("ipc: {peer}: {e}");
                     }
@@ -162,6 +180,17 @@ fn check_token(req: &HsRequest, expected: &str) -> bool {
     }
 }
 
+/// `Origin` ヘッダの検査。ヘッダが無ければ (ブラウザ以外) 通す。あれば許可リストとの厳密一致 (大文字小文字と末尾 `/` は無視)。
+fn check_origin(req: &HsRequest, allowed: &[String]) -> bool {
+    match req.headers().get("origin").and_then(|h| h.to_str().ok()) {
+        None => true,
+        Some(o) => {
+            let o = o.trim().trim_end_matches('/').to_ascii_lowercase();
+            allowed.contains(&o)
+        }
+    }
+}
+
 fn percent_decode(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());
@@ -185,24 +214,35 @@ async fn handle_connection(
     stream: TcpStream,
     _peer: SocketAddr,
     token: Arc<String>,
+    origins: Arc<Vec<String>>,
     ctrl: ControllerHandle,
     mut rx: broadcast::Receiver<Arc<Message>>,
     consent: Option<Arc<ConsentBroker>>,
 ) -> anyhow::Result<()> {
     let tok = token.clone();
     #[allow(clippy::result_large_err)] // tungstenite のコールバック型に合わせる
-    fn gate(ok: bool, resp: HsResponse) -> Result<HsResponse, ErrorResponse> {
-        if ok {
-            Ok(resp)
-        } else {
+    fn gate(
+        token_ok: bool,
+        origin_ok: bool,
+        resp: HsResponse,
+    ) -> Result<HsResponse, ErrorResponse> {
+        use tokio_tungstenite::tungstenite::http::StatusCode;
+        if !token_ok {
             let mut r = ErrorResponse::new(Some("unauthorized".into()));
-            *r.status_mut() = tokio_tungstenite::tungstenite::http::StatusCode::UNAUTHORIZED;
-            Err(r)
+            *r.status_mut() = StatusCode::UNAUTHORIZED;
+            return Err(r);
         }
+        if !origin_ok {
+            // トークンは合っているが、許可していない Web origin からの接続
+            let mut r = ErrorResponse::new(Some("origin not allowed".into()));
+            *r.status_mut() = StatusCode::FORBIDDEN;
+            return Err(r);
+        }
+        Ok(resp)
     }
     let ws =
         tokio_tungstenite::accept_hdr_async(stream, move |req: &HsRequest, resp: HsResponse| {
-            gate(check_token(req, &tok), resp)
+            gate(check_token(req, &tok), check_origin(req, &origins), resp)
         })
         .await?;
     let (mut sink, mut source) = ws.split();
@@ -296,6 +336,32 @@ pub mod client {
         Notification(Notification),
         /// 解釈できなかった文字列 (応答以外)
         Other(String),
+    }
+
+    /// ハンドシェイクだけを試す (テスト用)。`origin` を渡すとブラウザのように `Origin` ヘッダを付ける。
+    /// 成功なら接続を閉じて Ok、拒否なら HTTP 状態コード。
+    pub async fn probe_handshake(
+        port: u16,
+        token: &str,
+        origin: Option<&str>,
+    ) -> Result<(), Option<u16>> {
+        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+        let url = format!("ws://127.0.0.1:{port}/?token={token}");
+        let mut req = url.into_client_request().map_err(|_| None)?;
+        if let Some(o) = origin {
+            req.headers_mut()
+                .insert("origin", o.parse().map_err(|_| None)?);
+        }
+        match tokio_tungstenite::connect_async(req).await {
+            Ok((mut ws, _)) => {
+                let _ = ws.close(None).await;
+                Ok(())
+            }
+            Err(tokio_tungstenite::tungstenite::Error::Http(resp)) => {
+                Err(Some(resp.status().as_u16()))
+            }
+            Err(_) => Err(None),
+        }
     }
 
     pub struct Client {

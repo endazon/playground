@@ -69,7 +69,8 @@ pnpm --filter @ipemu/sim-ui build                 # UI バンドル → build/ui
 pnpm --filter @ipemu/shell start                  # シェル起動 → ホームのローカルカタログから「組み立てる」
 
 # Electron を使わずに UI を開発する (エンジン + Vite dev server + ブラウザ)
-cargo run -p ipemu-engine -- serve --manifest dev/cartpole.manifest.json --no-signature-check --pacing realtime --auto-start
+cargo run -p ipemu-engine -- serve --manifest dev/cartpole.manifest.json --no-signature-check --pacing realtime --auto-start \
+    --allow-origin http://localhost:5173            # ブラウザ (Origin 付き) からの接続は許可 origin に限る (既定は app://ui のみ)
 pnpm dev:ui                                       # http://localhost:5173/?port=<port>&token=<token> (serve の 1 行目)
 cargo run -p ipemu-engine -- attach --port <port> --token <token>   # 端末で state を眺める
 ```

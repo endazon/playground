@@ -70,7 +70,7 @@ function ConnectForm({ onConnect }: { onConnect: (ep: Endpoint) => void }) {
       <div className="ipk-panel connect">
         <h2 style={{ marginTop: 0 }}>エンジンに接続</h2>
         <p className="sub" style={{ color: "var(--sub)", fontSize: 12.5 }}>
-          シェル (Electron) の中では自動で接続します。ブラウザで開発するときは <code>ipemu-engine serve</code> が stdout に出す port と token を入力してください
+          シェル (Electron) の中では自動で接続します。ブラウザで開発するときは <code>ipemu-engine serve --allow-origin {location.origin}</code> が stdout に出す port と token を入力してください
           (URL に <code>?port=…&amp;token=…</code> を付けても可)。
         </p>
         <label>
@@ -207,7 +207,7 @@ function Session({ endpoint, onDisconnect }: { endpoint: Endpoint; onDisconnect:
           <h2 style={{ marginTop: 0 }}>接続できません</h2>
           <p className="notice">{error}</p>
           <p className="sub" style={{ color: "var(--sub)", fontSize: 12.5 }}>
-            ws://127.0.0.1:{endpoint.port} — エンジンが起動しているか、トークンが合っているか確認してください。
+            ws://127.0.0.1:{endpoint.port} — エンジンが起動しているか、トークンが合っているか、ブラウザからなら <code>--allow-origin {location.origin}</code> を付けて起動したかを確認してください。
           </p>
           <button className="ipk-btn ghost" onClick={onDisconnect}>
             接続先を変える

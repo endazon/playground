@@ -62,6 +62,7 @@ async fn start_server() -> Harness {
             port: 0,
             token: "test-token".into(),
             state_hz: 100.0,
+            allowed_origins: vec!["app://ui".into()],
         },
         handle.clone(),
         state,
@@ -142,6 +143,41 @@ async fn rejects_bad_token_and_accepts_good_one() {
     let e = c.call(RequestBody::RunStart(Empty {})).await.unwrap_err();
     assert_eq!(e.code, codes::NO_SESSION);
     // 未知メソッド / 構文エラーの応答
+    h.server.abort();
+    h.ctrl.shutdown();
+}
+
+/// ブラウザからの接続 (`Origin` あり) は許可リストに一致しなければトークンが正しくても 403。
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn origin_header_is_checked_for_browser_connections() {
+    use ipemu_engine::ipc_server::client::probe_handshake;
+    let h = start_server().await;
+    let port = h.server.addr.port();
+    // Origin 不一致 → 403 (トークンは正しい)
+    assert_eq!(
+        probe_handshake(port, "test-token", Some("https://evil.example")).await,
+        Err(Some(403))
+    );
+    assert_eq!(
+        probe_handshake(port, "test-token", Some("null")).await,
+        Err(Some(403))
+    );
+    // 許可 origin (大文字小文字・末尾 / は無視) → 成功
+    assert_eq!(
+        probe_handshake(port, "test-token", Some("app://ui")).await,
+        Ok(())
+    );
+    assert_eq!(
+        probe_handshake(port, "test-token", Some("APP://UI/")).await,
+        Ok(())
+    );
+    // Origin なし (CLI / シェル main) → トークンだけで成功
+    assert_eq!(probe_handshake(port, "test-token", None).await, Ok(()));
+    // トークン不一致は Origin が合っていても 401
+    assert_eq!(
+        probe_handshake(port, "wrong", Some("app://ui")).await,
+        Err(Some(401))
+    );
     h.server.abort();
     h.ctrl.shutdown();
 }
@@ -604,6 +640,7 @@ async fn consent_required_flows_over_ipc_and_answers_gate_launch() {
             port: 0,
             token: "t".into(),
             state_hz: 20.0,
+            allowed_origins: vec!["app://ui".into()],
         },
         spawned.handle.clone(),
         spawned.state,
@@ -790,6 +827,7 @@ async fn hot_swap_asks_consent_for_the_new_build() {
             port: 0,
             token: "t".into(),
             state_hz: 20.0,
+            allowed_origins: vec!["app://ui".into()],
         },
         spawned.handle.clone(),
         spawned.state,
