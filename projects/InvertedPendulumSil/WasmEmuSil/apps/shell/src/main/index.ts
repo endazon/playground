@@ -244,6 +244,11 @@ function registerIpc() {
     guardBridge(event);
     const r = (req ?? {}) as { server?: string; manifestId?: string; revision?: number; sessionToken?: string; manifestPath?: string };
     const origin = new URL(event.senderFrame?.url ?? "about:blank").origin;
+    // ローカル manifest (sha256 検証なし) の起動を Web ページから頼めるのは開発設定のときだけ。
+    // ipemu:// と同じ扱い (監査 M2-1)。シェル自身のローカルカタログは shell:launch-local を使う
+    if (r.manifestPath && !settings.allowLocalLaunch) {
+      throw new Error("ローカル manifest の起動は設定 (allowLocalLaunch) で無効です");
+    }
     const params: LaunchParams = r.manifestPath
       ? { source: { kind: "local", manifestPath: r.manifestPath, allowUnhashed: true }, firmware: {}, params: [], pacing: { mode: "realtime", speed: 1 }, autoStart: false }
       : {

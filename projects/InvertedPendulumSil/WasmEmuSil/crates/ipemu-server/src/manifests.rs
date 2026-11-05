@@ -322,6 +322,10 @@ pub struct RevisionRow {
     pub published_at: Option<String>,
     pub signed_body: Option<String>,
     pub key_id: Option<String>,
+    /// 作成者のユーザ id (migration 0002 より前の行は NULL)
+    pub created_by_id: Option<String>,
+    /// 最終編集者のユーザ id。editor ≠ approver の判定に使う (D50)
+    pub updated_by_id: Option<String>,
 }
 
 impl RevisionRow {
@@ -354,6 +358,13 @@ impl RevisionRow {
                 .unwrap_or(Value::Null);
         }
         v
+    }
+    /// `actor` がこの revision の最終編集者か。id で比較し、id の無い古い行だけユーザ名で比較する (D50)
+    pub fn last_edited_by(&self, actor: &Principal) -> bool {
+        match self.updated_by_id.as_deref() {
+            Some(id) => id == actor.id,
+            None => self.updated_by == actor.name,
+        }
     }
     pub fn name(&self) -> String {
         serde_json::from_str::<Value>(&self.body)
@@ -391,7 +402,7 @@ pub async fn approve(
             row.state
         )));
     }
-    if row.updated_by == actor.id {
+    if row.last_edited_by(actor) {
         return Err(ApiError::forbidden(
             "編集した本人は承認できません (editor ≠ approver)",
         ));

@@ -11,7 +11,9 @@ use ipemu_core::capability::ImportInfo;
 use ipemu_core::consent::ConsentRequest;
 use ipemu_core::hal::{Firmware, LogLevel};
 use ipemu_core::manifest::{ArtifactRef, ComponentSpec, Manifest};
-use ipemu_core::validate::{validate, validate_schema, DescResolver, Diagnostics, ValidateOptions};
+use ipemu_core::validate::{
+    validate, validate_schema, validate_static, DescResolver, Diagnostics, ValidateOptions,
+};
 use ipemu_core::{Engine, Part, PartDesc};
 use ipemu_wasm::{NativeFirmware, Runtime, WasmFirmware, WasmPart};
 use std::collections::HashMap;
@@ -267,6 +269,19 @@ impl Session {
             }
         }
 
+        // 静的検査 (V2 / V3 の組み込み名 / V10 / V11 / V12 など、記述を要しないもの) を同意と実体化の前に行う (D54)。
+        // 承認後に宣言が書き換わった manifest で同意を求めたり init を走らせたりしないため。
+        // 診断そのものは後の validate が同じものを出すので、ここではエラーの有無だけを見る
+        let static_diags = validate_static(
+            &manifest,
+            ValidateOptions {
+                allow_unhashed: opts.allow_unhashed,
+            },
+        );
+        if static_diags.has_errors() {
+            bail!("manifest の検証に失敗:\n{static_diags}");
+        }
+
         let runtime = Runtime::new(opts.runtime.clone().unwrap_or_default())?;
         let dirs = DataDirs::resolve(opts.data_dir.as_deref());
 
@@ -409,7 +424,7 @@ impl Session {
             }
         }
 
-        // 検証 (実体から得た記述と import で V2〜V12)
+        // 検証 (静的検査を含む V2〜V12 を、実体から得た記述と import で改めて通す)
         let mut resolver = SessionResolver {
             descs: manifest
                 .components
@@ -793,6 +808,16 @@ pub fn list_consent_requests(
     let text = std::fs::read_to_string(manifest_path)
         .with_context(|| format!("{} を読めません", manifest_path.display()))?;
     let manifest: Manifest = Manifest::from_json(&text).context("manifest の構造が不正")?;
+    // 静的検査に通らない manifest には同意を求めない (D54、Session::load と同じ)
+    let static_diags = validate_static(
+        &manifest,
+        ValidateOptions {
+            allow_unhashed: opts.allow_unhashed,
+        },
+    );
+    if static_diags.has_errors() {
+        bail!("manifest の検証に失敗:\n{static_diags}");
+    }
     let manifest_dir = manifest_path.parent().unwrap_or(Path::new("."));
     let mut plan = CapabilityPlan::default();
     for c in &manifest.components {

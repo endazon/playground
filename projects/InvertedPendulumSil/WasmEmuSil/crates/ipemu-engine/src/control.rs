@@ -841,7 +841,9 @@ impl Controller {
                 offline,
             } => {
                 let cache = self.open_cache()?;
-                let mut bo = BootstrapOptions::new(server, manifest_id, cache);
+                // manifest id はパスに使う前に検査する (監査 A4 / D55)。不正なら呼び出し側のパラメータ誤り
+                let mut bo = BootstrapOptions::new(server, manifest_id, cache)
+                    .map_err(|e| RpcError::invalid_params(format!("{e:#}")))?;
                 bo.revision = *revision;
                 bo.credential = credential.as_ref().map(to_bootstrap_credential);
                 bo.trusted_keys = self.cfg.trusted_keys.clone();
@@ -1314,7 +1316,8 @@ impl Controller {
                 ..
             } => {
                 // サーバへ問い合わせ直し、最新 (または指定 revision) が今のものと違うかを報告する (置き換えは session.launch で)
-                let mut bo = BootstrapOptions::new(server, manifest_id, self.open_cache()?);
+                let mut bo = BootstrapOptions::new(server, manifest_id, self.open_cache()?)
+                    .map_err(|e| RpcError::invalid_params(format!("{e:#}")))?;
                 bo.revision = *revision;
                 bo.credential = credential.as_ref().map(to_bootstrap_credential);
                 bo.trusted_keys = self.cfg.trusted_keys.clone();

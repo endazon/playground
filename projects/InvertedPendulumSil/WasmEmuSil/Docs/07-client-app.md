@@ -115,6 +115,10 @@ wasm 形はアーキに依存しないため、配信物は 1 種類です。
 **宣言のないものは import 自体を link しない**ので、実体化の時点で `unresolved import` として失敗し、
 「承認なしに呼ばれる」経路がありません。これが WASI preview 2 を選んだ理由です。
 
+既知の制約: 許可ホストの名前解決 (`NetAllow::resolve`) は `to_socket_addrs` を同期で呼ぶため、DNS の遅延がそのままスケジューラスレッドを止め、
+仮想時間の進行も止まります (epoch interruption はホスト関数の中では効かない)。単一スレッド前提の設計上は許容とし、
+M6 でタイムアウト付きの解決 (別スレッド + 期限) を検討します (監査 A7)。
+
 ### 同意 (consent)
 ```text
 consent store: <data dir>/ipemu/consent.json
@@ -176,6 +180,7 @@ consent store: <data dir>/ipemu/consent.json
   - `--consent-file <json>` (`FileConsent`): `{"version":1,"grants":["<sha256>:<cap>", "*:<cap>"],"denies":[…],"remember":false}`。
     `*:` はアーティファクトを問わない開発用の指定で、**ローカル開発モード (`--no-signature-check` = `allow_unhashed`) のときだけ受理**し、
     それ以外はエラーにする (配布用の設定で使えないことを実装で担保)。`remember: true` なら許可をストアにも書く。
+    鍵の照合で大文字小文字を区別しないのは `<sha256>` 部分だけで、capability 文字列 (`fs:rw:<path>` のパスなど) はそのまま比べる (D56)。
   - 指定なし (`NoConsent`): 未同意があれば終了コード **3**、拒否があれば **4** で非ゼロ終了 (`LaunchError`)。
   - `validate` / `inspect` は実行しないので同意を求めず、**deny-all 形** (`WasiGrant::deny_all_for`) で実体化する:
     宣言と同じインターフェースは link されるので describe / init は通るが、接続・名前解決・ファイル操作はすべて拒否され、
@@ -197,6 +202,9 @@ UI の「このセッション」画面に送信の有無と直近の送信内�
   catalog.json                   キャッシュ済み構成の一覧 (ローカルカタログ) と最終起動日時
   wasmtime/                      コンパイルキャッシュ
 ```
+- `<id>` はパスに入るので、`BootstrapOptions::new` / `bootstrap()` の入口と `Cache` の manifest 系メソッドで
+  スキーマと同じ `^[a-z0-9][a-z0-9-]{2,63}$` (`ipemu_core::manifest::is_valid_manifest_id`) に適合するか確かめ、不正ならエラーにする (D55)。
+  `--launch` や `ipemu://` の値をそのまま渡しても、`../` でキャッシュの外を指せない。
 - サーバに届かないときは、ローカルカタログから選んだ構成の manifest と参照アーティファクトが揃っていれば起動します。
 - GC は「直近 N 回起動した構成から参照されるもの」以外を、サイズ上限超過時に LRU で削除します。
 
@@ -267,7 +275,7 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
   `app://shell/` は `'self'` のみ。UI バンドルは **単一ファイルの tar.gz** (manifest の `ui.bundle`、`kind: "ui"`) を
   `<userData>/ui-cache/<sha256>/` に展開して配信する (`untar.ts`: 絶対パス / `..` / リンクを拒否。manifest に sha256 があれば照合)。
 - `ipemu://launch?…` は `parseLaunchUrl` で厳格に解析し、**必ず確認ウィンドウ** (`confirm.html`、OS の dialog ではない) を出す。
-  信頼していないサーバは理由を表示して「起動する」を無効にする。開発用に `manifestPath=` (`allowLocalLaunch`) も受ける。
+  信頼していないサーバは理由を表示して「起動する」を無効にする。開発用に `manifestPath=` (`allowLocalLaunch`) も受ける。`window.ipemu.launch` の `manifestPath` も同じ設定で縛る (既定は拒否。監査 M2-1)。
   OS への登録は packaged 時のみ。
 - エンジンは `serve --exit-on-stdin-close --catalog-dir …` で spawn し、stdout 1 行目を読んで接続。`restartRequired` (native FW) では
   直近の describe の `overrides` を launch に畳み込んで **同じ構成で spawn し直し**、`app://ui` のページに `endpoint-changed` を送る。

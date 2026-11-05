@@ -8,6 +8,7 @@
 //! ```
 
 use anyhow::Context;
+use ipemu_core::manifest::is_valid_manifest_id;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -60,6 +61,16 @@ pub fn server_key(server: &str) -> String {
     } else {
         out
     }
+}
+
+/// manifest id をパスに使う前の検査 (D55)。`../x` などでキャッシュの外を指させない。
+pub fn check_manifest_id(manifest_id: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        is_valid_manifest_id(manifest_id),
+        "manifest id `{}` が不正です (^[a-z0-9][a-z0-9-]{{2,63}}$)",
+        manifest_id.escape_debug()
+    );
+    Ok(())
 }
 
 fn now_rfc3339() -> String {
@@ -163,16 +174,25 @@ impl Cache {
         Ok(path)
     }
 
-    pub fn manifest_dir(&self, server: &str, manifest_id: &str) -> PathBuf {
-        self.root
+    /// `manifests/<server>/<id>/`。id がスキーマに適合しなければ Err (パスを作らない)。
+    pub fn manifest_dir(&self, server: &str, manifest_id: &str) -> anyhow::Result<PathBuf> {
+        check_manifest_id(manifest_id)?;
+        Ok(self
+            .root
             .join("manifests")
             .join(server_key(server))
-            .join(manifest_id)
+            .join(manifest_id))
     }
 
-    pub fn manifest_path(&self, server: &str, manifest_id: &str, revision: u32) -> PathBuf {
-        self.manifest_dir(server, manifest_id)
-            .join(format!("{revision}.json"))
+    pub fn manifest_path(
+        &self,
+        server: &str,
+        manifest_id: &str,
+        revision: u32,
+    ) -> anyhow::Result<PathBuf> {
+        Ok(self
+            .manifest_dir(server, manifest_id)?
+            .join(format!("{revision}.json")))
     }
 
     pub fn put_manifest(
@@ -182,7 +202,7 @@ impl Cache {
         revision: u32,
         json_text: &str,
     ) -> anyhow::Result<PathBuf> {
-        let path = self.manifest_path(server, manifest_id, revision);
+        let path = self.manifest_path(server, manifest_id, revision)?;
         std::fs::create_dir_all(path.parent().unwrap())?;
         let tmp = path.with_extension("json.tmp");
         std::fs::write(&tmp, json_text)?;
@@ -196,7 +216,7 @@ impl Cache {
         manifest_id: &str,
         revision: u32,
     ) -> anyhow::Result<Option<serde_json::Value>> {
-        let path = self.manifest_path(server, manifest_id, revision);
+        let path = self.manifest_path(server, manifest_id, revision)?;
         match std::fs::read_to_string(&path) {
             Ok(s) => {
                 Ok(Some(serde_json::from_str(&s).with_context(|| {
@@ -208,9 +228,12 @@ impl Cache {
         }
     }
 
-    /// キャッシュにある revision の一覧 (昇順)。
+    /// キャッシュにある revision の一覧 (昇順)。id が不正なら空。
     pub fn cached_revisions(&self, server: &str, manifest_id: &str) -> Vec<u32> {
-        let mut revs: Vec<u32> = std::fs::read_dir(self.manifest_dir(server, manifest_id))
+        let Ok(dir) = self.manifest_dir(server, manifest_id) else {
+            return Vec::new();
+        };
+        let mut revs: Vec<u32> = std::fs::read_dir(dir)
             .map(|rd| {
                 rd.filter_map(|e| e.ok())
                     .filter_map(|e| {
@@ -318,6 +341,40 @@ mod tests {
             "ipemu.example_8443"
         );
         assert_eq!(server_key("http://127.0.0.1:8080"), "127.0.0.1_8080");
+    }
+
+    #[test]
+    fn manifest_id_is_checked_before_touching_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("ipemu");
+        let c = Cache::new(&root).unwrap();
+        let server = "http://127.0.0.1:8080";
+        for bad in ["../x", "../../x", "A", "a", ""] {
+            assert!(c.manifest_dir(server, bad).is_err(), "{bad:?}");
+            assert!(c.manifest_path(server, bad, 1).is_err(), "{bad:?}");
+            assert!(c.put_manifest(server, bad, 1, "{}").is_err(), "{bad:?}");
+            assert!(c.get_manifest(server, bad, 1).is_err(), "{bad:?}");
+            assert!(c.cached_revisions(server, bad).is_empty(), "{bad:?}");
+            assert_eq!(c.default_revision(server, bad), None, "{bad:?}");
+        }
+        // キャッシュの外 (root の親) に何も書かれていない
+        let outside: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(outside, ["ipemu"]);
+
+        // 正しい id は通る
+        let p = c
+            .put_manifest(server, "cartpole", 3, r#"{"id":"cartpole"}"#)
+            .unwrap();
+        assert!(p.starts_with(&root));
+        assert!(p.ends_with("manifests/127.0.0.1_8080/cartpole/3.json"));
+        assert_eq!(
+            c.get_manifest(server, "cartpole", 3).unwrap().unwrap()["id"],
+            "cartpole"
+        );
+        assert_eq!(c.cached_revisions(server, "cartpole"), [3]);
     }
 
     #[test]

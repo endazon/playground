@@ -110,11 +110,15 @@ impl App {
         let router = build_router(state.clone());
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
         let handle = tokio::spawn(async move {
-            let _ = axum::serve(listener, router)
-                .with_graceful_shutdown(async {
-                    let _ = rx.await;
-                })
-                .await;
+            // 送信元 IP をログイン抑止の鍵に使うため ConnectInfo を付ける (D53)
+            let _ = axum::serve(
+                listener,
+                router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            )
+            .with_graceful_shutdown(async {
+                let _ = rx.await;
+            })
+            .await;
         });
         Ok(App {
             state,

@@ -398,7 +398,7 @@ fn real_main() -> anyhow::Result<()> {
                         .clone()
                         .context("--launch には --server が必要です")?;
                     let cache = srv.cache()?;
-                    let mut bo = BootstrapOptions::new(&server, &id, cache.clone());
+                    let mut bo = BootstrapOptions::new(&server, &id, cache.clone())?;
                     bo.revision = rev;
                     bo.credential = srv.credential();
                     bo.trusted_keys = srv.trusted_keys()?;

@@ -27,6 +27,9 @@ pub struct Config {
     pub launch_token_ttl_secs: i64,
     /// 単回チケットの寿命 (秒)。URL に載るので短くする
     pub ticket_ttl_secs: i64,
+    /// `X-Forwarded-For` の先頭を送信元 IP として信用するか (`IPEMU_TRUST_PROXY=1`)。
+    /// リバースプロキシの背後に置くときだけ有効にする (直接公開で有効にすると送信元を偽れる)
+    pub trust_proxy: bool,
 }
 
 impl Config {
@@ -67,6 +70,7 @@ impl Config {
             session_ttl_secs: 12 * 3600,
             launch_token_ttl_secs: 3600,
             ticket_ttl_secs: 60,
+            trust_proxy: std::env::var("IPEMU_TRUST_PROXY").as_deref() == Ok("1"),
         })
     }
 
@@ -84,6 +88,7 @@ impl Config {
             session_ttl_secs: 3600,
             launch_token_ttl_secs: 600,
             ticket_ttl_secs: 60,
+            trust_proxy: false,
         }
     }
 }

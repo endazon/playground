@@ -1,6 +1,6 @@
 //! `/api/auth`: ログイン / ログアウト / 自分の情報 / パスワード変更。ポータルと管理画面の共通入口。
 
-use crate::auth::{self, Auth, UserAuth};
+use crate::auth::{self, Auth, ClientIp, UserAuth};
 use crate::error::{ApiError, ApiResult};
 use crate::state::AppState;
 use crate::util;
@@ -24,9 +24,14 @@ struct LoginReq {
     password: String,
 }
 
-async fn login(State(st): State<AppState>, Json(req): Json<LoginReq>) -> ApiResult<Json<Value>> {
+async fn login(
+    State(st): State<AppState>,
+    ClientIp(ip): ClientIp,
+    Json(req): Json<LoginReq>,
+) -> ApiResult<Json<Value>> {
     let username = req.username.trim().to_owned();
-    st.throttle.check(&username)?;
+    // 抑止の鍵は (ユーザ名, 送信元 IP)。ユーザ名単独は緩い閾値 (D53)
+    st.throttle.check(&username, ip)?;
     let row: Option<(String, String, i64)> =
         sqlx::query_as("SELECT id, password_hash, disabled FROM users WHERE username = ?")
             .bind(&username)
@@ -43,7 +48,7 @@ async fn login(State(st): State<AppState>, Json(req): Json<LoginReq>) -> ApiResu
             (false, String::new())
         }
     };
-    st.throttle.record(&username, ok);
+    st.throttle.record(&username, ip, ok);
     if !ok {
         return Err(ApiError::unauthorized("ユーザ名かパスワードが違います"));
     }

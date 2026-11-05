@@ -167,11 +167,54 @@ pub fn split_port_ref(s: &str) -> Option<(&str, &str)> {
     Some((a, b))
 }
 
+/// manifest id がスキーマの `^[a-z0-9][a-z0-9-]{2,63}$` に適合するか。
+///
+/// id はキャッシュのパス (`manifests/<server>/<id>/`) や URL に入るため、スキーマ検証を経ない経路
+/// (CLI の `--launch`、`ipemu://` の `manifest` パラメータ) でも使う前に必ずこれで確かめる (D55)。
+pub fn is_valid_manifest_id(id: &str) -> bool {
+    let b = id.as_bytes();
+    let lower_digit = |c: &u8| c.is_ascii_lowercase() || c.is_ascii_digit();
+    (3..=64).contains(&b.len())
+        && lower_digit(&b[0])
+        && b[1..].iter().all(|c| lower_digit(c) || *c == b'-')
+}
+
 impl Manifest {
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
     }
     pub fn component(&self, instance: &str) -> Option<&ComponentSpec> {
         self.components.iter().find(|c| c.instance == instance)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn manifest_id_follows_schema_pattern() {
+        for ok in ["abc", "cartpole", "consent-test", "0-a", &"a".repeat(64)] {
+            assert!(is_valid_manifest_id(ok), "{ok}");
+        }
+        let too_long = "a".repeat(65);
+        for ng in [
+            "",
+            "a",
+            "ab",
+            "A",
+            "Abc",
+            "-abc",
+            "../x",
+            "../../x",
+            "a/b",
+            "a.b",
+            "a_b",
+            "ab c",
+            "ａbc",
+            too_long.as_str(),
+        ] {
+            assert!(!is_valid_manifest_id(ng), "{ng:?}");
+        }
     }
 }

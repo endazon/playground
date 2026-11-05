@@ -215,7 +215,7 @@ fn publish_cartpole(base: &str) -> String {
 }
 
 fn opts(server: &TestServer, cache: &Cache, key: &str) -> BootstrapOptions {
-    let mut bo = BootstrapOptions::new(&server.base_url, "cartpole", cache.clone());
+    let mut bo = BootstrapOptions::new(&server.base_url, "cartpole", cache.clone()).unwrap();
     bo.credential = Some(Credential::ApiKey(key.to_owned()));
     bo.trusted_keys
         .insert_hex(&server.key_id, &server.public_key)
@@ -343,7 +343,9 @@ fn engine_downloads_from_server_and_balances_then_runs_offline_from_cache() {
     assert!(bootstrap(&o).unwrap().from_cache);
 
     // キャッシュの manifest を改竄すると署名検証で落ちる
-    let p = cache.manifest_path(&server.base_url, "cartpole", 1);
+    let p = cache
+        .manifest_path(&server.base_url, "cartpole", 1)
+        .unwrap();
     let mut m: Value = serde_json::from_str(&std::fs::read_to_string(&p).unwrap()).unwrap();
     m["components"][0]["params"]["pendulumLength"] = json!(9.9);
     std::fs::write(&p, m.to_string()).unwrap();
@@ -362,7 +364,7 @@ fn bootstrap_rejects_unknown_key_and_wrong_credentials() {
     let cache = Cache::new(dir.path().join("cache")).unwrap();
 
     // 信頼鍵なし → 拒否 (キャッシュにも落ちない)
-    let mut bo = BootstrapOptions::new(&server.base_url, "cartpole", cache.clone());
+    let mut bo = BootstrapOptions::new(&server.base_url, "cartpole", cache.clone()).unwrap();
     bo.credential = Some(Credential::ApiKey(key.clone()));
     let err = bootstrap(&bo).unwrap_err();
     assert!(format!("{err:#}").contains("信頼済み公開鍵"), "{err:#}");

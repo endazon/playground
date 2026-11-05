@@ -117,12 +117,13 @@ pub fn validate_schema(json: &serde_json::Value, diags: &mut Diagnostics) {
     }
 }
 
-/// 構造の検証 (V2〜V11)。成功時は実行計画 (Graph) も返す。
-pub fn validate(
-    manifest: &Manifest,
-    resolver: &mut dyn DescResolver,
-    opts: ValidateOptions,
-) -> (Diagnostics, Option<Graph>) {
+/// 部品の記述を要しない静的検査 (D54)。manifest だけで判定できる規則を集めたもの:
+/// V2 (アーティファクト参照と sha256)、V3 の組み込み名と firmware の付け先、capability 宣言の
+/// 自己整合 (fs.path の閉じ込め等、V7 として報告)、V10、V11、V12 (capabilitiesHash の照合)。
+///
+/// エンジンはこれを**同意と実体化の前**に実行し、エラーがあれば同意を求めず部品も動かさない。
+/// [`validate`] は最初にこれを呼ぶので、両方を呼ぶ側は診断の重複に注意すること。
+pub fn validate_static(manifest: &Manifest, opts: ValidateOptions) -> Diagnostics {
     let mut diags = Diagnostics::default();
 
     // V2: artifact 参照とハッシュ (同じアーティファクトの警告は 1 回だけ)
@@ -257,6 +258,17 @@ pub fn validate(
         }
     }
 
+    diags
+}
+
+/// 構造の検証 (V2〜V12)。[`validate_static`] の後に記述を要する検査 (V3 の記述取得、V7 / V8、
+/// V4〜V6、V9、snapshot) を続ける。成功時は実行計画 (Graph) も返す。
+pub fn validate(
+    manifest: &Manifest,
+    resolver: &mut dyn DescResolver,
+    opts: ValidateOptions,
+) -> (Diagnostics, Option<Graph>) {
+    let mut diags = validate_static(manifest, opts);
     if diags.has_errors() {
         return (diags, None);
     }
