@@ -69,7 +69,8 @@ fmt / clippy --tests / 部品・FW のビルド / cargo test 全体 / manifest �
 | 制約 | 対処 |
 | --- | --- |
 | github.com (Releases を含む) がプロキシで遮断される。crates.io / npm / PyPI は通る | Electron 本体は `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` で取得する。`check.sh` は `ELECTRON_SKIP_BINARY_DOWNLOAD=1` で本体なしに通る |
-| ディスクの上限が約 39GB。debug の target は 25GB を超える (テストバイナリ 1 本が約 500MB) | 不要な target を消す。並行作業では `CARGO_BUILD_BUILD_DIR` で中間生成物だけ共有し、`CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0` で縮める |
+| ディスクの上限が約 39GB。debug の target は 25GB を超える (テストバイナリ 1 本が約 500MB) | 不要な target を消す。`CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0` で縮める |
+| worktree をまたいで `CARGO_BUILD_BUILD_DIR` を共有すると、ワークスペース内の crate が別 worktree のソースのままビルドされる (メタデータのハッシュが同じで、dep-info が相対パスのため鮮度判定をすり抜ける) | 並行作業では worktree ごとに `RUSTFLAGS="--cfg <worktree 名>"` を付けてハッシュを分けるか、build-dir を分ける。マージ前の検証は共有なしのツリーで行う |
 | CPU 4 コア / メモリ 15GB | wasmtime を含むビルドの並行は 3 本程度まで |
 | 強制 push は権限で拒否される | マージ済みのブランチで続きをするときは、develop をマージしてから通常の push をする |
 
