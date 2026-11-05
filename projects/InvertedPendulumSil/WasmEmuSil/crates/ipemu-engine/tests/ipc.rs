@@ -743,3 +743,162 @@ async fn consent_required_flows_over_ipc_and_answers_gate_launch() {
     spawned.handle.shutdown();
     let _ = std::fs::remove_dir_all(&data_dir);
 }
+
+/// ホット差替 (firmware.load) は差し替え先の sha256 で同意を取り直す (別のコードに許可を引き継がない)。
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn hot_swap_asks_consent_for_the_new_build() {
+    use ipemu_engine::consent_ipc::ConsentBroker;
+    if !artifacts_ready() {
+        return;
+    }
+    // dev manifest の mcu に `clock` を宣言した一時 manifest (path は絶対に)
+    let text = std::fs::read_to_string(root().join("dev/cartpole.manifest.json")).unwrap();
+    let mut v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    for (_, a) in v["artifacts"].as_object_mut().unwrap() {
+        let p = a["path"].as_str().unwrap().to_owned();
+        let joined = root().join("dev").join(p);
+        a["path"] = serde_json::json!(joined.canonicalize().unwrap_or(joined).to_string_lossy());
+    }
+    v["components"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|c| c["instance"] == "mcu")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .insert("capabilities".into(), serde_json::json!({ "clock": true }));
+    let tmp_dir = std::env::temp_dir().join(format!("ipemu-ipc-swap-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp_dir).unwrap();
+    let manifest_path = tmp_dir.join("clock.manifest.json");
+    std::fs::write(&manifest_path, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+
+    let (out_tx, out_rx) = tokio::sync::mpsc::unbounded_channel();
+    let broker = std::sync::Arc::new(ConsentBroker::new(out_tx.clone(), Duration::from_secs(30)));
+    let spawned = control::spawn_with_outbound(
+        ControllerConfig {
+            data_dir: Some(tmp_dir.join("data")),
+            consent: Some(broker.clone()),
+            no_consent_store: true,
+            ..Default::default()
+        },
+        out_tx,
+    )
+    .unwrap();
+    let server = ipc_server::start(
+        ServerConfig {
+            port: 0,
+            token: "t".into(),
+            state_hz: 20.0,
+        },
+        spawned.handle.clone(),
+        spawned.state,
+        out_rx,
+        Some(broker.clone()),
+    )
+    .await
+    .unwrap();
+    let launcher = Client::connect(server.addr.port(), "t").await.unwrap();
+    let mut answerer = Client::connect(server.addr.port(), "t").await.unwrap();
+
+    /// consent.required を 1 件受けて答える。返すのは requestId
+    async fn answer_one(c: &mut Client, grant: bool) -> String {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+        loop {
+            match tokio::time::timeout_at(deadline, c.incoming.recv()).await {
+                Ok(Some(Incoming::Notification(Notification {
+                    body: NotificationBody::ConsentRequired(r),
+                    ..
+                }))) => {
+                    assert_eq!(r.capability, "clock");
+                    c.call(RequestBody::ConsentAnswer(ConsentAnswerParams {
+                        request_id: r.request_id.clone(),
+                        grant,
+                        remember: false,
+                    }))
+                    .await
+                    .unwrap();
+                    return r.request_id;
+                }
+                Ok(Some(_)) => {}
+                _ => panic!("consent.required が届かない"),
+            }
+        }
+    }
+
+    // launch: C 版 FW (既定) の sha256 で 1 件 → 許可
+    let launch = LaunchParams {
+        source: LaunchSource::Local {
+            manifest_path: manifest_path.display().to_string(),
+            allow_unhashed: true,
+        },
+        firmware: BTreeMap::new(),
+        params: Vec::new(),
+        pacing: Some(PacingConfig {
+            mode: PacingMode::Step,
+            speed: 1.0,
+        }),
+        auto_start: false,
+    };
+    let (key_c, res) = tokio::join!(
+        answer_one(&mut answerer, true),
+        launcher.call(RequestBody::SessionLaunch(launch))
+    );
+    let desc: SessionDescription = serde_json::from_value(res.unwrap()).unwrap();
+    assert_eq!(desc.capabilities.len(), 1);
+    let _: RunStatus = launcher
+        .call_as(RequestBody::RunStep(StepParams { n: 500 }))
+        .await
+        .unwrap();
+
+    // 差し替え (Rust 版 = 別の sha256): 新しい鍵で聞かれ、拒否すると古い FW のまま
+    let rs = format!(
+        "wasm:{}",
+        root().join("build/firmware/fw-balance-rs.wasm").display()
+    );
+    let load = || {
+        launcher.call(RequestBody::FirmwareLoad(FirmwareLoadParams {
+            slot: "balance".into(),
+            source: rs.clone(),
+        }))
+    };
+    let (key_rs, res) = tokio::join!(answer_one(&mut answerer, false), load());
+    assert_ne!(key_rs, key_c, "鍵は sha256 ごと");
+    let e = res.unwrap_err();
+    assert_eq!(e.code, codes::ENGINE_ERROR);
+    assert!(e.message.contains("拒否"), "{}", e.message);
+    let d: DescribeResult = launcher
+        .call_as(RequestBody::SessionDescribe(Empty {}))
+        .await
+        .unwrap();
+    let d = d.session.unwrap();
+    let fw = d
+        .parts
+        .iter()
+        .find(|p| p.instance == "mcu")
+        .unwrap()
+        .firmware
+        .as_ref()
+        .unwrap();
+    assert_eq!(fw.source, "default", "拒否されたら差し替えない");
+    assert_eq!(d.run.t_ns, 500_000_000, "状態は保持");
+
+    // 許可すると差し替わる。もう一度同じビルドなら聞かれない
+    let (key_again, res) = tokio::join!(answer_one(&mut answerer, true), load());
+    assert_eq!(key_again, key_rs);
+    let r: FirmwareLoadResult = serde_json::from_value(res.unwrap()).unwrap();
+    assert!(r.hot);
+    let r: FirmwareLoadResult = launcher
+        .call_as(RequestBody::FirmwareLoad(FirmwareLoadParams {
+            slot: "balance".into(),
+            source: rs.clone(),
+        }))
+        .await
+        .unwrap();
+    assert!(r.hot, "同じ sha256 なら同意を聞き直さずに差し替わる");
+    assert_eq!(broker.pending_count(), 0);
+
+    server.abort();
+    spawned.handle.shutdown();
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+}

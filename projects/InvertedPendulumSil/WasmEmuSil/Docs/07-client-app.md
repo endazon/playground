@@ -242,7 +242,7 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
 | `pacing.rs` | realtime の追いつき (壁時計 × speed との差ぶんステップ)、`maxSlipMs` 超過で原点を取り直す**時間スリップ**、`--debug-friendly` (デバッガ検出でも) は追いつかない。`SchedulerStats` (倍率 / µs/step / スリップ / 予算超過) を state に同梱 |
 | `triple_buffer.rs` | スケジューラ → tokio のスナップショット受け渡し。書き手は待たない |
 | `ipc_server.rs` | `127.0.0.1:0` の WebSocket (tokio-tungstenite)。`?token=` か `Authorization: Bearer` を**ハンドシェイクで**照合 (不一致は 401)。state は `state_hz` でトリプルバッファを読んで全接続へ broadcast、通知 / scope は到着順。遅い受け手は古いフレームを落とす。`client` モジュールはテストと `attach` 用 |
-| `session.rs` | M1 の `Session` に `swap_firmware` / `set_param` / `step` / `reset` と `options` (上書きの元) を追加。`ipemu-core` の `Part` に `as_any_mut` (既定 `None`) を足して cpu-virtual へ降りる。ホット差替は M5 の 2 パス構造に乗せ、宣言と import の整合 (V7) を確認し、その instance の capability grant を新しいファームウェアにも付与する (再同意の扱いは Q14) |
+| `session.rs` | M1 の `Session` に `swap_firmware` / `set_param` / `step` / `reset` と `options` (上書きの元) を追加。`ipemu-core` の `Part` に `as_any_mut` (既定 `None`) を足して cpu-virtual へ降りる。ホット差替は M5 の 2 パス構造に乗せ、宣言と import の整合 (V7) を確認し、**差し替え先の sha256 で同意を取り直してから** (同じビルドなら聞かない) grant を付与する。未同意・拒否なら古いファームウェアを残す (D44) |
 | `consent_ipc.rs` | `ConsentBroker`: M5 の `ConsentProvider` を IPC で実装。`consent.required` を流し、`consent.answer` を Condvar で待つ |
 
 `debug-friendly` では wasm 呼び出しの予算 (`call_budget`) も無制限にする (ブレーク中に epoch で trap させない)。

@@ -46,6 +46,7 @@
 | D41 | タブの種類と preload (M2 で確定) | **web / sim / home の 3 種で preload と遷移範囲を固定**。任意サイトは `app://` に到達できない | 1 種の preload で URL により分岐: リダイレクト後の再判定を preload に頼ることになる |
 | D42 | Electron 本体の取得 (M2 で確定) | postinstall は GitHub Releases。遮断環境は **`ELECTRON_MIRROR` か `ELECTRON_SKIP_BINARY_DOWNLOAD=1`** (ビルド / テストは本体なしで可)。`check.sh` は後者 | Electron 本体をリポジトリに置く: 200MB |
 | D43 | 同意ダイアログの結合 (M2 で確定) | **`consent.answer` は制御器を経由せず IPC サーバから `ConsentBroker` へ直接渡す**。`Session::load` はスケジューラスレッド上で `ConsentProvider::ask` を同期的に呼び、未同意分を `consent.required` 通知にして回答が揃うまで Condvar で待つ (上限 `--consent-timeout`、既定 600 s)。`--consent-file` があればそちらを使う (headless) | 制御器のコマンドキュー経由: launch 中は制御器がブロックしているので回答を取り出せず自己デッドロック。launch を非同期化: Store を触るスレッドが増え、M1 の単一スレッド前提 (決定性) を崩す |
+| D44 | wasm ホット差替時の再同意 (M2 で確定、調整役裁定) | **引き継がない**。`firmware.load` は差し替え先の `sha256(artifact):capability` で同意を取り直し (同じ sha256 なら聞かない)、未同意・拒否なら古いファームウェアを残す。開発中の再ビルドは `--consent-file` の `*:<capability>` (ローカル開発モードのみ) で吸収 | 同じ instance の宣言に同意済みなら引き継ぐ: 「別のコードに同じ許可を引き継がない」(同意の鍵の設計) に反する |
 
 ### D8 の調査結果: クロスプラットフォームで Chromium を同梱する手段
 | 方式 | Chromium の出所 | 成熟度 | Rust エンジンとの関係 | 評価 |
@@ -79,7 +80,6 @@ Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに�
 | # | 項目 | 選択肢 | 影響 |
 | --- | --- | --- | --- |
 | Q12 | `ipemu://` のチケット交換と `session.launch` の server 形 (M2 で型だけ置いた) | (a) M3 セッションがエンジン側 `LaunchSource::Server` を実装 / (b) 契約を変える | M3。(a) なら契約は変更不要 |
-| Q14 | wasm ホット差替 (`firmware.load`) 時の再同意 | (a) 同じ instance の宣言に同意済みならビルド違いにも引き継ぐ (M2 の現状。sha256 が変わるので同意の鍵は厳密には別) / (b) 差替のたびに `consent.required` を出す | 開発ループの手数 vs 「別のコードに許可を引き継がない」原則。M5 と裁定 |
 | Q13 | VS の F5 手順の実機確認 (Windows) | M2 では Linux で native .so のロードと restartRequired の経路まで確認。Windows 実機は未確認 | 手順書の修正があれば 05 に反映 |
 
 ## マイルストーン (承認後)

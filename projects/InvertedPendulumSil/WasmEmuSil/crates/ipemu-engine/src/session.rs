@@ -479,10 +479,10 @@ impl Session {
     /// wasm: 新しいファームウェアを `init` して slot だけ入れ替える。`init` に失敗したら古い slot を残して Err。
     /// native: 上書き指定を記録して `RestartRequired` を返す (プロセス再起動は呼び出し側 = シェルの責務)。
     ///
-    /// capability は、その instance に宣言されたものを新しいファームウェアにもそのまま付与する
-    /// (`CapabilityPlan::grant_for`)。差し替え先の sha256 は元と違うので、厳密には同意の鍵も変わる。
-    /// ホット差替時の再同意をどう扱うかは M5 側と要整合 (08-decisions.md Q14)。それまでは
-    /// 「宣言に同意済みの capability を同じ instance の別ビルドに引き継ぐ」挙動にしている。
+    /// capability の同意は **差し替え先のビルドに対して取り直す**。同意の鍵は `sha256(artifact):capability` で、
+    /// 別のコードに同じ許可を引き継がない (07-client-app.md)。sha256 が今装着しているものと同じなら聞き直さない。
+    /// 未同意・拒否なら古いファームウェアを残して [`LaunchError`] を返す。開発中の再ビルドの手間は
+    /// `--consent-file` の `*:<capability>` (ローカル開発モードのみ) で吸収する。
     pub fn swap_firmware(
         &mut self,
         slot: &str,
@@ -514,19 +514,49 @@ impl Session {
                 errors.join("; ")
             );
         }
+        let instance = spec.instance.clone();
+        let mut new_plan = CapabilityPlan::default();
+        new_plan.push(PlanEntry {
+            instance: instance.clone(),
+            artifact: w.label.clone(),
+            artifact_sha256: w.sha256.clone(),
+            capabilities: spec.capabilities(),
+        });
+        // 同意: 今装着しているものと sha256 が違えば、新しい鍵で取り直す (記憶があればストアが答える)
+        let same_build = self
+            .capability_plan
+            .entry(&instance)
+            .is_some_and(|e| e.artifact_sha256 == w.sha256);
+        let requests = new_plan.requests(&self.manifest.id, self.manifest.revision);
+        if !requests.is_empty() && !same_build && !opts.validate_only {
+            let dirs = DataDirs::resolve(opts.data_dir.as_deref());
+            let mut store = if opts.no_consent_store {
+                None
+            } else {
+                Some(ConsentStore::open(&dirs.consent_file())?)
+            };
+            let no_consent = NoConsent;
+            let provider: &dyn ConsentProvider = match &opts.consent {
+                Some(p) => p.as_ref(),
+                None => &no_consent,
+            };
+            match resolve_consent(requests, store.as_mut(), provider)? {
+                ConsentOutcome::Ready => {}
+                ConsentOutcome::Required(rs) => return Err(LaunchError::ConsentRequired(rs).into()),
+                ConsentOutcome::Denied(rs) => return Err(LaunchError::ConsentDenied(rs).into()),
+            }
+        }
         let grant = if opts.validate_only {
-            self.capability_plan.grant_for_validate(&spec.instance)
+            new_plan.grant_for_validate(&instance)
         } else {
             let dirs = DataDirs::resolve(opts.data_dir.as_deref());
-            self.capability_plan.grant_for(&spec.instance, &dirs)?
+            new_plan.grant_for(&instance, &dirs)?
         };
         let fw: Box<dyn Firmware> = Box::new(
             WasmFirmware::load_with(&self.runtime, &w.bytes, grant)
                 .with_context(|| format!("ファームウェア {}", w.label))?,
         );
         let flavor = fw.flavor();
-        let instance = spec.instance.clone();
-        let caps = spec.capabilities();
         let cpu = self
             .engine
             .part_mut(i)
@@ -540,12 +570,9 @@ impl Session {
         self.capability_plan
             .entries
             .retain(|e| e.instance != instance);
-        self.capability_plan.push(PlanEntry {
-            instance,
-            artifact: w.label,
-            artifact_sha256: w.sha256,
-            capabilities: caps,
-        });
+        for e in new_plan.entries {
+            self.capability_plan.push(e);
+        }
         self.options = opts;
         Ok(FirmwareSwap::Hot { flavor })
     }
