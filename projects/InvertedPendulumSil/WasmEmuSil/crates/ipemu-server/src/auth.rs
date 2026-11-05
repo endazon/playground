@@ -50,7 +50,13 @@ pub struct Principal {
     pub allowed_manifests: Vec<String>,
     pub credential: CredentialKind,
     pub must_change_password: bool,
+    /// セッションの発行時刻 (ログイン時刻)。破壊的な管理操作は発行から 1 時間以内のトークンにだけ許す (D36)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issued_at: Option<String>,
 }
+
+/// 破壊的な管理操作 (承認・公開・公開範囲・鍵・ユーザ) に要求する「ログインからの経過時間」の上限。
+pub const FRESH_LOGIN_MAX_SECS: i64 = 3600;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -116,6 +122,24 @@ impl Principal {
             Err(ApiError::forbidden(format!("{what} の権限がありません")))
         }
     }
+    /// ログインから `FRESH_LOGIN_MAX_SECS` 以内か。Bearer を sessionStorage に置く構成の緩和策で、
+    /// 盗まれた古いトークンで承認・公開・鍵・ユーザ操作ができないようにする (D36)
+    pub fn require_fresh_login(&self) -> Result<(), ApiError> {
+        let fresh = self
+            .issued_at
+            .as_deref()
+            .and_then(util::parse)
+            .is_some_and(|t| (util::now() - t).whole_seconds() <= FRESH_LOGIN_MAX_SECS);
+        if fresh {
+            Ok(())
+        } else {
+            Err(ApiError::new(
+                axum::http::StatusCode::FORBIDDEN,
+                "reauth_required",
+                "この操作にはログインから 1 時間以内のセッションが必要です。再ログインしてください",
+            ))
+        }
+    }
     /// API キーがその manifest を取れるか (user は公開範囲で別途判定する)
     pub fn api_key_allows(&self, manifest_id: &str) -> bool {
         self.allowed_manifests
@@ -164,15 +188,17 @@ pub async fn authenticate(pool: &SqlitePool, token: &str) -> Result<Principal, A
             allowed_manifests: util::json_vec(&allowed),
             credential: CredentialKind::ApiKey,
             must_change_password: false,
+            issued_at: None,
         });
     }
 
-    let row: Option<(String, String, String)> =
-        sqlx::query_as("SELECT user_id, kind, expires_at FROM sessions WHERE token_hash = ?")
-            .bind(&hash)
-            .fetch_optional(pool)
-            .await?;
-    let Some((user_id, kind, expires_at)) = row else {
+    let row: Option<(String, String, String, String)> = sqlx::query_as(
+        "SELECT user_id, kind, expires_at, created_at FROM sessions WHERE token_hash = ?",
+    )
+    .bind(&hash)
+    .fetch_optional(pool)
+    .await?;
+    let Some((user_id, kind, expires_at, created_at)) = row else {
         return Err(ApiError::unauthorized("トークンが無効です"));
     };
     if util::is_expired(&expires_at) {
@@ -212,6 +238,7 @@ pub async fn authenticate(pool: &SqlitePool, token: &str) -> Result<Principal, A
             CredentialKind::Session
         },
         must_change_password: user.must_change_password != 0,
+        issued_at: Some(created_at),
     })
 }
 

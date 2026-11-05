@@ -2,11 +2,8 @@
 //! `ipemu-wasm` による実体化 (part なら describe()、firmware なら world の適合確認)。
 
 use anyhow::Context;
-use ipemu_core::capability::{
-    classify_import, Capabilities, FsGrant, FsMode, HostPort, ImportClass, ImportInfo,
-    NetCapabilities,
-};
-use ipemu_core::{Part, PartDesc};
+use ipemu_core::capability::{Capabilities, ImportInfo};
+use ipemu_core::PartDesc;
 use ipemu_wasm::wasi::WasiGrant;
 use ipemu_wasm::{Runtime, WasmFirmware, WasmPart};
 use serde::{Deserialize, Serialize};
@@ -61,39 +58,9 @@ fn component_exports(bytes: &[u8]) -> anyhow::Result<Vec<String>> {
     Ok(exports)
 }
 
-/// import から「その部品が必要とするインターフェース集合」を宣言の形に写し、deny-all 形の grant にする (D34)。
-/// 登録時点では manifest の宣言がないので、import に対応するものをすべて (許可リスト空で) link して describe を取る。
-/// 接続・名前解決・ファイル操作はすべて拒否されるため、describe / init 中に外へ出ることはない。
-fn deny_all_grant_for_imports(imports: &[ImportInfo]) -> anyhow::Result<WasiGrant> {
-    let mut caps = Capabilities::default();
-    let mut net = NetCapabilities::default();
-    for imp in imports.iter().filter(|i| !i.types_only) {
-        match classify_import(&imp.name) {
-            ImportClass::Net => {
-                let placeholder = HostPort::parse("deny.invalid:1")
-                    .map_err(|e| anyhow::anyhow!("placeholder host: {e}"))?;
-                if imp.name.contains("/udp") {
-                    net.udp = vec![placeholder];
-                } else {
-                    net.tcp_connect = vec![placeholder];
-                }
-            }
-            ImportClass::Fs => {
-                caps.fs = vec![FsGrant {
-                    path: "deny".into(),
-                    mode: FsMode::Ro,
-                }];
-            }
-            ImportClass::Clock => caps.clock = true,
-            ImportClass::Random => caps.random = true,
-            ImportClass::HostExt(ext) => caps.host_ext.push(ext),
-            _ => {}
-        }
-    }
-    if !net.is_empty() {
-        caps.net = Some(net);
-    }
-    Ok(WasiGrant::deny_all_for(&caps))
+/// firmware 用: import に対応する wasi:* を deny-all 形で link する grant (part は `describe_component_sandboxed` が同じことをする)。
+fn deny_all_grant_for_imports(imports: &[ImportInfo]) -> WasiGrant {
+    WasiGrant::deny_all_for(&Capabilities::covering_imports(imports))
 }
 
 fn guess_world(exports: &[String]) -> String {
@@ -128,7 +95,6 @@ pub fn inspect(kind: &str, bytes: &[u8]) -> anyhow::Result<Inspection> {
             let world = guess_world(&exports);
             // 実体化は deny-all 形の grant で行う: import に対応する wasi:* は link するが何も許可しない。
             // describe() は通り、外部への副作用は起きない (エンジンの validate / inspect と同じ D34)
-            let grant = deny_all_grant_for_imports(&imports)?;
             let rt = Runtime::new(ipemu_wasm::runtime::RuntimeOptions {
                 call_budget: Some(std::time::Duration::from_secs(5)),
                 measure_fuel: false,
@@ -139,10 +105,9 @@ pub fn inspect(kind: &str, bytes: &[u8]) -> anyhow::Result<Inspection> {
                     world.starts_with("ip:emu/part-world@"),
                     "part は ip:emu/part を export する必要があります (exports: {exports:?})"
                 );
-                let component = WasmPart::compile(&rt, bytes)?;
-                let part = WasmPart::instantiate_with(&rt, &component, "describe", grant)
+                let (desc, _) = WasmPart::describe_component_sandboxed(&rt, bytes)
                     .context("describe() の実行に失敗 (import 不足か world 不一致)")?;
-                Some(part.describe().clone())
+                Some(desc)
             } else {
                 anyhow::ensure!(
                     world.starts_with("ip:emu/firmware@"),

@@ -422,6 +422,7 @@ async fn set_visibility(
     Json(req): Json<VisibilityReq>,
 ) -> ApiResult<Json<Value>> {
     p.require(p.can_approve(), "公開範囲の変更")?;
+    p.require_fresh_login()?;
     if req.visibility != "all" && req.visibility != "groups" {
         return Err(ApiError::bad_request("visibility は all か groups"));
     }
@@ -460,6 +461,7 @@ async fn set_default_revision(
     Json(req): Json<DefaultRevReq>,
 ) -> ApiResult<Json<Value>> {
     p.require(p.can_approve(), "既定 revision の変更")?;
+    p.require_fresh_login()?;
     let row = manifests::load_revision(&st.pool, &id, req.revision).await?;
     if row.state != "published" {
         return Err(ApiError::conflict(
@@ -770,6 +772,7 @@ async fn create_user(
     Json(req): Json<CreateUserReq>,
 ) -> ApiResult<Json<Value>> {
     p.require(p.is_admin(), "ユーザ作成")?;
+    p.require_fresh_login()?;
     let username = req.username.trim().to_owned();
     if username.len() < 2
         || username.len() > 64
@@ -840,6 +843,7 @@ async fn update_user(
     Json(req): Json<UpdateUserReq>,
 ) -> ApiResult<Json<Value>> {
     p.require(p.is_admin(), "ユーザ変更")?;
+    p.require_fresh_login()?;
     if let Some(r) = &req.roles {
         check_roles(r)?;
         // 自分から admin を外して管理者が 0 人になる事故を防ぐ
@@ -896,6 +900,7 @@ async fn reset_password(
     Json(req): Json<ResetPasswordReq>,
 ) -> ApiResult<Json<Value>> {
     p.require(p.is_admin(), "パスワード再設定")?;
+    p.require_fresh_login()?;
     if req.password.len() < 10 {
         return Err(ApiError::bad_request("パスワードは 10 文字以上"));
     }
@@ -990,6 +995,7 @@ async fn create_api_key(
     Json(req): Json<CreateApiKeyReq>,
 ) -> ApiResult<Json<Value>> {
     p.require(p.is_admin(), "API キー発行")?;
+    p.require_fresh_login()?;
     if req.name.trim().is_empty() {
         return Err(ApiError::bad_request("name が必要です"));
     }
@@ -1025,6 +1031,7 @@ async fn revoke_api_key(
     Path(id): Path<String>,
 ) -> ApiResult<Json<Value>> {
     p.require(p.is_admin(), "API キー失効")?;
+    p.require_fresh_login()?;
     let res = sqlx::query("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL")
         .bind(util::now_str())
         .bind(&id)

@@ -107,7 +107,7 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
 ### 設計からの差分と確定事項
 | 項目 | 実装 | 備考 |
 | --- | --- | --- |
-| 認証 | **Bearer のみ** (`sess_` ログインセッション / `lt_` チケット交換トークン / `ipk_` API キー)。Cookie は使わない | D36。CSRF 対策が不要になり、同じトークンをシェル経由でエンジンに渡せる。XSS 対策は CSP とフレームワーク側 |
+| 認証 | **Bearer のみ** (`sess_` ログインセッション / `lt_` チケット交換トークン / `ipk_` API キー)。Cookie は使わない | D36。設計案の Cookie + CSRF から変えた理由: ポータル → シェル → エンジンへ渡す資格情報が同じトークンで済み、CSRF が構造的に消える。代償として SPA が sessionStorage にトークンを持つため XSS 耐性は HttpOnly Cookie に劣る。**緩和策**: (1) ログインセッションの寿命は 12 時間 (`session_ttl_secs`、再ログインで更新)、(2) SPA と API に厳格な CSP (`default-src 'self'; script-src 'self'` で inline script 禁止。`style-src` の `'unsafe-inline'` は CodeMirror の動的スタイルのため)、(3) 破壊的な管理操作 (承認・公開・公開範囲・既定 revision・ユーザ・API キー) はロール検査に加えて**ログインから 1 時間以内のセッション** (`Principal::require_fresh_login`、`403 reauth_required`) を要求し、古いトークンでは再ログインを促す |
 | `/api/auth` | `POST login` / `POST logout` / `GET me` / `POST password` | 初回ログインは `mustChangePassword` を返し、SPA が変更画面へ誘導 |
 | ログイン抑止 | ユーザ名ごとに連続失敗 5 回で 30 秒ロック (メモリ上)。ユーザ不在時もダミーのハッシュ検証で応答時間を揃える | |
 | 配信 API | 表のとおり。追加: `GET /api/v1/keys` (公開鍵の参考表示)、`GET /api/v1/launches/mine` (自分の起動履歴) | `keys` は**信頼の根拠ではない** (信頼鍵はクライアント同梱 / 設定) |

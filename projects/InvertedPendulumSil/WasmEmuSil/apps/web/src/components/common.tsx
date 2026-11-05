@@ -4,9 +4,17 @@ import { ApiError } from "../api/client";
 export function ErrorBox({ error }: { error: unknown }) {
   if (!error) return null;
   const msg = error instanceof ApiError ? `${error.message} (${error.status})` : error instanceof Error ? error.message : String(error);
+  // 破壊的な管理操作はログインから 1 時間以内のセッションが必要 (サーバの D36 緩和策)
+  const reauth = error instanceof ApiError && error.code === "reauth_required";
   return (
     <div className="error" role="alert">
       {msg}
+      {reauth && (
+        <>
+          {" "}
+          <a href="/login">再ログイン</a>
+        </>
+      )}
     </div>
   );
 }

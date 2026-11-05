@@ -383,6 +383,7 @@ pub async fn approve(
     reason: &str,
 ) -> ApiResult<RevisionRow> {
     actor.require(actor.can_approve(), "承認")?;
+    actor.require_fresh_login()?;
     let row = load_revision(&state.pool, id, rev).await?;
     if row.state != "draft" {
         return Err(ApiError::conflict(format!(
@@ -446,6 +447,7 @@ pub async fn publish(
     rev: i64,
 ) -> ApiResult<RevisionRow> {
     actor.require(actor.can_approve(), "公開")?;
+    actor.require_fresh_login()?;
     let row = load_revision(&state.pool, id, rev).await?;
     if row.state != "approved" {
         return Err(ApiError::conflict(format!(

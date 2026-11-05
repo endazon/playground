@@ -71,6 +71,14 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/api/v1", api::v1::router())
         .nest("/api/admin", api::admin::router(max_upload))
         .fallback(web::serve)
+        // Bearer を SPA に持たせる構成の緩和策 (D36): inline script を禁止し、接続先と埋め込み元を自分自身に限る。
+        // style の 'unsafe-inline' は CodeMirror が動的に <style> を注入するために必要 (スクリプトではない)
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::CONTENT_SECURITY_POLICY,
+            axum::http::HeaderValue::from_static(
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+            ),
+        ))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::X_CONTENT_TYPE_OPTIONS,
             axum::http::HeaderValue::from_static("nosniff"),
