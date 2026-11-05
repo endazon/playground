@@ -1,11 +1,13 @@
 //! wasm 形ファームウェア (`ip:emu/firmware` world) を `ipemu_core::hal::Firmware` として動かす。
 
 use crate::runtime::Runtime;
+use crate::wasi::{WasiGrant, WasiHost, WasiState};
 use anyhow::Context;
 use ipemu_core::hal::{Firmware, HalRegs, LogLevel, TickStats};
 use std::path::Path;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::Store;
+use wasmtime_wasi::{WasiCtxView, WasiView};
 
 mod bindings {
     wasmtime::component::bindgen!({
@@ -19,6 +21,20 @@ use bindings::ip::emu::types as wit_types;
 /// Store データ: tick 中だけ cpu-virtual のレジスタ像を預かる。
 pub struct FwHost {
     pub regs: HalRegs,
+    /// cpu-virtual の instance に宣言された capability (ファームウェアに適用する)
+    pub wasi: WasiState,
+}
+
+impl WasiView for FwHost {
+    fn ctx(&mut self) -> WasiCtxView<'_> {
+        self.wasi.view()
+    }
+}
+
+impl WasiHost for FwHost {
+    fn wasi(&mut self) -> &mut WasiState {
+        &mut self.wasi
+    }
 }
 
 fn convert_level(l: wit_types::LogLevel) -> LogLevel {
@@ -81,15 +97,23 @@ impl WasmFirmware {
     }
 
     pub fn load(rt: &Runtime, bytes: &[u8]) -> anyhow::Result<Self> {
+        Self::load_with(rt, bytes, WasiGrant::default())
+    }
+
+    /// capability を付与して読み込む。宣言外の import は link されないので実体化で失敗する。
+    pub fn load_with(rt: &Runtime, bytes: &[u8], grant: WasiGrant) -> anyhow::Result<Self> {
         let component = Component::new(&rt.engine, bytes)
             .map_err(anyhow::Error::from)
             .context("ファームウェアのコンパイルに失敗")?;
         let mut linker: Linker<FwHost> = Linker::new(&rt.engine);
         bindings::Firmware::add_to_linker::<_, HasSelf<_>>(&mut linker, |h| h)?;
+        crate::wasi::add_to_linker(&mut linker, &grant)
+            .context("ファームウェアへの capability の付与")?;
         let mut store = Store::new(
             &rt.engine,
             FwHost {
                 regs: HalRegs::default(),
+                wasi: WasiState::new(grant).context("ファームウェアの WASI 文脈")?,
             },
         );
         let epoch_budget = rt.epoch_budget();
