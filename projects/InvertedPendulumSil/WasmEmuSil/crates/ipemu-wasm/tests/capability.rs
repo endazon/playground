@@ -317,3 +317,30 @@ fn clock_grant_marks_part_nondeterministic() {
     let part = WasmPart::instantiate_with(&rt, &c, "rep", g).unwrap();
     assert!(!part.describe().deterministic);
 }
+
+#[test]
+fn describe_sandboxed_reads_describe_without_manifest_and_without_io() {
+    let Some(p) = reporter_path() else { return };
+    let rt = Runtime::new(Default::default()).unwrap();
+    let bytes = std::fs::read(&p).unwrap();
+    let (desc, imports) = WasmPart::describe_component_sandboxed(&rt, &bytes).unwrap();
+    assert_eq!(desc.name, "tcp-reporter");
+    assert!(
+        desc.deterministic,
+        "clock / random を import しないので決定性は保たれる"
+    );
+    assert!(imports
+        .iter()
+        .any(|i| i.name.starts_with("wasi:sockets/tcp@")));
+    // 通常の describe_component (capability なし) では読めない
+    let c = WasmPart::compile(&rt, &bytes).unwrap();
+    assert!(WasmPart::describe_component(&rt, &c).is_err());
+    // WASI を使わない部品でも同じ API で読める
+    let enc = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../build/components/encoder.wasm");
+    let (d2, i2) =
+        WasmPart::describe_component_sandboxed(&rt, &std::fs::read(enc).unwrap()).unwrap();
+    assert_eq!(d2.name, "encoder");
+    assert!(i2
+        .iter()
+        .all(|i| i.types_only || i.name.starts_with("ip:emu/")));
+}

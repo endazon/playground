@@ -328,21 +328,14 @@ fn real_main() -> anyhow::Result<()> {
         Cmd::Inspect { wasm } => {
             let bytes =
                 std::fs::read(&wasm).with_context(|| format!("{} を読めません", wasm.display()))?;
-            let imports = ipemu_core::imports::component_imports(&bytes)?;
             let rt = ipemu_wasm::Runtime::new(Default::default())?;
-            let component = ipemu_wasm::WasmPart::compile(&rt, &bytes)?;
-            // describe() のためだけの実体化。import が示す capability をすべて与える (I/O はしない)
-            let caps = capabilities_for_imports(&imports);
-            let grant = ipemu_wasm::WasiGrant::from_capabilities(
-                &caps,
-                &std::env::temp_dir().join("ipemu-inspect"),
-            )?;
-            let part = ipemu_wasm::WasmPart::instantiate_with(&rt, &component, "inspect", grant)?;
-            let desc = ipemu_core::Part::describe(&part).clone();
+            // deny-all で実体化して describe() を読む (I/O は拒否される)。サーバの登録時と同じ API
+            let (desc, imports) = ipemu_wasm::WasmPart::describe_component_sandboxed(&rt, &bytes)?;
             let out = serde_json::json!({
                 "describe": desc,
                 "imports": imports,
-                "requiredCapabilities": caps,
+                // この部品を動かすのに最低限要る宣言の目安 (値はダミー)
+                "requiredCapabilities": ipemu_core::Capabilities::covering_imports(&imports),
             });
             println!("{}", serde_json::to_string_pretty(&out)?);
             Ok(())
@@ -367,39 +360,6 @@ fn real_main() -> anyhow::Result<()> {
             Ok(())
         }
     }
-}
-
-/// import 一覧から「これを動かすのに最低限要る宣言」を逆引きする (inspect 用の目安)。
-fn capabilities_for_imports(imports: &[ipemu_core::ImportInfo]) -> ipemu_core::Capabilities {
-    use ipemu_core::capability::{
-        classify_import, Capabilities, FsGrant, FsMode, HostPort, ImportClass, NetCapabilities,
-    };
-    let mut c = Capabilities::default();
-    for i in imports.iter().filter(|i| !i.types_only) {
-        match classify_import(&i.name) {
-            ImportClass::Net => {
-                let n = c.net.get_or_insert_with(NetCapabilities::default);
-                if ipemu_core::capability::interface_of(&i.name).starts_with("udp") {
-                    n.udp.push(HostPort::parse("127.0.0.1:0").unwrap());
-                } else if n.tcp_connect.is_empty() {
-                    n.tcp_connect.push(HostPort::parse("127.0.0.1:0").unwrap());
-                }
-            }
-            ImportClass::Fs => {
-                if c.fs.is_empty() {
-                    c.fs.push(FsGrant {
-                        path: "inspect".into(),
-                        mode: FsMode::Ro,
-                    });
-                }
-            }
-            ImportClass::Clock => c.clock = true,
-            ImportClass::Random => c.random = true,
-            ImportClass::HostExt(n) if !c.host_ext.contains(&n) => c.host_ext.push(n),
-            _ => {}
-        }
-    }
-    c
 }
 
 fn consent_cmd(cmd: ConsentCmd) -> anyhow::Result<()> {

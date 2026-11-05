@@ -151,6 +151,9 @@ consent store: <data dir>/ipemu/consent.json
 - `fs` の閉じ込め: 宣言の文字列規則 (絶対パス・`..` 禁止) に加え、実体化時に canonical パスが `<data dir>/ipemu/data` 配下にあることを確認する。
   ゲスト側の `..` やシンボリックリンクは cap-std が preopen の外へ出さない。
 - `clock` / `random` を付与した部品は `describe().deterministic` を自己申告によらず `false` にする (V10 と同じ判定)。
+- manifest (宣言) がない文脈で describe() を読むには `WasmPart::describe_component_sandboxed(&Runtime, &[u8]) -> (PartDesc, Vec<ImportInfo>)`
+  を使う (サーバの部品登録時、`inspect`)。import から `Capabilities::covering_imports` で必要な宣言を逆引きし、
+  deny-all 形で link して実体化するので I/O は起きない。提供しない import (`wasi:cli` 等) があれば失敗する。
 - 検証用部品 `components/tcp-reporter` (wasi:sockets + wasi:filesystem) と `crates/ipemu-wasm/tests/capability.rs` で、
   宣言なしの実体化失敗・許可リスト内 TCP の成功・許可外の拒否・名前解決の限定・preopen の境界 (`..` / 未宣言 / ro) を確認している。
 
