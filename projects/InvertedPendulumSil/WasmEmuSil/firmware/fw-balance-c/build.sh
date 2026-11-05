@@ -25,7 +25,7 @@ WFLAGS=(--target=wasm32-unknown-unknown -O2 -g -nostdlib -ffreestanding -fvisibi
 "$CC" --target=wasm32-unknown-unknown -nostdlib -Wl,--no-entry -Wl,--gc-sections -Wl,--strip-debug \
   "$HERE/build/fw_balance.wasm.o" "$HERE/build/cfg.wasm.o" "$HERE/build/ip_hal_wasm.o" \
   "$HERE/build/firmware_gen.o" "$HERE/build/libc_min.o" "$HERE/gen/firmware_component_type.o" \
-  "$ROOT/target/wasm32-unknown-unknown/release/libip_cmath.a" \
+  "${CARGO_TARGET_DIR:-$ROOT/target}/wasm32-unknown-unknown/release/libip_cmath.a" \
   -o "$HERE/build/fw-balance-c.core.wasm"
 wasm-tools component new "$HERE/build/fw-balance-c.core.wasm" -o "$OUT/fw-balance-c.wasm"
 wasm-tools validate "$OUT/fw-balance-c.wasm"
