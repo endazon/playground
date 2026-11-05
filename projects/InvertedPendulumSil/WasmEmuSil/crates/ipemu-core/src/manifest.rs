@@ -1,5 +1,6 @@
 //! 構成情報 (manifest) の型。`schemas/emulator-manifest.schema.json` と対応する。
 
+use crate::capability::{Approval, Capabilities};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -20,8 +21,9 @@ pub struct Manifest {
     pub wires: Vec<Wire>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ui: Option<serde_json::Value>,
+    /// 承認 (capability 宣言のハッシュを含む)。V12 で照合する
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approval: Option<serde_json::Value>,
+    pub approval: Option<Approval>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<serde_json::Value>,
 }
@@ -104,8 +106,9 @@ pub struct ComponentSpec {
     pub params: serde_json::Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub firmware: Option<FirmwareSlot>,
+    /// instance 単位の capability 宣言 (04-manifest.md)。builtin:cpu-virtual ではファームウェアに適用する
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capabilities: Option<serde_json::Value>,
+    pub capabilities: Option<Capabilities>,
 }
 
 fn one_u32() -> u32 {
@@ -118,6 +121,10 @@ fn empty_object() -> serde_json::Value {
 impl ComponentSpec {
     pub fn is_builtin(&self) -> bool {
         self.kind.is_some()
+    }
+    /// 宣言がなければ空 (= サンドボックス既定)。
+    pub fn capabilities(&self) -> Capabilities {
+        self.capabilities.clone().unwrap_or_default()
     }
 }
 

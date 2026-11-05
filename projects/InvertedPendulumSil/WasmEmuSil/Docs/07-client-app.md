@@ -32,7 +32,7 @@ bin  frame: MessagePack   (高頻度ストリーム。先頭 1 バイトでチ�
 | `firmware.load {slot, source}` | ファームウェアの差し替え。`source` は `artifact:` / `wasm:` / `native:`。wasm はホット (状態保持)、native はエンジン再起動 (応答に `restartRequired: true`) |
 | `firmware.watch {slot, path}` | ビルド成果物の更新を監視して自動で `firmware.load` |
 | `scope.subscribe {ports[], rateHz, window}` | スコープ用ストリームの購読 |
-| `consent.answer {requestId, grant, remember}` | 同意ダイアログの回答 |
+| `consent.answer {requestId, grant, remember}` | 同意ダイアログの回答 (`ipemu_core::consent::ConsentAnswer`)。全件の回答が揃うまでエンジンは実体化しない |
 | `manifest.refresh` | サーバへ再問い合わせ (手動更新) |
 
 ### 通知 (エンジン → シェル)
@@ -41,7 +41,7 @@ bin  frame: MessagePack   (高頻度ストリーム。先頭 1 バイトでチ�
 | `state` (bin, 50Hz 既定) | 仮想時刻、tick、ペーシング、`builtin:snapshot` に載せたポート値、実行時間 / オーバーラン、スリップ |
 | `scope` (bin) | 購読したポートの高レート値 (リングバッファのチャンク) |
 | `event` | 状態遷移、FAULT 理由、保護動作、ログ (レベル付き)、capability 使用 |
-| `consent.required` | 未同意の capability。`{requestId, instance, artifactSha256, capability, reason}` |
+| `consent.required` | 未同意の capability の一覧。要素は `ipemu_core::consent::ConsentRequest` = `{requestId, instances[], artifact, artifactSha256, capability, reason, manifestId, revision}` (M5) |
 | `bootstrap.progress` | manifest / artifact 取得の進捗、キャッシュ構成でのオフライン起動の通知 |
 
 契約は `ipemu-ipc` に型として置き、TypeScript の型定義を `cargo` のビルドで生成します (`ts-rs` 等)。
@@ -123,6 +123,61 @@ consent store: <data dir>/ipemu/consent.json
 - 「今回だけ」「記憶する」「拒否」の 3 択。拒否された部品は実体化せず、構成全体を FAULT ではなく**起動不可**として表示します
   (部分的に動いた結果を信じないため)。
 - headless 実行では `--consent-file` で事前同意を渡すか、未同意があれば非ゼロ終了します。
+
+### 実装 (M5): capability の実施と同意
+**実施 (`crates/ipemu-wasm/src/wasi.rs`)**
+- `WasiGrant` (宣言をホスト側の実パスまで解決したもの) を `WasmPart::instantiate_with` / `WasmFirmware::load_with` に渡す。
+  `ipemu_wasm::wasi::add_to_linker` が付与分だけを link し、`WasiState` (`WasiCtx` + `ResourceTable`) を Store データに同居させる。
+  cpu-virtual の instance に書いた `capabilities` はそのファームウェアに適用する (native 形には適用しない。サンドボックス外)。
+- link する範囲:
+
+  | 宣言 | link するインターフェース (wasmtime-wasi 50, WASI 0.2.12, sync バインディング) |
+  | --- | --- |
+  | いずれかの WASI capability | `wasi:io/{error,poll,streams}` (土台) |
+  | `net` | `wasi:sockets/{network,instance-network}` + 自前の `ip-name-lookup`。tcp 系の宣言で `tcp`, `tcp-create-socket`、`udp` で `udp`, `udp-create-socket` |
+  | `fs` | `wasi:filesystem/{types,preopens}`。`preopened_dir(<data dir>/ipemu/data/<path>, "<path>", ro\|rw)` |
+  | `clock` | `wasi:clocks/{wall-clock,monotonic-clock}` |
+  | `random` | `wasi:random/{random,insecure,insecure-seed}` |
+  | `hostExt: [serial-port]` | `ip:emu/serial-port` (M5 ではスタブ: `open` が Err を返す) |
+
+  `wasi:cli/*` は決して link しない。stdio・環境変数・引数も与えない。
+- ネットワークの許可判定 (`NetAllow`、`socket_addr_check`):
+  - `TcpConnect` は `tcpConnect` の IP リテラルと一致するか、**許可ホスト名を解決して得た IP** でそのエントリのポートに一致するとき許可。
+  - `TcpBind` は接続のための暗黙 bind (未指定アドレス:0) を `tcpConnect` があれば許可、明示 bind は `tcpListen` に従う。`TcpListen` も `tcpListen`。
+  - `TcpAccept` の相手は宣言で縛れないので `tcpListen` があれば受け入れる。UDP は `udp` のリスト。
+  - 名前解決は wasmtime-wasi のものを使わず、`wasi:sockets/ip-name-lookup` を自前で実装して**宣言にある名前だけ**解決する
+    (それ以外は `access-denied`)。解決結果の IP を記録し、上の `TcpConnect` 判定に使う。
+  - 拒否した宛先は `WasmPart::take_denied_destinations()` で取り出せる (将来 `event` 通知に載せる)。
+- `fs` の閉じ込め: 宣言の文字列規則 (絶対パス・`..` 禁止) に加え、実体化時に canonical パスが `<data dir>/ipemu/data` 配下にあることを確認する。
+  ゲスト側の `..` やシンボリックリンクは cap-std が preopen の外へ出さない。
+- `clock` / `random` を付与した部品は `describe().deterministic` を自己申告によらず `false` にする (V10 と同じ判定)。
+- 検証用部品 `components/tcp-reporter` (wasi:sockets + wasi:filesystem) と `crates/ipemu-wasm/tests/capability.rs` で、
+  宣言なしの実体化失敗・許可リスト内 TCP の成功・許可外の拒否・名前解決の限定・preopen の境界 (`..` / 未宣言 / ro) を確認している。
+
+**同意 (`crates/ipemu-engine/src/{capability,consent}.rs`)**
+- `Session::load` は 2 パス: (1) wasm を読んで sha256 と import を取り、`CapabilityPlan` を立て、V7 を先に判定、
+  (2) 同意が揃ってから `WasiGrant` を付けて実体化する。**同意の問い合わせは実体化より前**で、未同意・拒否があれば何も実体化しない。
+- 同意ストア `<data dir>/ipemu/consent.json`:
+  ```json
+  { "version": 1, "entries": { "<sha256>:net.tcpConnect:192.168.10.5:502":
+      { "granted": true, "at": "2026-11-05T09:00:00Z", "manifestId": "cartpole-lqr-default", "revision": 3, "rememberUntil": null } } }
+  ```
+  鍵は `ipemu_core::consent::consent_key(sha256, capability)`。書き込みは一時ファイル + rename。壊れたファイルは黙って捨てずエラーにする。
+  記憶された拒否は、問い合わせずに起動不可にする (`ipemu-engine consent forget` で消せる)。
+- 問い合わせの型 (IPC `consent.required` / `consent.answer` が運ぶ): `ipemu_core::consent::{ConsentRequest, ConsentAnswer}`。
+  `requestId` は同意ストアの鍵と同じ文字列で、同じ (artifact, capability) を複数 instance が使う場合は 1 件にまとめて `instances` に併記する。
+- エンジン側のインターフェースは `ipemu_engine::ConsentProvider` (`ask(&[ConsentRequest]) -> Vec<ConsentAnswer>`)。
+  回答のない request は「未同意」のまま残る。M2 のシェルはこれを IPC で実装する。headless の実装:
+  - `--consent-file <json>` (`FileConsent`): `{"version":1,"grants":["<sha256>:<cap>", "*:<cap>"],"denies":[…],"remember":false}`。
+    `*:` はアーティファクトを問わない開発用の指定で、**ローカル開発モード (`--no-signature-check` = `allow_unhashed`) のときだけ受理**し、
+    それ以外はエラーにする (配布用の設定で使えないことを実装で担保)。`remember: true` なら許可をストアにも書く。
+  - 指定なし (`NoConsent`): 未同意があれば終了コード **3**、拒否があれば **4** で非ゼロ終了 (`LaunchError`)。
+  - `validate` / `inspect` は実行しないので同意を求めず、**deny-all 形** (`WasiGrant::deny_all_for`) で実体化する:
+    宣言と同じインターフェースは link されるので describe / init は通るが、接続・名前解決・ファイル操作はすべて拒否され、
+    データディレクトリにも触れない (D34)。
+- データディレクトリは `--data-dir` > `IPEMU_DATA_DIR` > OS 既定 (Linux `$XDG_DATA_HOME`/`~/.local/share`、macOS `~/Library/Application Support`、Windows `%APPDATA%`)。
+- CLI: `ipemu-engine consent list --manifest … [--json]` (同意が要る鍵の列挙と `--consent-file` の雛形)、`consent show`、`consent forget <key>… | --all`。
+  `ipemu-engine inspect <wasm>` は describe に加えて import 一覧と、それを動かすのに最低限要る宣言の目安を出す。
 
 ## テレメトリ
 既定で on です。送るのは実行要約 (開始 / 終了 / FAULT 理由 / オーバーラン数 / 時間スリップ / capability 使用回数 / エンジン版・OS・アーキ) だけで、

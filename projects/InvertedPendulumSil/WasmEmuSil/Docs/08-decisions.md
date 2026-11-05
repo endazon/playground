@@ -31,12 +31,18 @@
 | D26 | C 版 FW の libc / libm (M1 で確定) | **freestanding + `ip-cmath` (Rust libm の C ABI) + 極小 libc** | wasi-sdk: wasi-libc が WASI を import する。外部ツールチェーンの取得も要る。Rust libm を共有すると C / Rust の wasm で数値が一致する |
 | D27 | 指令タイムアウトの表現 (M1 で確定) | **ハートビート信号** (gpio-out1 の反転) を motor-driver が監視 | 指令値の更新検知: 同じ値が続く正常運転と区別できない |
 | D28 | FW cfg の形 (M1 で確定) | **フラットな JSON** + 極小パーサ (C / Rust 同規則) | 入れ子 JSON + serde: C 版に JSON ライブラリが要り、MCU 向けの制約から外れる |
-| D29 | サーバの認証方式 (M3 で確定) | **Bearer トークンのみ** (ログインセッション / チケット交換トークン / API キー)。Cookie は使わない | セッション Cookie + CSRF トークン: 設計案だったが、同じトークンをシェル経由でエンジンに渡す経路と二重になる。Bearer に統一すると CSRF 対策が不要で、SPA・シェル・エンジンの扱いが揃う |
-| D30 | 公開鍵の配布形式 (M3 で確定) | **raw 32 バイトの hex を JSON に包む** (`{keyId, alg, publicKey}`)。クライアントに `trusted-keys.json` として埋め込み、開発時は環境変数 / CLI で追加 | PEM (PKCS#8 / SPKI): 標準的だが ASN.1 の解釈が要り、keyId を別に持つ必要がある。hex は目視で照合しやすい |
-| D31 | `capabilitiesHash` の定義 (M3 で確定) | capabilities を持つ部品の `[{instance, capabilities}]` (manifest 順) を JCS 正規化した sha256 | capabilities 値だけの配列: 同じ宣言を別の部品に付け替える改変を検出できない |
-| D32 | 本文の版採番と不変性 (M4 で確定) | revision はサーバ採番。承認済み / 公開済みは**編集不可**で新しい下書きを作る。公開済みは削除不可 | 承認後の編集で下書きに戻す: 履歴が追いにくく、承認の紐付けが曖昧になる |
-| D33 | V7 / V8 の実装場所 (M3 で確定) | サーバ (アップロード時に保存した wasi import と宣言の照合)。クライアントの再照合は M5 | ipemu-core に WIT パーサを入れる: クライアントの依存が増える。サーバは wasmparser だけで import 名を読める |
-| D34 | 編集者と承認者の分離の実装 (M4 で確定) | revision の**最終編集者 (ユーザ名)** と承認者が同一なら admin でも拒否 | ロールの排他 (editor と approver を兼ねられない): 小規模運用で人が足りない。本文単位の分離で十分 |
+| D29 | WASI を使う部品のビルド (M5 で確定) | **D25 と同じ `wasm32-unknown-unknown` + `wasm-tools component new`**。WASI は `abi/wit/capabilities.wit` の `wasi-capabilities` world を部品側で `wit-bindgen` 生成して import する | `wasm32-wasip2` + std: `wasi:cli/{exit,stderr,environment}` が混ざり「stdout 等を暗黙に与えない」と V7 に反する。`wasi` crate: wit-bindgen-rt が二重になり `cabi_realloc` が衝突しうる |
+| D30 | 名前解決の限定 (M5 で確定) | **`wasi:sockets/ip-name-lookup` をエンジンが自前実装**し、宣言にある名前だけ解決。解決で得た IP への接続をそのエントリのポートに限り許可 | wasmtime-wasi の実装 + `allow_ip_name_lookup`: 名前の制限ができない。起動時に先行解決: DNS の変化に追従できず、部品からの解決要求が失敗する |
+| D31 | `capabilitiesHash` の正規形 (M5 で確定) | **`{instance: Capabilities}` を型経由で正規化 (既定値を省く) → RFC 8785 → sha256**。JCS は `ipemu_core::jcs` に自前実装 | 本文の生テキストをそのままハッシュ: `"clock": false` の有無で変わり、編集画面の整形で承認が無効になる。`serde_jcs` 等の外部 crate: 更新が止まっており依存を増やす価値がない |
+| D32 | 型だけの instance import (M5 で確定) | **V7 / V8 の対象外**とし、Linker にも定義しない (Wasmtime は型だけの instance を要求しない) | `wasi:clocks/wall-clock` を `clock` 宣言なしでも link: `now()` が漏れる。型だけでも宣言を要求: filesystem を使う全部品に `clock: true` が要り V10 の意味が薄れる |
+| D33 | `wasi:io/*` の扱い (M5 で確定) | **独立した capability にせず**、net / fs / clock のいずれかがあるときだけ土台として link | 独立宣言: 単独では何もできない (ストリームは sockets / filesystem からしか得られない) のに同意項目が増える |
+| D34 | `validate` と同意 (M5 で確定) | **`validate` / `inspect` は deny-all 形で実体化する。同意は求めない。** 宣言と同じインターフェースを link するが許可リスト空・preopen なしで、describe / init は通り、接続・名前解決・ファイル操作はすべて拒否される (`WasiGrant::deny_all_for`、`CapabilityPlan::grant_for_validate`)。`run` は同意必須 | 同意なしで実グラントを付与: 「検証しただけ」のつもりで init 中の TCP 接続やファイル書き込みが起きる (却下)。validate でも同意: 開発者向けコマンドに同意ダイアログは不要。付与せず describe だけ: describe には実体化が要り、import 不足で検証自体ができない |
+| D35 | 拒否の扱い (M5 で確定) | **記憶された拒否は問い合わせずに起動不可**。`consent forget` で取り消す。1 件でも拒否 / 未同意があれば部分起動しない | 拒否のたびに再問い合わせ: 「拒否を記憶する」が成立しない |
+| D36 | サーバの認証方式 (M3 で確定) | **Bearer トークンのみ** (ログインセッション / チケット交換トークン / API キー)。Cookie は使わない | セッション Cookie + CSRF トークン: 設計案だったが、同じトークンをシェル経由でエンジンに渡す経路と二重になる。Bearer に統一すると CSRF 対策が不要で、SPA・シェル・エンジンの扱いが揃う |
+| D37 | 公開鍵の配布形式 (M3 で確定) | **raw 32 バイトの hex を JSON に包む** (`{keyId, alg, publicKey}`)。クライアントに `trusted-keys.json` として埋め込み、開発時は環境変数 / CLI で追加 | PEM (PKCS#8 / SPKI): 標準的だが ASN.1 の解釈が要り、keyId を別に持つ必要がある。hex は目視で照合しやすい |
+| D38 | manifest 署名の正規化 (M3 で確定) | `signature` を除いた本文を **D31 と同じ `ipemu_core::jcs`** で正規化して Ed25519 署名。`capabilitiesHash` も `ipemu_core::capabilities_hash` をそのまま使う (サーバとエンジンで二重実装しない) | `serde_jcs` 等の外部 crate: D31 と同じ理由。本文の生テキストに署名: 整形で署名が無効になる |
+| D39 | 本文の版採番と不変性 (M4 で確定) | revision はサーバ採番。承認済み / 公開済みは**編集不可**で新しい下書きを作る。公開済みは削除不可 | 承認後の編集で下書きに戻す: 履歴が追いにくく、承認の紐付けが曖昧になる |
+| D40 | 編集者と承認者の分離の実装 (M4 で確定) | revision の**最終編集者 (ユーザ名)** と承認者が同一なら admin でも拒否 | ロールの排他 (editor と approver を兼ねられない): 小規模運用で人が足りない。本文単位の分離で十分 |
 
 ### D8 の調査結果: クロスプラットフォームで Chromium を同梱する手段
 | 方式 | Chromium の出所 | 成熟度 | Rust エンジンとの関係 | 評価 |
@@ -58,6 +64,9 @@
 | 仮想 MCU の実行時間モデル | zero / fixed / fuel | 実機の計算遅れを模擬しつつ、既定は理想で比較しやすく |
 | UI バンドルの配布 | アーティファクト (manifest の `ui.bundle`) | 部品に合わせた UI をクライアント本体の更新なしで配る |
 | 同意の鍵 | artifact sha256 + capability | 別のコードに許可を引き継がない |
+| 同意の単位 | capability 文字列 1 件ずつ (`net.tcpConnect:host:port`, `fs:rw:logs`, …)。同じ (artifact, capability) は instance が違っても 1 件 | 利用者が個別に判断できる最小単位。instance 単位にすると同じ部品の 2 個目で再同意になる |
+| fs の実体 | `<data dir>/ipemu/data/<path>` | 同意ストアと同じ場所に閉じ、利用者が中身を見つけられる |
+| cpu-virtual の capability | そのファームウェア (wasm 形) に適用。native 形には適用しない | native はデバッグ専用でサンドボックス外 (D7) |
 | 署名鍵の世代 | `keyId` で管理、公開鍵はクライアント同梱 | v1 では鍵更新 = 本体更新。KMS は後 |
 | DB | SQLite (sqlx) | 小規模運用。抽象を保って PostgreSQL へ移行可能に |
 
@@ -75,6 +84,6 @@ Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに�
 | M1 ✅ | エンジン核 | ローカル manifest から plant / driver / encoder / comm-link (Rust 部品) + `fw-balance` (C 版と Rust 版、各 wasm と native) を組み立て、headless で倒立維持。決定性・性質・FW 同等性テストが `scripts/check.sh` で通る。**完了** (ip-model 12 / ipemu-core 8 / 結合 7 テスト) |
 | M2 | シェル | Electron の汎用ブラウザ UI + 信頼 origin ブリッジ + `ipemu://` ハンドラ + シミュレータ UI (sim-view 移植)。IPC 契約の TS 型生成。wasm ホット差替 / native 再起動。VS の F5 手順がドキュメントどおりに動く |
 | M3 ✅ | サーバ配信 + ポータル | ログイン、カタログ、起動 (ブリッジ / `ipemu://` チケット)、manifests / artifacts API、署名、エンジンの bootstrap とキャッシュ、ローカルカタログでのオフライン起動、telemetry。**完了** (`crates/ipemu-server`, `crates/ipemu-sign`, `crates/ipemu-engine/src/{bootstrap,cache}.rs`, `apps/web` のポータル。結合テスト: サーバ API 4 / bootstrap 2 (サーバから取得して倒立維持 → オフラインで同じ軌道)) |
-| M4 ✅ | 管理画面 | 部品登録 (WIT 抽出)、manifest 編集と検証、承認 / 公開 / 公開範囲、ユーザとロール、API キー、監査。**完了** (`/api/admin` と `apps/web` の管理画面。capability 付き部品の describe と V7 の実物照合は M5 と合わせる) |
-| M5 | capability | WASI p2 の sockets / filesystem を宣言 → 承認 → 同意で付与。同意 UI。拒否時の挙動 |
+| M4 ✅ | 管理画面 | 部品登録 (WIT 抽出)、manifest 編集と検証、承認 / 公開 / 公開範囲、ユーザとロール、API キー、監査。**完了** (`/api/admin` と `apps/web` の管理画面。V7 / V8 は `ipemu_core::validate` の `DescResolver::imports` に登録時の import 一覧を渡して行う) |
+| M5 ✅ (エンジン側) | capability | WASI p2 の sockets / filesystem を宣言 → 承認 (capabilitiesHash) → 同意で付与。拒否 / 未同意なら起動不可。検証用部品 `tcp-reporter` で実証。**エンジン側完了** (ipemu-core 12 / ipemu-wasm 3+7 / ipemu-engine 6 テスト)。同意 UI は M2 のシェルが `ConsentProvider` を IPC で実装する |
 | M6 | 拡張 | fuel ベースの実行時間モデル、NetworkedSil の遅延実験との比較記録 (comm-link を使う)、6 プラットフォームの zip ビルド |

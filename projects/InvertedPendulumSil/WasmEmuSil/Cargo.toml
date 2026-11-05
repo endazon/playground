@@ -14,6 +14,7 @@ members = [
     "components/motor-driver",
     "components/encoder",
     "components/comm-link",
+    "components/tcp-reporter",
     "firmware/fw-balance-rs",
 ]
 
@@ -37,6 +38,7 @@ thiserror = "2"
 libm = "0.2"
 wit-bindgen = { version = "0.63", default-features = false, features = ["macros", "realloc"] }
 wasmtime = { version = "50", default-features = false, features = ["anyhow", "runtime", "cranelift", "component-model", "std", "cache", "parallel-compilation", "wat"] }
+wasmtime-wasi = { version = "50", default-features = false, features = ["p2"] }
 libloading = "0.9"
 clap = { version = "4", features = ["derive", "env"] }
 sha2 = "0.11"

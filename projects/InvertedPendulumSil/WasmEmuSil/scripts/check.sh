@@ -20,7 +20,7 @@ if [ $QUICK -eq 0 ]; then
 fi
 
 step "cargo test"
-cargo test --workspace --exclude plant-cartpole --exclude motor-driver --exclude encoder --exclude comm-link --exclude fw-balance-rs
+cargo test --workspace --exclude plant-cartpole --exclude motor-driver --exclude encoder --exclude comm-link --exclude tcp-reporter --exclude fw-balance-rs
 
 step "manifest validate"
 cargo run -q -p ipemu-engine -- validate dev/cartpole.manifest.json --no-signature-check

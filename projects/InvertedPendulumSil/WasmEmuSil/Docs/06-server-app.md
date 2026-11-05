@@ -107,7 +107,7 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
 ### 設計からの差分と確定事項
 | 項目 | 実装 | 備考 |
 | --- | --- | --- |
-| 認証 | **Bearer のみ** (`sess_` ログインセッション / `lt_` チケット交換トークン / `ipk_` API キー)。Cookie は使わない | D29。CSRF 対策が不要になり、同じトークンをシェル経由でエンジンに渡せる。XSS 対策は CSP とフレームワーク側 |
+| 認証 | **Bearer のみ** (`sess_` ログインセッション / `lt_` チケット交換トークン / `ipk_` API キー)。Cookie は使わない | D36。CSRF 対策が不要になり、同じトークンをシェル経由でエンジンに渡せる。XSS 対策は CSP とフレームワーク側 |
 | `/api/auth` | `POST login` / `POST logout` / `GET me` / `POST password` | 初回ログインは `mustChangePassword` を返し、SPA が変更画面へ誘導 |
 | ログイン抑止 | ユーザ名ごとに連続失敗 5 回で 30 秒ロック (メモリ上)。ユーザ不在時もダミーのハッシュ検証で応答時間を揃える | |
 | 配信 API | 表のとおり。追加: `GET /api/v1/keys` (公開鍵の参考表示)、`GET /api/v1/launches/mine` (自分の起動履歴) | `keys` は**信頼の根拠ではない** (信頼鍵はクライアント同梱 / 設定) |
@@ -127,7 +127,7 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
 | ユーザ | ロールは集合 (`user/viewer/editor/approver/admin`)。自分の admin を外す / 自分を無効化する操作は拒否。無効化とパスワード再設定でセッションを全部消す | |
 | 監査 | すべての変更操作 (`artifact.register`, `manifest.*`, `user.*`, `api_key.*`, `auth.login`, …) を `audit` に記録 | |
 | 保存 | `IPEMU_STORE/artifacts/sha256/ab/cd/<hex>` (一時ファイル → rename)、`IPEMU_DB` (既定 `<store>/db.sqlite`、WAL)。マイグレーションは `migrations/` を起動時に適用 | |
-| 鍵 | `IPEMU_SIGNING_KEY` が指す JSON (`{keyId, alg, seed}`、seed は raw 32 バイト hex)。未設定なら起動ごとに一時鍵 (警告)。`ipemu-server keygen --out dev/keys` で生成 ([`../dev/README.md`](../dev/README.md)) | PEM ではなく hex (D30) |
+| 鍵 | `IPEMU_SIGNING_KEY` が指す JSON (`{keyId, alg, seed}`、seed は raw 32 バイト hex)。未設定なら起動ごとに一時鍵 (警告)。`ipemu-server keygen --out dev/keys` で生成 ([`../dev/README.md`](../dev/README.md)) | PEM ではなく hex (D37) |
 | SPA 配信 | `IPEMU_WEB_DIR` (既定 `apps/web/dist` があればそれ)。`/api` 以外は `index.html` にフォールバック。`assets/` は immutable | `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` |
 | 起動 | `ipemu-server serve` (既定) / `ipemu-server keygen`。ログは tracing JSON (`IPEMU_LOG_FORMAT=text` でテキスト) | `Dockerfile` + `compose.yaml` (ループバック公開、cap_drop ALL、read_only、リソース上限) |
 

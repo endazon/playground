@@ -1,13 +1,48 @@
 //! ipemu-engine CLI (headless)。ローカル manifest (`--manifest`) か、サーバの構成 (`--server --launch`) を動かす。
+//! M5: capability / 同意。
+//!
+//! 終了コード: 0 成功、1 一般エラー、3 未同意の capability あり、4 拒否された capability あり。
 
 use anyhow::Context;
 use clap::{Args, Parser, Subcommand};
 use ipemu_core::hal::LogLevel;
 use ipemu_engine::{
-    bootstrap, BootstrapOptions, Cache, Credential, FirmwareSource, Recorder, Session,
-    SessionOptions, TraceHash,
+    bootstrap, BootstrapOptions, Cache, Credential, FileConsent, FirmwareSource, LaunchError,
+    Recorder, Session, SessionOptions, TraceHash,
 };
 use std::path::PathBuf;
+use std::sync::Arc;
+
+pub const EXIT_CONSENT_REQUIRED: i32 = 3;
+pub const EXIT_CONSENT_DENIED: i32 = 4;
+
+/// capability / 同意まわりの共通オプション。
+#[derive(Args, Debug, Clone, Default)]
+struct CapabilityArgs {
+    /// データディレクトリ (同意ストア `ipemu/consent.json` と fs capability の実体 `ipemu/data/`)。
+    /// 省略時は IPEMU_DATA_DIR、なければ OS の既定
+    #[arg(long)]
+    data_dir: Option<PathBuf>,
+    /// 事前同意 (headless 用)。`{"version":1,"grants":["<sha256>:<capability>"]}`。
+    /// `*:<capability>` (アーティファクト不問) は --no-signature-check のときだけ使える
+    #[arg(long)]
+    consent_file: Option<PathBuf>,
+    /// 同意ストアを読み書きしない (今回の回答だけで判断する)
+    #[arg(long)]
+    no_consent_store: bool,
+}
+
+impl CapabilityArgs {
+    fn apply(&self, opts: &mut SessionOptions) -> anyhow::Result<()> {
+        opts.data_dir = self.data_dir.clone();
+        opts.no_consent_store = self.no_consent_store;
+        if let Some(p) = &self.consent_file {
+            // ワイルドカードはローカル開発モード (allow_unhashed) でのみ
+            opts.consent = Some(Arc::new(FileConsent::load(p, opts.allow_unhashed)?));
+        }
+        Ok(())
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "ipemu-engine", about = "WasmEmuSil エンジン (headless)")]
@@ -16,7 +51,7 @@ struct Cli {
     cmd: Cmd,
 }
 
-/// サーバ接続の共通引数。
+/// サーバ接続の共通引数 (M3)。
 #[derive(Args, Clone, Default)]
 struct ServerArgs {
     /// 配信サーバの URL (例 https://ipemu.example)
@@ -116,12 +151,19 @@ enum Cmd {
         /// 進捗を N 秒ごとに 1 行出す (0 で無効)
         #[arg(long, default_value_t = 1.0)]
         print_every: f64,
+        #[command(flatten)]
+        cap: CapabilityArgs,
     },
-    /// manifest を検証する (サーバと同じ規則)
+    /// manifest を検証する (サーバと同じ規則)。実行はしないので capability は deny-all で付与し、同意は求めない
     Validate {
         manifest: PathBuf,
         #[arg(long)]
         no_signature_check: bool,
+    },
+    /// 同意 (consent) の確認・編集
+    Consent {
+        #[command(subcommand)]
+        cmd: ConsentCmd,
     },
     /// 部品 wasm の describe() を表示する
     Inspect { wasm: PathBuf },
@@ -149,6 +191,47 @@ enum Cmd {
     },
 }
 
+#[derive(Subcommand)]
+enum ConsentCmd {
+    /// manifest が要求する capability と同意の鍵を列挙する (--consent-file を書くための材料)
+    List {
+        #[arg(long)]
+        manifest: PathBuf,
+        /// slot=wasm:<path> | slot=native:<path>
+        #[arg(long = "firmware")]
+        firmware: Vec<String>,
+        #[arg(long)]
+        no_signature_check: bool,
+        /// JSON で出す
+        #[arg(long)]
+        json: bool,
+    },
+    /// 同意ストアの内容を表示する
+    Show {
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
+    },
+    /// 同意ストアから鍵を削除する (次回は再同意になる)。`--all` で全消去
+    Forget {
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
+        keys: Vec<String>,
+        #[arg(long)]
+        all: bool,
+    },
+}
+
+fn parse_firmware_overrides(firmware: &[String], opts: &mut SessionOptions) -> anyhow::Result<()> {
+    for f in firmware {
+        let (slot, src) = f
+            .split_once('=')
+            .context("--firmware は slot=wasm:<path> の形式")?;
+        opts.firmware_overrides
+            .insert(slot.to_owned(), FirmwareSource::parse(src)?);
+    }
+    Ok(())
+}
+
 fn parse_level(s: &str) -> Option<LogLevel> {
     match s {
         "trace" => Some(LogLevel::Trace),
@@ -173,7 +256,12 @@ fn level_rank(l: LogLevel) -> u8 {
 fn main() {
     if let Err(e) = real_main() {
         eprintln!("error: {e:#}");
-        std::process::exit(1);
+        let code = match e.downcast_ref::<LaunchError>() {
+            Some(LaunchError::ConsentRequired(_)) => EXIT_CONSENT_REQUIRED,
+            Some(LaunchError::ConsentDenied(_)) => EXIT_CONSENT_DENIED,
+            None => 1,
+        };
+        std::process::exit(code);
     }
 }
 
@@ -191,18 +279,15 @@ fn real_main() -> anyhow::Result<()> {
             no_signature_check,
             log,
             print_every,
+            cap,
         } => {
+            // 配信 manifest では sha256 を必須にする (--no-signature-check は署名の有無にだけ効く)
             let mut opts = SessionOptions {
                 allow_unhashed: no_signature_check && manifest.is_some(),
                 ..Default::default()
             };
-            for f in firmware {
-                let (slot, src) = f
-                    .split_once('=')
-                    .context("--firmware は slot=wasm:<path> の形式")?;
-                opts.firmware_overrides
-                    .insert(slot.to_owned(), FirmwareSource::parse(src)?);
-            }
+            cap.apply(&mut opts)?;
+            parse_firmware_overrides(&firmware, &mut opts)?;
             for p in params {
                 let (lhs, rhs) = p
                     .split_once('=')
@@ -219,7 +304,7 @@ fn real_main() -> anyhow::Result<()> {
 
             // サーバ経由: bootstrap でキャッシュに揃えてから、同じ Session::load に渡す
             let mut telemetry = None;
-            let manifest_path = match (&manifest, &launch) {
+            let manifest = match (&manifest, &launch) {
                 (Some(p), _) => p.clone(),
                 (None, Some(l)) => {
                     let (id, rev) = parse_launch(l)?;
@@ -255,8 +340,18 @@ fn real_main() -> anyhow::Result<()> {
                 }
                 (None, None) => anyhow::bail!("--manifest か --launch を指定してください"),
             };
-            let manifest = manifest_path;
-            let mut session = Session::load(&manifest, &opts)?;
+            let mut session = match Session::load(&manifest, &opts) {
+                Ok(s) => s,
+                Err(e) => {
+                    if let Some(t) = &telemetry {
+                        let _ = t.send(
+                            "error",
+                            serde_json::json!({"phase": "load", "error": format!("{e:#}")}),
+                        );
+                    }
+                    return Err(e);
+                }
+            };
             if let Some(t) = &telemetry {
                 if let Err(e) = t.send("started", serde_json::json!({"runSeconds": run_seconds})) {
                     eprintln!("warning: telemetry: {e:#}");
@@ -264,6 +359,20 @@ fn real_main() -> anyhow::Result<()> {
             }
             for w in session.diagnostics.warnings() {
                 eprintln!("warning[{}]: {}", w.rule, w.message);
+            }
+            for e in &session.capability_plan.entries {
+                let caps: Vec<String> = e
+                    .capabilities
+                    .items()
+                    .iter()
+                    .map(|c| c.to_string())
+                    .collect();
+                eprintln!(
+                    "capability `{}` ({}): {}",
+                    e.instance,
+                    e.artifact,
+                    caps.join(", ")
+                );
             }
             eprintln!(
                 "manifest `{}` rev {}: 部品 {} 個, 配線 {} 本, 実行順 [{}], baseStep {} ns",
@@ -346,8 +455,11 @@ fn real_main() -> anyhow::Result<()> {
             manifest,
             no_signature_check,
         } => {
+            // 検証だけ: deny-all で実体化し、同意は求めず、I/O も起きない (D34)
             let opts = SessionOptions {
                 allow_unhashed: no_signature_check,
+                validate_only: true,
+                no_consent_store: true,
                 ..Default::default()
             };
             match Session::load(&manifest, &opts) {
@@ -426,12 +538,28 @@ fn real_main() -> anyhow::Result<()> {
             Ok(())
         }
         Cmd::Inspect { wasm } => {
+            let bytes =
+                std::fs::read(&wasm).with_context(|| format!("{} を読めません", wasm.display()))?;
+            let imports = ipemu_core::imports::component_imports(&bytes)?;
             let rt = ipemu_wasm::Runtime::new(Default::default())?;
-            let component = ipemu_wasm::WasmPart::compile_file(&rt, &wasm)?;
-            let desc = ipemu_wasm::WasmPart::describe_component(&rt, &component)?;
-            println!("{}", serde_json::to_string_pretty(&desc)?);
+            let component = ipemu_wasm::WasmPart::compile(&rt, &bytes)?;
+            // describe() のためだけの実体化。import が示す capability をすべて与える (I/O はしない)
+            let caps = capabilities_for_imports(&imports);
+            let grant = ipemu_wasm::WasiGrant::from_capabilities(
+                &caps,
+                &std::env::temp_dir().join("ipemu-inspect"),
+            )?;
+            let part = ipemu_wasm::WasmPart::instantiate_with(&rt, &component, "inspect", grant)?;
+            let desc = ipemu_core::Part::describe(&part).clone();
+            let out = serde_json::json!({
+                "describe": desc,
+                "imports": imports,
+                "requiredCapabilities": caps,
+            });
+            println!("{}", serde_json::to_string_pretty(&out)?);
             Ok(())
         }
+        Cmd::Consent { cmd } => consent_cmd(cmd),
         Cmd::Lqr { length, ts, q, r } => {
             anyhow::ensure!(q.len() == 4, "--q は 4 要素");
             let p = ip_model::Params {
@@ -448,6 +576,124 @@ fn real_main() -> anyhow::Result<()> {
                 "_unstablePoleRadPerSec": lin.unstable_pole, "_iterations": sol.iterations,
             });
             println!("{}", serde_json::to_string_pretty(&out)?);
+            Ok(())
+        }
+    }
+}
+
+/// import 一覧から「これを動かすのに最低限要る宣言」を逆引きする (inspect 用の目安)。
+fn capabilities_for_imports(imports: &[ipemu_core::ImportInfo]) -> ipemu_core::Capabilities {
+    use ipemu_core::capability::{
+        classify_import, Capabilities, FsGrant, FsMode, HostPort, ImportClass, NetCapabilities,
+    };
+    let mut c = Capabilities::default();
+    for i in imports.iter().filter(|i| !i.types_only) {
+        match classify_import(&i.name) {
+            ImportClass::Net => {
+                let n = c.net.get_or_insert_with(NetCapabilities::default);
+                if ipemu_core::capability::interface_of(&i.name).starts_with("udp") {
+                    n.udp.push(HostPort::parse("127.0.0.1:0").unwrap());
+                } else if n.tcp_connect.is_empty() {
+                    n.tcp_connect.push(HostPort::parse("127.0.0.1:0").unwrap());
+                }
+            }
+            ImportClass::Fs => {
+                if c.fs.is_empty() {
+                    c.fs.push(FsGrant {
+                        path: "inspect".into(),
+                        mode: FsMode::Ro,
+                    });
+                }
+            }
+            ImportClass::Clock => c.clock = true,
+            ImportClass::Random => c.random = true,
+            ImportClass::HostExt(n) if !c.host_ext.contains(&n) => c.host_ext.push(n),
+            _ => {}
+        }
+    }
+    c
+}
+
+fn consent_cmd(cmd: ConsentCmd) -> anyhow::Result<()> {
+    use ipemu_engine::{ConsentStore, DataDirs};
+    match cmd {
+        ConsentCmd::List {
+            manifest,
+            firmware,
+            no_signature_check,
+            json,
+        } => {
+            let mut opts = SessionOptions {
+                allow_unhashed: no_signature_check,
+                ..Default::default()
+            };
+            parse_firmware_overrides(&firmware, &mut opts)?;
+            let (m, reqs) = ipemu_engine::session::list_consent_requests(&manifest, &opts)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&reqs)?);
+            } else {
+                println!(
+                    "manifest `{}` rev {}: 同意が要る capability {} 件",
+                    m.id,
+                    m.revision,
+                    reqs.len()
+                );
+                for r in &reqs {
+                    println!("  {}", r.request_id);
+                    println!("      {}  [{}]", r.reason, r.instances.join(", "));
+                }
+                if !reqs.is_empty() {
+                    println!("--consent-file 用:");
+                    let f = ipemu_engine::consent::ConsentFile {
+                        version: 1,
+                        grants: reqs.iter().map(|r| r.request_id.clone()).collect(),
+                        denies: Vec::new(),
+                        remember: false,
+                    };
+                    println!("{}", serde_json::to_string_pretty(&f)?);
+                }
+            }
+            Ok(())
+        }
+        ConsentCmd::Show { data_dir } => {
+            let dirs = DataDirs::resolve(data_dir.as_deref());
+            let store = ConsentStore::open(&dirs.consent_file())?;
+            println!("{}", store.path().display());
+            for (k, e) in store.entries() {
+                println!(
+                    "  {} {}  at {} ({} rev {})",
+                    if e.granted { "granted" } else { "DENIED " },
+                    k,
+                    e.at,
+                    e.manifest_id,
+                    e.revision
+                );
+            }
+            Ok(())
+        }
+        ConsentCmd::Forget {
+            data_dir,
+            keys,
+            all,
+        } => {
+            let dirs = DataDirs::resolve(data_dir.as_deref());
+            let mut store = ConsentStore::open(&dirs.consent_file())?;
+            let mut n = 0;
+            if all {
+                let ks: Vec<String> = store.entries().map(|(k, _)| k.clone()).collect();
+                for k in ks {
+                    store.remove(&k);
+                    n += 1;
+                }
+            } else {
+                for k in &keys {
+                    if store.remove(k) {
+                        n += 1;
+                    }
+                }
+            }
+            store.save()?;
+            println!("{n} 件を削除しました");
             Ok(())
         }
     }

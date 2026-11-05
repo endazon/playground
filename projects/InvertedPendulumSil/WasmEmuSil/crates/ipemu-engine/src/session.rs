@@ -1,10 +1,17 @@
 //! manifest → 実体化 → 実行、の一連 (M1: ローカル manifest のみ)。
+//!
+//! M5: 実体化の前に capability の計画 ([`CapabilityPlan`]) を立て、同意 ([`crate::consent`]) が
+//! 揃ってから、宣言・同意済みの capability だけを付与して実体化する。
 
+use crate::capability::{CapabilityPlan, DataDirs, PlanEntry};
+use crate::consent::{resolve_consent, ConsentOutcome, ConsentProvider, ConsentStore, NoConsent};
 use anyhow::{anyhow, bail, Context};
 use ipemu_core::builtins::{CpuVirtual, CpuVirtualParams};
+use ipemu_core::capability::ImportInfo;
+use ipemu_core::consent::ConsentRequest;
 use ipemu_core::hal::{Firmware, LogLevel};
 use ipemu_core::manifest::{ArtifactRef, ComponentSpec, Manifest};
-use ipemu_core::validate::{validate, validate_schema, Diagnostics, ValidateOptions};
+use ipemu_core::validate::{validate, validate_schema, DescResolver, Diagnostics, ValidateOptions};
 use ipemu_core::{Engine, Part, PartDesc};
 use ipemu_wasm::{NativeFirmware, Runtime, WasmFirmware, WasmPart};
 use std::collections::HashMap;
@@ -49,7 +56,7 @@ impl std::fmt::Debug for ArtifactResolver {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct SessionOptions {
     /// slot 名 → ファームウェアの上書き
     pub firmware_overrides: HashMap<String, FirmwareSource>,
@@ -58,8 +65,49 @@ pub struct SessionOptions {
     pub runtime: Option<ipemu_wasm::runtime::RuntimeOptions>,
     /// `instance.key=value` 形式のパラメータ上書き
     pub param_overrides: Vec<(String, String, serde_json::Value)>,
-    /// アーティファクトの解決フック (配信 manifest をキャッシュから組み立てるとき)
+    /// データディレクトリ (同意ストアと fs capability の実体)。None なら OS 既定
+    pub data_dir: Option<PathBuf>,
+    /// 同意の問い合わせ先。None なら何も答えない (未同意があれば起動不可)
+    pub consent: Option<Arc<dyn ConsentProvider>>,
+    /// 同意ストアを使わない (テスト用)。false なら `<data dir>/ipemu/consent.json`
+    pub no_consent_store: bool,
+    /// 検証のみ (`validate`): 同意を求めず、capability は deny-all 形で付与する (D34)。
+    /// 実体化・describe・init は走るが、接続・名前解決・ファイル操作はすべて拒否される
+    pub validate_only: bool,
+    /// アーティファクトの解決フック (配信 manifest をキャッシュから組み立てるとき。M3)
     pub artifact_resolver: Option<ArtifactResolver>,
+}
+
+impl std::fmt::Debug for SessionOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SessionOptions")
+            .field("firmware_overrides", &self.firmware_overrides)
+            .field("allow_unhashed", &self.allow_unhashed)
+            .field("runtime", &self.runtime)
+            .field("param_overrides", &self.param_overrides)
+            .field("data_dir", &self.data_dir)
+            .field("consent", &self.consent.as_ref().map(|c| c.name()))
+            .field("no_consent_store", &self.no_consent_store)
+            .field("validate_only", &self.validate_only)
+            .field("artifact_resolver", &self.artifact_resolver)
+            .finish()
+    }
+}
+
+/// 起動できない理由のうち、利用者の判断に関わるもの (CLI は終了コードで区別する)。
+#[derive(Debug, thiserror::Error)]
+pub enum LaunchError {
+    #[error("同意されていない capability があります ({} 件)。--consent-file で事前同意を渡すか、シェルの同意ダイアログで回答してください:\n{}", .0.len(), format_requests(.0))]
+    ConsentRequired(Vec<ConsentRequest>),
+    #[error("拒否された capability があるため起動しません ({} 件。部分的には起動しません):\n{}", .0.len(), format_requests(.0))]
+    ConsentDenied(Vec<ConsentRequest>),
+}
+
+fn format_requests(rs: &[ConsentRequest]) -> String {
+    rs.iter()
+        .map(|r| format!("  {}  ({})", r.request_id, r.reason))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// 実行中のセッション。
@@ -68,9 +116,62 @@ pub struct Session {
     pub engine: Engine,
     pub diagnostics: Diagnostics,
     pub snapshot_ports: Vec<String>,
+    /// 付与した capability (instance ごと)。同意状態の表示 (`session.describe`) に使う
+    pub capability_plan: CapabilityPlan,
     snapshot_refs: Vec<(usize, usize)>,
     cpu_indices: Vec<usize>,
     _runtime: Runtime,
+}
+
+/// 実体化前に読み込んだ wasm (sha256 と import は capability の判定に使う)。
+struct LoadedWasm {
+    label: String,
+    bytes: Vec<u8>,
+    sha256: String,
+    imports: Vec<ImportInfo>,
+}
+
+fn load_wasm(path: &Path, label: &str, expected_sha: Option<&str>) -> anyhow::Result<LoadedWasm> {
+    use sha2::{Digest, Sha256};
+    let bytes = verify_sha256(path, expected_sha)?;
+    let sha256 = hex::encode(Sha256::digest(&bytes));
+    let imports = ipemu_core::imports::component_imports(&bytes)
+        .with_context(|| format!("{label} の import を読めません"))?;
+    Ok(LoadedWasm {
+        label: label.to_owned(),
+        bytes,
+        sha256,
+        imports,
+    })
+}
+
+/// 実体化に必要な材料 (第 1 パスの結果)。
+enum Prepared {
+    Part(LoadedWasm),
+    Cpu(FirmwareBytes),
+    Null,
+}
+
+enum FirmwareBytes {
+    Wasm(LoadedWasm),
+    Native(PathBuf),
+}
+
+/// validate に渡す resolver: 実体から得た記述と、読み込んだ wasm の import。
+struct SessionResolver {
+    descs: HashMap<String, PartDesc>,
+    imports: HashMap<String, Vec<ImportInfo>>,
+}
+
+impl DescResolver for SessionResolver {
+    fn describe(&mut self, spec: &ComponentSpec) -> anyhow::Result<PartDesc> {
+        self.descs
+            .remove(&spec.instance)
+            .ok_or_else(|| anyhow!("記述がありません"))
+    }
+    fn imports(&mut self, spec: &ComponentSpec) -> anyhow::Result<Option<Vec<ImportInfo>>> {
+        Ok(self.imports.get(&spec.instance).cloned())
+    }
 }
 
 fn resolve_artifact_path(
@@ -143,69 +244,156 @@ impl Session {
         }
 
         let runtime = Runtime::new(opts.runtime.clone().unwrap_or_default())?;
+        let dirs = DataDirs::resolve(opts.data_dir.as_deref());
 
-        // 部品の記述を集めながら実体を作る (describe は実体化が要るので、ここで一度に行う)
+        // 第 1 パス: wasm を読み (sha256 / import)、capability の計画を立てる。まだ実体化しない
+        let mut prepared: Vec<Prepared> = Vec::with_capacity(manifest.components.len());
+        let mut plan = CapabilityPlan::default();
+        let mut imports_by_instance: HashMap<String, Vec<ImportInfo>> = HashMap::new();
+        for c in &manifest.components {
+            let p = match (&c.artifact, c.kind.as_deref()) {
+                (Some(a), None) => {
+                    let path = resolve_artifact_path(manifest_dir, &manifest, a, opts)?;
+                    let w = load_wasm(&path, a, manifest.artifacts[a].sha256.as_deref())
+                        .with_context(|| format!("部品 `{}` ({a})", c.instance))?;
+                    plan.push(PlanEntry {
+                        instance: c.instance.clone(),
+                        artifact: a.clone(),
+                        artifact_sha256: w.sha256.clone(),
+                        capabilities: c.capabilities(),
+                    });
+                    imports_by_instance.insert(c.instance.clone(), w.imports.clone());
+                    Prepared::Part(w)
+                }
+                (None, Some("builtin:cpu-virtual")) => {
+                    let fw = locate_firmware(manifest_dir, &manifest, c, opts)?;
+                    if let FirmwareBytes::Wasm(w) = &fw {
+                        plan.push(PlanEntry {
+                            instance: c.instance.clone(),
+                            artifact: w.label.clone(),
+                            artifact_sha256: w.sha256.clone(),
+                            capabilities: c.capabilities(),
+                        });
+                        imports_by_instance.insert(c.instance.clone(), w.imports.clone());
+                    }
+                    Prepared::Cpu(fw)
+                }
+                (None, Some("builtin:snapshot")) => Prepared::Null,
+                (None, Some(other)) => bail!("部品 `{}`: 未知の組み込み部品 `{other}`", c.instance),
+                _ => bail!(
+                    "部品 `{}`: artifact と kind のどちらか一方が必要",
+                    c.instance
+                ),
+            };
+            prepared.push(p);
+        }
+
+        // V7 を実体化より前に出す (実体化の失敗より原因が分かりやすい)。警告 (V8) は後の validate が出す
+        for c in &manifest.components {
+            if let Some(imports) = imports_by_instance.get(&c.instance) {
+                let (errors, _) = c.capabilities().check_imports(imports);
+                if !errors.is_empty() {
+                    let mut d = Diagnostics::default();
+                    for e in errors {
+                        d.error_pub("V7", format!("部品 `{}`: {e}", c.instance));
+                    }
+                    bail!("manifest の検証に失敗:\n{d}");
+                }
+            }
+        }
+
+        // 同意: 記憶 → 問い合わせ。拒否が 1 件でもあれば起動不可。
+        // validate_only では deny-all で付与するので同意は要らない (I/O が起きない)
+        let requests = plan.requests(&manifest.id, manifest.revision);
+        if !requests.is_empty() && !opts.validate_only {
+            let mut store = if opts.no_consent_store {
+                None
+            } else {
+                Some(ConsentStore::open(&dirs.consent_file())?)
+            };
+            let no_consent = NoConsent;
+            let provider: &dyn ConsentProvider = match &opts.consent {
+                Some(p) => p.as_ref(),
+                None => &no_consent,
+            };
+            match resolve_consent(requests, store.as_mut(), provider)? {
+                ConsentOutcome::Ready => {}
+                ConsentOutcome::Required(rs) => return Err(LaunchError::ConsentRequired(rs).into()),
+                ConsentOutcome::Denied(rs) => return Err(LaunchError::ConsentDenied(rs).into()),
+            }
+        }
+
+        // 第 2 パス: 同意済みの capability を付与して実体化する
         let mut compiled: HashMap<String, wasmtime_component::Component> = HashMap::new();
         let mut parts: Vec<Box<dyn Part>> = Vec::new();
         let mut descs: Vec<PartDesc> = Vec::new();
         let mut cpu_indices = Vec::new();
-        for (i, c) in manifest.components.iter().enumerate() {
-            match (&c.artifact, c.kind.as_deref()) {
-                (Some(a), None) => {
-                    let path = resolve_artifact_path(manifest_dir, &manifest, a, opts)?;
-                    let component = match compiled.get(a) {
+        for (i, (c, p)) in manifest.components.iter().zip(prepared).enumerate() {
+            match p {
+                Prepared::Part(w) => {
+                    let component = match compiled.get(&w.label) {
                         Some(cm) => cm.clone(),
                         None => {
-                            let expected = manifest.artifacts[a].sha256.as_deref();
-                            let bytes = verify_sha256(&path, expected)?;
-                            let cm = WasmPart::compile(&runtime, &bytes)
-                                .with_context(|| format!("部品 `{}` ({a})", c.instance))?;
-                            compiled.insert(a.clone(), cm.clone());
+                            let cm = WasmPart::compile(&runtime, &w.bytes)
+                                .with_context(|| format!("部品 `{}` ({})", c.instance, w.label))?;
+                            compiled.insert(w.label.clone(), cm.clone());
                             cm
                         }
                     };
-                    let mut part = WasmPart::instantiate(&runtime, &component, &c.instance)?;
+                    let grant = if opts.validate_only {
+                        plan.grant_for_validate(&c.instance)
+                    } else {
+                        plan.grant_for(&c.instance, &dirs)?
+                    };
+                    let mut part =
+                        WasmPart::instantiate_with(&runtime, &component, &c.instance, grant)?;
                     part.init(&c.params)
                         .with_context(|| format!("部品 `{}` の init", c.instance))?;
                     descs.push(part.describe().clone());
                     parts.push(Box::new(part));
                 }
-                (None, Some("builtin:cpu-virtual")) => {
+                Prepared::Cpu(fw) => {
                     let p = CpuVirtualParams::from_json(&c.params)
                         .with_context(|| format!("部品 `{}` の params", c.instance))?;
                     let cfg_json = firmware_cfg_json(c, &p)?;
                     let mut cpu = CpuVirtual::new(p, cfg_json);
-                    let fw = load_firmware(&runtime, manifest_dir, &manifest, c, opts)?;
+                    let fw: Box<dyn Firmware> = match fw {
+                        FirmwareBytes::Wasm(w) => {
+                            let grant = if opts.validate_only {
+                                plan.grant_for_validate(&c.instance)
+                            } else {
+                                plan.grant_for(&c.instance, &dirs)?
+                            };
+                            Box::new(
+                                WasmFirmware::load_with(&runtime, &w.bytes, grant)
+                                    .with_context(|| format!("ファームウェア {}", w.label))?,
+                            )
+                        }
+                        FirmwareBytes::Native(path) => Box::new(NativeFirmware::load_file(&path)?),
+                    };
                     cpu.attach_firmware(fw)
                         .with_context(|| format!("部品 `{}` へのファームウェア装着", c.instance))?;
                     descs.push(cpu.describe().clone());
                     cpu_indices.push(i);
                     parts.push(Box::new(cpu));
                 }
-                (None, Some("builtin:snapshot")) => {
+                Prepared::Null => {
                     let d = ipemu_core::builtins::describe_builtin("builtin:snapshot", &c.params)?;
                     descs.push(d.clone());
                     parts.push(Box::new(NullPart(d)));
                 }
-                (None, Some(other)) => bail!("部品 `{}`: 未知の組み込み部品 `{other}`", c.instance),
-                _ => bail!(
-                    "部品 `{}`: artifact と kind のどちらか一方が必要",
-                    c.instance
-                ),
             }
         }
 
-        // 検証 (実体から得た記述で V2〜V11)
-        let mut by_name: HashMap<String, PartDesc> = manifest
-            .components
-            .iter()
-            .map(|c| c.instance.clone())
-            .zip(descs.iter().cloned())
-            .collect();
-        let mut resolver = |spec: &ComponentSpec| -> anyhow::Result<PartDesc> {
-            by_name
-                .remove(&spec.instance)
-                .ok_or_else(|| anyhow!("記述がありません"))
+        // 検証 (実体から得た記述と import で V2〜V12)
+        let mut resolver = SessionResolver {
+            descs: manifest
+                .components
+                .iter()
+                .map(|c| c.instance.clone())
+                .zip(descs.iter().cloned())
+                .collect(),
+            imports: imports_by_instance,
         };
         let (d2, graph) = validate(
             &manifest,
@@ -251,6 +439,7 @@ impl Session {
             engine,
             diagnostics: diags,
             snapshot_ports,
+            capability_plan: plan,
             snapshot_refs,
             cpu_indices,
             _runtime: runtime,
@@ -330,13 +519,13 @@ fn firmware_cfg_json(c: &ComponentSpec, p: &CpuVirtualParams) -> anyhow::Result<
     Ok(serde_json::to_string(&params)?)
 }
 
-fn load_firmware(
-    rt: &Runtime,
+/// ファームウェアの所在を決めて読む (実体化は capability の同意後)。
+fn locate_firmware(
     manifest_dir: &Path,
     manifest: &Manifest,
     c: &ComponentSpec,
     opts: &SessionOptions,
-) -> anyhow::Result<Box<dyn Firmware>> {
+) -> anyhow::Result<FirmwareBytes> {
     let slot = c
         .firmware
         .as_ref()
@@ -355,10 +544,11 @@ fn load_firmware(
                 )
             })?;
             let path = resolve_artifact_path(manifest_dir, manifest, name, opts)?;
-            let bytes = verify_sha256(&path, manifest.artifacts[name].sha256.as_deref())?;
-            Ok(Box::new(
-                WasmFirmware::load(rt, &bytes).with_context(|| format!("ファームウェア {name}"))?,
-            ))
+            Ok(FirmwareBytes::Wasm(load_wasm(
+                &path,
+                name,
+                manifest.artifacts[name].sha256.as_deref(),
+            )?))
         }
         FirmwareSource::Wasm(p) => {
             anyhow::ensure!(
@@ -366,7 +556,11 @@ fn load_firmware(
                 "slot `{}` は wasm の上書きを許していません",
                 slot.slot
             );
-            Ok(Box::new(WasmFirmware::load_file(rt, &p)?))
+            Ok(FirmwareBytes::Wasm(load_wasm(
+                &p,
+                &p.display().to_string(),
+                None,
+            )?))
         }
         FirmwareSource::Native(p) => {
             anyhow::ensure!(
@@ -374,9 +568,48 @@ fn load_firmware(
                 "slot `{}` は native の上書きを許していません",
                 slot.slot
             );
-            Ok(Box::new(NativeFirmware::load_file(&p)?))
+            Ok(FirmwareBytes::Native(p))
         }
     }
+}
+
+/// 実体化せずに同意の要否だけを列挙する (`ipemu-engine consent list`、シェルの事前表示用)。
+pub fn list_consent_requests(
+    manifest_path: &Path,
+    opts: &SessionOptions,
+) -> anyhow::Result<(Manifest, Vec<ConsentRequest>)> {
+    let text = std::fs::read_to_string(manifest_path)
+        .with_context(|| format!("{} を読めません", manifest_path.display()))?;
+    let manifest: Manifest = Manifest::from_json(&text).context("manifest の構造が不正")?;
+    let manifest_dir = manifest_path.parent().unwrap_or(Path::new("."));
+    let mut plan = CapabilityPlan::default();
+    for c in &manifest.components {
+        match (&c.artifact, c.kind.as_deref()) {
+            (Some(a), None) => {
+                let path = resolve_artifact_path(manifest_dir, &manifest, a, opts)?;
+                let w = load_wasm(&path, a, manifest.artifacts[a].sha256.as_deref())?;
+                plan.push(PlanEntry {
+                    instance: c.instance.clone(),
+                    artifact: a.clone(),
+                    artifact_sha256: w.sha256,
+                    capabilities: c.capabilities(),
+                });
+            }
+            (None, Some("builtin:cpu-virtual")) => {
+                if let FirmwareBytes::Wasm(w) = locate_firmware(manifest_dir, &manifest, c, opts)? {
+                    plan.push(PlanEntry {
+                        instance: c.instance.clone(),
+                        artifact: w.label,
+                        artifact_sha256: w.sha256,
+                        capabilities: c.capabilities(),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    let reqs = plan.requests(&manifest.id, manifest.revision);
+    Ok((manifest, reqs))
 }
 
 // wasmtime の型名を短く

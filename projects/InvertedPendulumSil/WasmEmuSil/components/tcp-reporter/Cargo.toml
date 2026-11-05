@@ -1,0 +1,15 @@
+[package]
+name = "tcp-reporter"
+description = "検証用部品: 入力値を周期的に TCP で送り、任意でデータディレクトリ内のファイルに追記する (wasi:sockets / wasi:filesystem を使う)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ip-part-sdk = { workspace = true }
+wit-bindgen = { workspace = true }
+serde_json = { workspace = true }
