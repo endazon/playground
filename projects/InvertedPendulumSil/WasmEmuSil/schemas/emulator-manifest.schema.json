@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ipemu/emulator-manifest.schema.json",
+  "title": "ipemu emulator manifest",
+  "description": "WasmEmuSil の構成情報。どの部品をどのパラメータで置き、どう配線し、どの周期で回し、どの capability を許すかを記す。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifestVersion", "id", "revision", "name", "scheduler", "artifacts", "components", "wires"],
+  "properties": {
+    "manifestVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$", "description": "安定な識別子。割当はこの単位" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "name": { "type": "string", "maxLength": 200 },
+    "description": { "type": "string" },
+    "scheduler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseStepNs"],
+      "properties": {
+        "baseStepNs": { "type": "integer", "minimum": 1000, "maximum": 1000000000, "description": "固定ステップ [ns]" },
+        "pacing": { "enum": ["realtime", "fast", "step"], "default": "realtime" },
+        "speed": { "type": "number", "exclusiveMinimum": 0, "default": 1, "description": "realtime 時の倍率" },
+        "maxSlipMs": { "type": "integer", "minimum": 0, "default": 200, "description": "これを超える遅れは追いつかず捨てる" },
+        "snapshotDivider": { "type": "integer", "minimum": 1, "default": 20, "description": "UI スナップショットの間引き (baseStep の倍数)" },
+        "stepBudgetMs": { "type": "integer", "minimum": 1, "default": 50, "description": "1 ステップの壁時計予算。超えたら epoch interruption で trap" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "キーは name@version",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*@[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sha256", "url"],
+        "properties": {
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "url": { "type": "string", "description": "サーバ相対または絶対 URL" },
+          "size": { "type": "integer", "minimum": 0 },
+          "kind": { "enum": ["part", "firmware", "ui"], "default": "part" }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/component" }
+    },
+    "wires": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/wire" }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bundle": { "$ref": "#/$defs/artifactRef" },
+        "views": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approvedBy", "approvedAt", "capabilitiesHash"],
+      "properties": {
+        "approvedBy": { "type": "string" },
+        "approvedAt": { "type": "string", "format": "date-time" },
+        "reason": { "type": "string" },
+        "capabilitiesHash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "components[].capabilities を正規化して sha256 したもの" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "keyId", "value"],
+      "properties": {
+        "alg": { "const": "ed25519" },
+        "keyId": { "type": "string" },
+        "value": { "type": "string", "contentEncoding": "base64", "description": "signature を除いた本文を RFC 8785 で正規化した上での署名" }
+      }
+    }
+  },
+  "$defs": {
+    "artifactRef": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*@[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$" },
+    "instanceName": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+    "portRef": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}\\.[a-z][a-z0-9-]{0,31}$", "description": "instance.port" },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instance"],
+      "oneOf": [
+        { "required": ["artifact"], "not": { "required": ["kind"] } },
+        { "required": ["kind"], "not": { "required": ["artifact"] } }
+      ],
+      "properties": {
+        "instance": { "$ref": "#/$defs/instanceName" },
+        "artifact": { "$ref": "#/$defs/artifactRef", "description": "WASM 部品。artifacts のキー" },
+        "kind": { "type": "string", "pattern": "^builtin:[a-z][a-z0-9-]*$", "description": "組み込み部品 (builtin:cpu-virtual など)" },
+        "rateDivider": { "type": "integer", "minimum": 1, "default": 1, "description": "baseStep の何回に 1 回 step するか" },
+        "params": { "type": "object", "description": "部品の describe().params のスキーマで検証される" },
+        "firmware": { "$ref": "#/$defs/firmwareSlot", "description": "kind が builtin:cpu-virtual のときのみ" },
+        "capabilities": { "$ref": "#/$defs/capabilities" }
+      }
+    },
+    "firmwareSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot", "world"],
+      "properties": {
+        "slot": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+        "world": { "type": "string", "description": "例 ip:emu/firmware@0.1.0" },
+        "default": { "$ref": "#/$defs/artifactRef", "description": "既定で装着する firmware アーティファクト (wasm)" },
+        "allowOverride": {
+          "type": "array",
+          "items": { "enum": ["wasm", "native"] },
+          "uniqueItems": true,
+          "default": [],
+          "description": "クライアント側の上書きを許す形。配布用では native を含めない"
+        },
+        "params": { "type": "object", "description": "fw.init に渡す JSON" }
+      }
+    },
+    "wire": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "$ref": "#/$defs/portRef", "description": "出力ポート" },
+        "to": { "$ref": "#/$defs/portRef", "description": "入力ポート" },
+        "latency": { "enum": [0, 1], "default": 1, "description": "1: 次ステップで反映 (既定)。0: 同一ステップ (閉路不可)" },
+        "gain": { "type": "number", "default": 1, "description": "単位換算などの定数倍 (scalar のみ)" },
+        "offset": { "type": "number", "default": 0 }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "net": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tcpConnect": { "type": "array", "items": { "$ref": "#/$defs/hostPort" } },
+            "tcpListen": { "type": "array", "items": { "$ref": "#/$defs/hostPort" } },
+            "udp": { "type": "array", "items": { "$ref": "#/$defs/hostPort" } }
+          }
+        },
+        "fs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "mode"],
+            "properties": {
+              "path": { "type": "string", "pattern": "^(?![/\\\\])(?!.*\\.\\.)[^\\0]+$", "description": "クライアントのデータディレクトリ配下の相対パス。絶対パスと .. は不可" },
+              "mode": { "enum": ["ro", "rw"] }
+            }
+          }
+        },
+        "clock": { "type": "boolean", "default": false, "description": "wasi:clocks を与える (決定性の保証外)" },
+        "random": { "type": "boolean", "default": false, "description": "wasi:random を与える (決定性の保証外)" },
+        "hostExt": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "uniqueItems": true }
+      }
+    },
+    "hostPort": { "type": "string", "pattern": "^(\\*\\.)?[A-Za-z0-9.-]+:[0-9]{1,5}$", "description": "host:port。先頭の *. でサブドメイン一致" }
+  }
+}

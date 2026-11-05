@@ -1,0 +1,53 @@
+package ip:emu@0.1.0;
+
+/// ファームウェアから見た周辺 (HAL)。C ヘッダ abi/ip_hal.h と 1 対 1 に対応する。
+interface hal {
+    use types.{log-level};
+
+    /// 仮想時刻 [µs]
+    micros: func() -> u64;
+
+    /// エンコーダ累積カウント (32bit でラップ)
+    enc-read: func(ch: u32) -> s32;
+
+    /// PWM デューティ -1.0..1.0 (範囲外は飽和)
+    pwm-write: func(ch: u32, duty: f32);
+
+    /// DAC 出力 (物理量はドライバ部品側で解釈)
+    dac-write: func(ch: u32, value: f32);
+
+    gpio-read: func(pin: u32) -> bool;
+    gpio-write: func(pin: u32, level: bool);
+
+    /// UART。書き込みは受理したバイト数を返す (送信キュー満杯なら少なく返る)
+    uart-write: func(ch: u32, data: list<u8>) -> u32;
+    uart-read: func(ch: u32, max: u32) -> list<u8>;
+
+    log: func(level: log-level, msg: string);
+    trace: func(id: u32, value: f64);
+}
+
+/// ファームウェアが実装する側。
+interface fw {
+    /// 互換性確認。エンジンは対応範囲外なら装着を拒否する
+    abi-version: func() -> u32;
+
+    /// manifest の firmware.params (JSON)。ネイティブ形ではここで HAL テーブルも受け取る
+    init: func(cfg-json: string) -> result<_, string>;
+
+    /// 周期割込み (tickHz)。戻るまで仮想世界は進まない
+    tick: func();
+
+    /// 非周期割込み。id は cpu-virtual のポート定義に対応 (Z 相、UART RX、GPIO エッジ)
+    irq: func(id: u32);
+
+    /// メインループ 1 回分 (任意)。timingModel が zero 以外のとき tick の残り時間で呼ばれる
+    idle: func();
+}
+
+world firmware {
+    import hal;
+    export fw;
+    // TCP / ファイルなどが必要なら、manifest の capability 宣言のうえで
+    // wasi:sockets / wasi:filesystem を import する (エンジンは承認・同意済みのものだけ link する)
+}

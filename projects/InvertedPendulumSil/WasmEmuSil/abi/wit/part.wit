@@ -1,0 +1,88 @@
+package ip:emu@0.1.0;
+
+/// 部品とエンジンで共有する型。
+interface types {
+    enum log-level { trace, debug, info, warn, error }
+
+    /// スカラーポートは f64 に統一する (整数・真偽値も f64 に載せる)。
+    enum port-kind { scalar, bytes }
+
+    record port-desc {
+        name: string,
+        kind: port-kind,
+        /// SI 単位の文字列。"rad", "m", "V", "count", "1" (無次元) など。manifest 検証で両端を比較する
+        unit: string,
+        /// 未配線時の既定値 (scalar のみ意味を持つ)
+        default: f64,
+        doc: string,
+    }
+
+    record param-desc {
+        name: string,
+        /// JSON Schema (文字列)。エンジン / 管理画面はこれで params を検証・補完する
+        schema-json: string,
+        doc: string,
+    }
+
+    /// describe() の戻り値。エンジンは manifest と突き合わせ、サーバは登録時に保存する。
+    record part-desc {
+        name: string,
+        version: string,
+        inputs: list<port-desc>,
+        outputs: list<port-desc>,
+        params: list<param-desc>,
+        /// 決定性の保証に含まれるか (wasi:clocks / wasi:random を import しないこと)
+        deterministic: bool,
+        doc: string,
+    }
+}
+
+/// 部品がエンジンから使える機能。壁時計は提供しない。
+interface host {
+    use types.{log-level};
+
+    /// 仮想時刻 [ns]。ステップの開始時刻を返す
+    now-ns: func() -> s64;
+
+    /// 診断ログ。エンジンがレベルで絞り、UI とファイルへ流す
+    log: func(level: log-level, msg: string);
+
+    /// 数値トレース。id は部品ローカル。UI のスコープに載せられる
+    trace: func(id: u32, value: f64);
+}
+
+/// 部品が実装するインターフェース。
+interface part {
+    use types.{part-desc};
+
+    describe: func() -> part-desc;
+
+    /// params-json は manifest の components[].params。失敗はメッセージ付きで返す
+    init: func(params-json: string) -> result<_, string>;
+
+    /// 初期状態へ戻す。init 済みであることが前提
+    reset: func();
+
+    /// describe().inputs の順で全スカラー入力を一括設定する (bytes ポートは数えない)
+    set-inputs: func(values: list<f64>);
+
+    /// describe().outputs の順で全スカラー出力を一括取得する
+    get-outputs: func() -> list<f64>;
+
+    /// bytes ポート。index は describe() の inputs / outputs における位置
+    write-bytes: func(input-index: u32, data: list<u8>);
+    read-bytes: func(output-index: u32) -> list<u8>;
+
+    /// 仮想時間を dt-ns だけ進める。Err はエンジンが FAULT 停止として扱う
+    step: func(dt-ns: s64) -> result<_, string>;
+
+    /// 状態の保存・復元 (任意。未対応なら空を返し restore は Err)
+    snapshot: func() -> list<u8>;
+    restore: func(state: list<u8>) -> result<_, string>;
+}
+
+/// 部品の world。wasi:* は capability として承認された場合にのみエンジンが link する。
+world part-world {
+    import host;
+    export part;
+}
