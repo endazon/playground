@@ -19,13 +19,13 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
 COPY docker/ca/ /usr/local/share/ca-certificates/extra/
 RUN update-ca-certificates
 
-COPY Directory.Build.props InvertedPendulumSil.slnx ./
+COPY Directory.Build.props NetworkedSil.slnx ./
 COPY src/Ip.Shared/Ip.Shared.csproj src/Ip.Shared/
 COPY src/Ip.Client/Ip.Client.csproj src/Ip.Client/
 COPY src/Ip.Server/Ip.Server.csproj src/Ip.Server/
 COPY tests/Ip.Shared.Tests/Ip.Shared.Tests.csproj tests/Ip.Shared.Tests/
 COPY tests/Ip.Server.Tests/Ip.Server.Tests.csproj tests/Ip.Server.Tests/
-RUN dotnet restore InvertedPendulumSil.slnx
+RUN dotnet restore NetworkedSil.slnx
 
 # ---- publish ----
 FROM restore AS build
@@ -37,7 +37,7 @@ RUN dotnet publish src/Ip.Server/Ip.Server.csproj -c Release -o /app --no-restor
 FROM restore AS test
 COPY src/ src/
 COPY tests/ tests/
-RUN dotnet test InvertedPendulumSil.slnx -c Release --no-restore
+RUN dotnet test NetworkedSil.slnx -c Release --no-restore
 
 # ---- 実行イメージ ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

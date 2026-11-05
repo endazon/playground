@@ -1,18 +1,18 @@
 # 04. ビルド・実行・テスト
 
 ## 前提
-このプロジェクトはリポジトリのルートではなく `projects/InvertedPendulumSil/` に置かれています。
+このプロジェクトはリポジトリのルートではなく `projects/InvertedPendulumSil/NetworkedSil/` に置かれています。
 **以下のコマンドはすべてこのプロジェクトディレクトリを起点**に実行してください
-(`Dockerfile` / `compose.yaml` / `InvertedPendulumSil.slnx` がここを基準にしているため)。
+(`Dockerfile` / `compose.yaml` / `NetworkedSil.slnx` がここを基準にしているため)。
 
 ```bash
-cd projects/InvertedPendulumSil
+cd projects/InvertedPendulumSil/NetworkedSil
 ```
 
 リポジトリルートから直接動かす場合は `--project` のパスを読み替えます。
 
 ```bash
-dotnet run --project projects/InvertedPendulumSil/src/Ip.Server
+dotnet run --project projects/InvertedPendulumSil/NetworkedSil/src/Ip.Server
 ```
 
 必要なもの:
@@ -104,20 +104,20 @@ CI は本リポジトリではまだ有効化していません。組む場合�
 `paths` を絞ってあるので、このプロジェクト以外の変更では起動しません。
 
 ```yaml
-name: inverted-pendulum-sil
+name: inverted-pendulum-networked-sil
 
 on:
   push:
-    paths: ["projects/InvertedPendulumSil/**", ".github/workflows/inverted-pendulum-sil.yml"]
+    paths: ["projects/InvertedPendulumSil/NetworkedSil/**", ".github/workflows/inverted-pendulum-networked-sil.yml"]
   pull_request:
-    paths: ["projects/InvertedPendulumSil/**", ".github/workflows/inverted-pendulum-sil.yml"]
+    paths: ["projects/InvertedPendulumSil/NetworkedSil/**", ".github/workflows/inverted-pendulum-networked-sil.yml"]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: projects/InvertedPendulumSil
+        working-directory: projects/InvertedPendulumSil/NetworkedSil
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -129,7 +129,7 @@ jobs:
 ```
 
 ## ビルド成果物の除外
-`projects/InvertedPendulumSil/.gitignore` が .NET の `bin/` `obj/` と
+`projects/InvertedPendulumSil/NetworkedSil/.gitignore` が .NET の `bin/` `obj/` と
 Playwright の生成物を除外します。
 リポジトリルートの `.gitignore` に .NET 向けの記述がないため、
 プロジェクト単位で持たせています (`.dockerignore` はビルドコンテキスト用で別物です)。
