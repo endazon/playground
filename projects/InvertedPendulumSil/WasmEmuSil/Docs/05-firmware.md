@@ -30,6 +30,84 @@
 実行時間ぶん出力の反映を遅らせます (tick 開始から `exec_ns` 後のステップで出力ポートへ書く)。
 `exec_ns` が `1/tickHz` を超えたら **オーバーラン**としてカウントし、UI に出します。
 
+`fuel` の `exec_ns` は `round(fuel × nsPerFuel)` です (fuel はその tick 1 回の消費量)。出力は tick ごとに順番待ちの列に入り、
+前の tick の出力より先には反映されません。native 形は fuel を数えないので `exec_ns` は常に 0 になり、
+`kind: fuel` のまま装着すると「fuel を計測しません」の警告ログを 1 回出します (推定値は作りません。D59)。
+native 形で実行時間を模擬したいときは `fixed` を使います。
+
+| cpu-virtual の params | 既定 | 意味 |
+| --- | --- | --- |
+| `timingModel` | `zero` | 上表 |
+| `maxFuelPerTick` | なし (無制限) | `tick` / `irq` 1 回に許す fuel。超えたら trap して FAULT (D57) |
+| `maxFuelPerInit` | なし (無制限) | `abi-version` / `init` 1 回に許す fuel。超えたら装着が失敗する |
+
+### ウォッチドッグ (fuel 上限と epoch)
+暴走 (無限ループ・予算超過) の歯止めは 2 段です。
+
+| 歯止め | 単位 | 決定性 | 対象 |
+| --- | --- | --- | --- |
+| **fuel 上限** (`maxFuelPerTick` / `maxFuelPerInit`) | wasm 命令数 | **決定的**。同じ入力なら毎回同じ命令位置・同じ tick で trap | wasm 形。`timingModel` の種類によらず効く |
+| epoch interruption (後ろ盾) | 壁時計 (既定 5 s / 呼び出し) | 非決定的。機械の速さと負荷で位置が変わる | wasm 形の全部品とファームウェア。`--debug-friendly` で無制限 |
+
+- 呼び出しのたびに Store の fuel を上限ちょうどに張り直すので、前の tick の消費が次の tick の予算に響きません。
+- `tick` の trap は既存の経路で FAULT になります (cpu-virtual がログに `firmware.tick が失敗: … maxFuelPerTick=N …` を出し、
+  以後ファームウェアを呼ばない → `step` のエラー → 制御器が FAULT)。
+- `init` の trap は装着の失敗です。起動時なら起動不可、ホット差替なら古いファームウェアを残します。
+- `irq` は `maxFuelPerTick` に従います。`idle` は cpu-virtual がまだ呼びません (呼ぶようにするときは tick と同じ上限を使う)。
+- native 形には fuel も epoch も効きません。上限を書いた manifest で native を装着すると「効かない」旨を 1 回警告します。
+- fuel はブレーク中に減らないので、wasm 形を LLDB で止めても fuel 上限は誤って鳴りません (epoch は `--debug-friendly` で切る)。
+- 上限の目安は、下の較正表の最大値に余裕を掛けた値です (例: 最大の 10 倍。fw-balance なら `maxFuelPerTick: 30000`、`maxFuelPerInit: 5000000` 程度)。
+
+### nsPerFuel の較正
+**1 fuel の意味。** Wasmtime (50) の既定のコスト表で、wasm 命令 1 個 = 1 fuel です。`nop` / `drop` / `block` / `loop` /
+`end` / `else` / `return` / `unreachable` は 0、それ以外 (`i32.add` も `f64.div` も `call` も) は一律 1 です。
+ホスト関数 (HAL の `pwm-write` など) の中の処理は数えません。コンポーネントの境界で走る wasm 側の処理 (文字列の受け渡しの
+`cabi_realloc` など) は数えます。つまり fuel は「実行した wasm 命令の数」であり、命令ごとの重さの違いは表しません。
+
+**このビルドでの実測** (2026-11、Wasmtime 50.0.1。C 版は clang 18.1.3 `-O2`、Rust 版は rustc 1.97.0 `opt-level=3` + fat LTO。
+`dev/cartpole.manifest.json` の閉ループ 20 s = 20000 tick を `nsPerFuel: 1` で走らせ、`exec-ns` = fuel として集計。
+init は通る最小の `maxFuelPerInit` を二分探索して求めた値):
+
+| fuel | fw-balance-c | fw-balance-rs |
+| --- | --- | --- |
+| 制御 tick (200 Hz、5 tick に 1 回) 倒立維持中 | 854 (一定) | 1101 (一定) |
+| 制御 tick スイングアップ中を含む 平均 / 最大 | 962 / 2536 | 1193 / 2912 |
+| 制御しない tick (UART 確認とタイマ) 通常 / 最大 | 113 / 1378 | 70 / 1701 |
+| 全 tick の平均 | 283 | 295 |
+| `init` (cfg の解釈を含む) | 約 317,000 | 約 525,000 |
+| `nsPerFuel: 2.0` (既定 manifest) での倒立中の制御 tick | 1.7 µs | 2.2 µs |
+
+制御しない tick の最大は、自動開始などのモード遷移でログ文字列を組み立てる tick と見ています (tick ごとの内訳は未確認)。値は関係のテスト
+(`crates/ipemu-engine/tests/fuel_timing.rs`) では固定しません (コンパイラの版で変わるため)。
+同じ条件で壁時計 (ホストの `tick` 呼び出し時間、開発ビルドのエンジン) を 3 回測ると、制御 tick の中央値は 35〜40 µs でほぼ揃う一方、
+最大値は 0.28〜4.3 ms と実行ごとに 15 倍ばらつきました。fuel の列は実行ごとに一致します (同テストの決定性の項)。
+
+**目標 MCU への対応付け。** 実機があれば、同じ tick を実機で測って割るのが最も確かです。
+
+```text
+nsPerFuel = (実機での tick の実行時間 [ns]) / (同じ tick の fuel)
+            例: DWT->CYCCNT で 制御 tick = C サイクル、クロック f [Hz] なら  nsPerFuel = C / f × 1e9 / fuel
+```
+
+実機がないときの見積もりは `nsPerFuel ≈ (1 wasm 命令あたりの MCU サイクル) / f_clk` です。
+wasm はスタックマシンで `local.get` / `local.set` の多くはレジスタに消えるため、整数演算主体なら 1 wasm 命令 ≈ 0.5〜1.5 サイクルが目安です
+(例: Cortex-M4 168 MHz で 1 サイクル ≈ 6 ns → nsPerFuel ≈ 3〜9)。既定 manifest の `nsPerFuel: 2.0` は
+FPU 付きの数百 MHz 級 (例: Cortex-M7 480 MHz で 1 命令 ≈ 1 サイクル) に近い値です。
+
+**近似の限界。**
+- 命令の重さを区別しない。fw-balance は double で計算するので、倍精度 FPU のない MCU (Cortex-M4F は単精度のみ) では
+  `f64.mul` 1 個が数十サイクルのソフトウェア演算になり、fuel の比例は大きく崩れます。`cos` / `tanh` も中身の命令数だけ数えます。
+- キャッシュ・パイプライン・フラッシュの待ち・分岐予測・割込みの入口出口は表しません。
+- HAL 呼び出しの中 (実機ならレジスタ書き込みや UART ドライバ) は 0 として扱います。
+- fuel の値はコンパイラ (clang / rustc) と最適化レベルで変わります。ファームウェアを作り直したら較正表を測り直します。
+  同じ wasm と同じ Wasmtime なら、OS や CPU が違っても同じ値です。
+- 制御 tick と他の tick で消費が大きく違うので、平均ではなく制御 tick (最大) で較正します。
+
+**なぜ壁時計ではなく fuel か。** 壁時計で tick を測ると、ホスト (x86 / Apple Silicon) の速さ・JIT・負荷・電源管理・
+デバッガでの停止がそのまま実行時間に入り、同じ manifest でも実行ごとに軌道が変わります (L4 の決定性が崩れる)。
+fuel は wasm 命令の数なので、同じファームウェアなら全 OS・全 CPU で同じ値になり、オーバーランや出力の遅れも再現します。
+ホストの速さは目標 MCU の速さとも無関係で、壁時計の値をそのまま使う理由もありません。
+
 ## ファームウェアの形
 | 形 | ファイル | 用途 | 実行 | デバッガ |
 | --- | --- | --- | --- | --- |
@@ -126,7 +204,7 @@ PDB が DLL の隣にあればブレークポイントが効きます。UI か�
   ハートビートが止まると motor-driver が遮断する (通信断・FW 停止の模擬)。
 - オペレータ操作は UART0 の 1 バイトコマンド (`s` スイングアップ / `b` 倒立 / `x` 停止 / `c` 異常リセット)。
   M1 の headless では `autoStart` パラメータで自動開始する。
-- fuel 計測は wasm 形のみ (`timingModel: fuel` で `exec-ns` に出る。既定 manifest では 1 tick ≈ 1.7 µs 相当)。native 形は 0。
+- fuel 計測は wasm 形のみ (`timingModel: fuel` で `exec-ns` に出る)。native 形は 0。M6 で較正の指針と fuel 上限を追加した (上記)。
 
 ## リビルド後の反映 (ホットリロード)
 | 形 | `firmware.load` の挙動 | プラント状態 |

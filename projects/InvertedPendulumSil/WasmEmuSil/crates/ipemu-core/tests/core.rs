@@ -288,6 +288,9 @@ impl Firmware for EchoFw {
     fn flavor(&self) -> &'static str {
         "test"
     }
+    fn meters_fuel(&self) -> bool {
+        true
+    }
 }
 
 #[test]
@@ -343,4 +346,81 @@ fn builtin_schema_validates_example_manifest() {
     assert!(!d.has_errors(), "{d}");
     let m: Manifest = serde_json::from_value(v).unwrap();
     assert_eq!(m.components.len(), 6);
+}
+
+/// fuel を数えない形 (native 相当)。渡された fuel 上限を記録する。
+struct NoFuelFw {
+    limits: std::rc::Rc<std::cell::Cell<Option<ipemu_core::hal::FuelLimits>>>,
+}
+impl Firmware for NoFuelFw {
+    fn abi_version(&mut self) -> anyhow::Result<u32> {
+        // 上限は abi-version / init より前に渡っている
+        assert!(self.limits.get().is_some());
+        Ok(1)
+    }
+    fn init(&mut self, _: &mut HalRegs, _: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn tick(&mut self, regs: &mut HalRegs) -> anyhow::Result<TickStats> {
+        regs.hal_pwm_write(0, 0.25);
+        Ok(TickStats { fuel: None })
+    }
+    fn irq(&mut self, _: &mut HalRegs, _: u32) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn flavor(&self) -> &'static str {
+        "native"
+    }
+    fn set_fuel_limits(&mut self, limits: ipemu_core::hal::FuelLimits) {
+        self.limits.set(Some(limits));
+    }
+}
+
+#[test]
+fn cpu_virtual_passes_fuel_limits_and_warns_when_fuel_is_not_metered() {
+    let params = CpuVirtualParams::from_json(&json!({
+        "tickHz": 1000,
+        "timingModel": {"kind": "fuel", "nsPerFuel": 2.0},
+        "maxFuelPerTick": 20000,
+        "maxFuelPerInit": 500000
+    }))
+    .unwrap();
+    let limits = std::rc::Rc::new(std::cell::Cell::new(None));
+    let mut cpu = CpuVirtual::new(params, "{}".into());
+    cpu.attach_firmware(Box::new(NoFuelFw {
+        limits: limits.clone(),
+    }))
+    .unwrap();
+    assert_eq!(
+        limits.get(),
+        Some(ipemu_core::hal::FuelLimits {
+            per_tick: Some(20000),
+            per_init: Some(500000)
+        })
+    );
+    let desc = cpu.describe().clone();
+    let mut out = vec![0.0; desc.outputs.len()];
+    let inputs = vec![0.0; desc.inputs.len()];
+    let mut warns = Vec::new();
+    for _ in 0..5 {
+        cpu.set_inputs(&inputs).unwrap();
+        cpu.step(1_000_000).unwrap();
+        cpu.get_outputs(&mut out).unwrap();
+        // fuel が無いので実行時間 0: 出力は同じステップで反映され、オーバーランもない
+        assert_eq!(out[desc.output_index("exec-ns").unwrap()], 0.0);
+        assert_eq!(out[desc.output_index("pwm0").unwrap()], 0.25);
+        warns.extend(
+            cpu.drain_logs()
+                .into_iter()
+                .filter(|(l, _)| *l == ipemu_core::hal::LogLevel::Warn),
+        );
+    }
+    assert_eq!(cpu.overruns(), 0);
+    // fuel モデルが効かない旨と、上限が効かない旨を 1 回ずつ
+    assert_eq!(warns.len(), 2, "{warns:?}");
+    assert!(warns[0].1.contains("native 形") && warns[0].1.contains("fuel を計測しません"));
+    assert!(warns[1].1.contains("maxFuelPerTick"));
+
+    // 上限 0 は無効 (無制限は省略で表す)
+    assert!(CpuVirtualParams::from_json(&json!({"maxFuelPerTick": 0})).is_err());
 }

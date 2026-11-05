@@ -27,6 +27,18 @@ CI は置かず (裁定済み)、`scripts/check.sh` / `scripts/check.ps1` が `c
 | L5 | C wasm / Rust wasm / C native / Rust native の 4 形態でスイングアップ → 倒立維持。吊り下げから LQR を始めると転倒検知 → FAULT → ドライブ無効 | 同上 |
 | L8 | C 版と Rust 版の軌道一致 (現状ビット一致) | 同上 |
 
+## M6 で追加したテスト
+| 層 | テスト | 場所 |
+| --- | --- | --- |
+| L4 | fuel モデルで同じ manifest を 2 回走らせ、tick ごとの `mcu.exec-ns` の列が一致 (C 版 / Rust 版) | `crates/ipemu-engine/tests/fuel_timing.rs` |
+| 性質 | `exec-ns = round(fuel × nsPerFuel)` (端数の出る係数を含む)。fuel は実行時間モデルによらない | 同上 |
+| 性質 | exec-ns が tick 周期を超える係数でオーバーラン数 = 周期超えの tick 数、PWM の変化が記録した fuel から計算した時刻に遅れて出る | 同上 |
+| L5 | 無限ループする wasm (WAT) が `maxFuelPerTick` で毎回同じ tick に trap → FAULT、init の暴走は `maxFuelPerInit` で装着失敗。実物の FW も予算不足なら同じ位置で `step` が失敗 | 同上 |
+| L5 | native 形を fuel モデルで装着すると警告 1 回、exec-ns は 0 | 同上、`crates/ipemu-core/tests/core.rs` |
+| 単体 | 名前解決: 止まる解決器でも期限内に `temporary-resolver-failure`、同じ名前の再試行でスレッドを増やさず後で回収、キャッシュの再利用 | `crates/ipemu-wasm/src/wasi.rs` |
+
+fuel の絶対値はコンパイラの版で変わるため、テストは値を固定せず関係だけを確かめます (較正表は [05](05-firmware.md#nsperfuel-の較正))。
+
 ## L1 性質テストの中身
 | 性質 | 確認すること |
 | --- | --- |

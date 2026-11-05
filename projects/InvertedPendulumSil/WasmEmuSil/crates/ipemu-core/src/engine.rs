@@ -29,7 +29,8 @@ pub trait Part {
 
 #[derive(Debug, Error)]
 pub enum StepError {
-    #[error("部品 `{instance}` の step が失敗しました (仮想時刻 {t_ns} ns): {source}")]
+    // `{source:#}`: 原因の連鎖 (例: fuel 上限の値) まで FAULT の理由に載せる
+    #[error("部品 `{instance}` の step が失敗しました (仮想時刻 {t_ns} ns): {source:#}")]
     Part {
         instance: String,
         t_ns: i64,
