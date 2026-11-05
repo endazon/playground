@@ -98,3 +98,49 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
   `IPEMU_PUBLIC_URL` は `ipemu://` リンクと、シェルが信頼する origin の照合に使う。
 - CI は置かない。`scripts/check.sh` (cargo fmt / clippy / test、pnpm lint / test、markdownlint) を手元と手順書で回す。
 - ログは構造化 (tracing + JSON)。NetworkedSil の `07-logging.md` と同じく「動いているか」が追える粒度を目標にします。
+
+## 実装 (M3/M4)
+実体は [`../crates/ipemu-server`](../crates/ipemu-server) (Rust / axum / sqlx SQLite / argon2id / ed25519-dalek) と
+[`../apps/web`](../apps/web) (Vite + React + TypeScript、TanStack Query、React Hook Form、CodeMirror 6)。
+署名まわりは [`../crates/ipemu-sign`](../crates/ipemu-sign) にまとめ、サーバ (署名) とエンジン (検証) が同じクレートを使う。
+
+### 設計からの差分と確定事項
+| 項目 | 実装 | 備考 |
+| --- | --- | --- |
+| 認証 | **Bearer のみ** (`sess_` ログインセッション / `lt_` チケット交換トークン / `ipk_` API キー)。Cookie は使わない | D29。CSRF 対策が不要になり、同じトークンをシェル経由でエンジンに渡せる。XSS 対策は CSP とフレームワーク側 |
+| `/api/auth` | `POST login` / `POST logout` / `GET me` / `POST password` | 初回ログインは `mustChangePassword` を返し、SPA が変更画面へ誘導 |
+| ログイン抑止 | ユーザ名ごとに連続失敗 5 回で 30 秒ロック (メモリ上)。ユーザ不在時もダミーのハッシュ検証で応答時間を揃える | |
+| 配信 API | 表のとおり。追加: `GET /api/v1/keys` (公開鍵の参考表示)、`GET /api/v1/launches/mine` (自分の起動履歴) | `keys` は**信頼の根拠ではない** (信頼鍵はクライアント同梱 / 設定) |
+| manifest 取得 | `GET manifests/{id}?rev=n\|default` は `ETag` (= 本文 sha256)、`X-Ipemu-Launch-Id` (起動履歴の ID)、`X-Ipemu-Signed`、`X-Ipemu-Revision` を返す。取得のたびに `launches` 行を作る | editor 以上は未公開 revision を署名なしで取れる (`X-Ipemu-Signed: false`)。エンジンは `--no-signature-check` が必要 |
+| アーティファクト | `ETag: "<sha256>"`, `Cache-Control: private, max-age=31536000, immutable`, `Content-Digest: sha-256=:…:`、`If-None-Match` → 304。`application/wasm` / `application/gzip` (UI) | 認証必須なので `private`。CDN に載せるなら公開範囲の設計を足す |
+| チケット | `POST launch-tickets {manifestId, revision?}` (利用者のみ) → `{ticket, expiresAt, launchUrl}`。`launchUrl = ipemu://launch?server=<IPEMU_PUBLIC_URL>&manifest=…&rev=n\|default&ticket=tk_…`。交換は認証なし・60 秒・1 回 (`UPDATE … WHERE used_at IS NULL` の原子性で単回性を担保) | 2 回目以降と失効は `410 Gone` |
+| telemetry | `{launchId?, manifestId, revision, event, detail}`。`event` が `stopped/fault/error/aborted` なら起動履歴の終了を埋める | 自分の起動だけ更新できる |
+| hello | `{clientId?, engineVersion, witVersions[], os, arch}` を `(clientId, 主体)` で upsert。応答に公開鍵一覧を添える | |
+| 管理 API | `/api/admin/{artifacts,manifests,validate,users,groups,api-keys,audit,launches,clients}` | ロール検査は extractor (`AdminAuth`) + ハンドラ内の `require` |
+| 部品登録 | multipart (`name`, `version`, `kind`, `file`)。`wasmparser` で最上位の import / export 名を読み、`wasi:*` を抽出。part は `WasmPart::describe_component`、firmware は `WasmFirmware::load` で実体化できることを確認。wasi を import する部品は describe を取らず import 一覧だけ保存 (capability 付き link は M5) | 同名同版は 409。UI は tar.gz の magic だけ検査 |
+| 下書き保存 | 本文の `id` / `revision` をパスに揃え、`approval` / `signature` を落とし、`artifacts` を登録済みアーティファクトで補完 (`sha256` / `size` / `kind` / `url`、`path` は除去)。保存のたびに検証して `validation` に残す | 本文が別の sha256 を主張していれば 422 |
+| 検証 | V1 (スキーマ) → `ipemu_core::validate` (V2〜V6, V9〜V11) → サーバ側で V7 / V8 (保存した wasi import と `capabilities` の照合) | 検証結果に部品の記述 (`descs`) を含め、トポロジ図の描画に使う |
+| 状態遷移 | `draft` → (承認) `approved` → (公開) `published`。承認済み / 公開済みは編集不可で、新しい revision を作る。公開済みは削除不可 (巻き戻しは既定 revision の変更) | |
+| 承認 | approver 以上、かつ**最終編集者と別人** (admin でも例外なし)。承認時に再検証し、`capabilitiesHash` を記録 | |
+| 公開 | `approval` を本文に付け、JCS 正規化して Ed25519 署名。`signed_body` と `keyId` を保存し、既定 revision が未設定なら既定にする | 署名後の全文もスキーマで再検証 |
+| 公開範囲 | `all` / `groups` (ユーザの `groups` と照合)。API キーは `allowedManifests` (`*` で全部) | 範囲外は 404 |
+| ユーザ | ロールは集合 (`user/viewer/editor/approver/admin`)。自分の admin を外す / 自分を無効化する操作は拒否。無効化とパスワード再設定でセッションを全部消す | |
+| 監査 | すべての変更操作 (`artifact.register`, `manifest.*`, `user.*`, `api_key.*`, `auth.login`, …) を `audit` に記録 | |
+| 保存 | `IPEMU_STORE/artifacts/sha256/ab/cd/<hex>` (一時ファイル → rename)、`IPEMU_DB` (既定 `<store>/db.sqlite`、WAL)。マイグレーションは `migrations/` を起動時に適用 | |
+| 鍵 | `IPEMU_SIGNING_KEY` が指す JSON (`{keyId, alg, seed}`、seed は raw 32 バイト hex)。未設定なら起動ごとに一時鍵 (警告)。`ipemu-server keygen --out dev/keys` で生成 ([`../dev/README.md`](../dev/README.md)) | PEM ではなく hex (D30) |
+| SPA 配信 | `IPEMU_WEB_DIR` (既定 `apps/web/dist` があればそれ)。`/api` 以外は `index.html` にフォールバック。`assets/` は immutable | `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` |
+| 起動 | `ipemu-server serve` (既定) / `ipemu-server keygen`。ログは tracing JSON (`IPEMU_LOG_FORMAT=text` でテキスト) | `Dockerfile` + `compose.yaml` (ループバック公開、cap_drop ALL、read_only、リソース上限) |
+
+### SPA (`apps/web`)
+- 1 つの SPA。`/login`、ポータル (`/` カタログ、`/m/:id` 詳細 = トポロジ図 + パラメータ要約 + 要求 capability + **起動**、`/me/launches`、`/me/password`)、
+  管理 (`/admin/{artifacts,manifests,manifests/:id,manifests/:id/rev/:rev,approvals,users,clients,audit}`)。ルートはロールで出し分け (`viewer` 以上で管理、`admin` でユーザ)。
+- 起動ボタン (`src/launch.ts`): `window.ipemu.launch({server, manifestId, revision, sessionToken})` があればそれ (M2 のシェルと合わせた引数)、
+  なければ `POST /api/v1/launch-tickets` → `ipemu://launch?…` へ遷移。2.5 秒経ってもページが見えたままなら未インストールの案内を出す。
+- トポロジ図 (`TopologyView`) は配線の向きから列を決める簡易レイアウト (閉路は DFS で切る)。M2 の `apps/ui-kit` に移す前提で React + SVG だけに依存。
+- 単体テスト (vitest + jsdom): 起動 URL とブリッジ / チケットの分岐、ロール判定、カタログ検索、トポロジのレイアウトと描画。
+
+### 結合テスト
+- `crates/ipemu-server/tests/api.rs`: 登録 → 検証 → 承認 → 公開 → カタログ → 取得 → 署名検証、公開範囲外の 404、チケットの単回性と失効、
+  ETag / If-None-Match、API キーの範囲と失効、ログイン抑止、壊れた manifest の拒否。
+- `crates/ipemu-engine/tests/bootstrap.rs`: サーバを in-process で立て、`dev/cartpole.manifest.json` の部品と FW を登録・公開し、
+  エンジンが API キーで取得して**倒立維持**まで動く。サーバを止めてもキャッシュから同じ軌道で起動する。改竄 / 未知鍵 / 無効資格情報 / 使用済みチケットの拒否。

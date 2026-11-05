@@ -78,8 +78,8 @@ CREATE TABLE manifest_revisions (
     body              TEXT NOT NULL,                 -- approval / signature を除いた本文 (JSON)
     body_sha256       TEXT NOT NULL,
     validation        TEXT,                          -- 最後の検証結果 (JSON)
-    created_by        TEXT NOT NULL,
-    updated_by        TEXT NOT NULL,
+    created_by        TEXT NOT NULL,                 -- ユーザ名 (approved_by / published_by と同じ)
+    updated_by        TEXT NOT NULL,                 -- 最終編集者のユーザ名。承認者と同一なら承認を拒否する
     created_at        TEXT NOT NULL,
     updated_at        TEXT NOT NULL,
     approved_by       TEXT,

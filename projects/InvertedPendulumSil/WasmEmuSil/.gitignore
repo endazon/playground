@@ -8,3 +8,7 @@ firmware/fw-balance-c/build/
 node_modules/
 # wit-bindgen が生成するオブジェクト (build.sh が再生成する)
 firmware/fw-balance-c/gen/*.o
+# 署名鍵 (ipemu-server keygen) とローカル実行時の保存領域
+dev/keys/
+dev/store/
+store/

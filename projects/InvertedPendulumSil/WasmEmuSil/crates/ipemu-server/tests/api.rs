@@ -293,6 +293,8 @@ async fn full_publish_flow_and_delivery() {
         .await;
     assert_eq!(s, StatusCode::OK, "{b}");
     assert_eq!(b["state"], json!("approved"));
+    assert_eq!(b["updatedBy"], json!("ed"));
+    assert_eq!(b["approvedBy"], json!("ap"));
     // 承認済みは編集不可
     let (s, _) = cx
         .put(

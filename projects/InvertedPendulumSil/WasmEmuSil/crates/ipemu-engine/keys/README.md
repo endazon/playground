@@ -8,7 +8,7 @@ Ed25519 署名の検証に使います。形式は `ipemu-server keygen` が出�
 ```
 
 - 本番のサーバ鍵を作ったら、その `public.json` の内容をここに追記して**クライアント本体をビルドし直します**
-  (D-: 鍵の更新 = 本体の更新。KMS / 配布時の鍵取得は v1 では持たない)。
+  (D30: 鍵の更新 = 本体の更新。KMS / 配布時の鍵取得は v1 では持たない)。
 - 開発中は埋め込まずに、`IPEMU_TRUSTED_KEYS="dev-2026=<hex>"` か `--trusted-key dev-2026=<hex>`、
   または `IPEMU_TRUSTED_KEYS_FILE=dev/keys/public.json` で渡せます。
 - 秘密鍵 (`signing.json`) は決してリポジトリに入れないでください (`dev/keys/` は .gitignore 済み)。

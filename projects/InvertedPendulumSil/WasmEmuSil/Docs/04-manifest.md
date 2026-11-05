@@ -99,3 +99,18 @@ ipemu-engine --manifest ./dev/cartpole.manifest.json \
              --no-signature-check     # ローカルファイルの manifest のときだけ許す
 ```
 上書きが効いていることは UI のヘッダに常時表示します (配布構成と開発構成の取り違えを防ぐため)。
+
+## 実装 (M3/M4): 署名と版の扱い
+署名の規則は [`../crates/ipemu-sign`](../crates/ipemu-sign) に集約し、サーバとエンジンが同じコードを使う。
+
+- **署名対象**: `signature` を除いた manifest 全体を RFC 8785 (JCS, `serde_jcs`) で正規化したバイト列。`approval` は含む。
+- **`approval.capabilitiesHash`**: capabilities を持つ部品だけを manifest の順に並べた
+  `[{"instance": "...", "capabilities": {...}}, ...]` の JCS 形の sha256 (hex)。instance を含めるのは、同じ宣言を別の部品へ付け替える改変を検出するため。
+  V12 では署名の検証に加えてこの値を本文から再計算して比較する (署名鍵を持つ者でも承認なしに capability を変えられない)。
+- **鍵の形式**: raw 32 バイトの hex を JSON に包む。公開鍵 `{"keyId","alg":"ed25519","publicKey"}`、秘密鍵 `{"keyId","alg","seed"}`。
+  クライアントは `crates/ipemu-engine/keys/trusted-keys.json` (コンパイル時に埋め込み) と `IPEMU_TRUSTED_KEYS` / `--trusted-key keyId=hex` / `IPEMU_TRUSTED_KEYS_FILE` の和集合を信頼する。
+- **版**: `revision` はサーバが採番し (下書き作成時に `max+1`)、本文の `id` / `revision` をサーバが揃える。承認済み / 公開済みの本文は変更不可。
+  **公開範囲とカタログの既定 revision は本文の外** (DB のメタデータ) なので、巻き戻しや公開範囲の変更で署名はやり直さない。
+- **配信用 manifest の `artifacts`**: サーバが登録済みアーティファクトから `sha256` / `size` / `kind` / `url` (`/api/v1/artifacts/{name}/{version}`) を補完し、`path` は除去する。
+  エンジンは `url` をサーバ基準で絶対化して取得し、キャッシュ (`sha256/ab/cd/<hex>`) に置いてから `Session::load` に渡す。
+- **V7 / V8** はサーバ側で実装した (アップロード時に保存した wasi import と `capabilities` を照合)。クライアントでの実物との再照合は M5 の capability 実装と合わせて行う。

@@ -12,7 +12,7 @@ cargo fmt --all -- --check
 
 if [ $QUICK -eq 0 ]; then
   step "cargo clippy (native crates)"
-  cargo clippy -p ip-model -p ipemu-core -p ipemu-wasm -p ipemu-engine -p ip-hal -p ip-part-sdk -- -D warnings
+  cargo clippy -p ip-model -p ipemu-core -p ipemu-wasm -p ipemu-engine -p ip-hal -p ip-part-sdk -p ipemu-sign -p ipemu-server --tests -- -D warnings
   step "build components (wasm)"
   ./scripts/build-components.sh release
   step "build firmware (wasm + native)"
@@ -24,6 +24,14 @@ cargo test --workspace --exclude plant-cartpole --exclude motor-driver --exclude
 
 step "manifest validate"
 cargo run -q -p ipemu-engine -- validate dev/cartpole.manifest.json --no-signature-check
+
+if command -v pnpm >/dev/null 2>&1; then
+  step "web (apps/web): typecheck / test / build"
+  pnpm install --frozen-lockfile >/dev/null 2>&1 || pnpm install >/dev/null
+  (cd apps/web && pnpm test && pnpm build)
+else
+  echo "(pnpm が無いので apps/web の検証を省略)"
+fi
 
 if command -v npx >/dev/null 2>&1 && [ $QUICK -eq 0 ]; then
   step "markdownlint"

@@ -1,0 +1,17 @@
+{
+  "name": "wasmemusil",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WasmEmuSil の TypeScript ワークスペース (apps/web: ポータル / 管理 SPA, apps/shell: Electron シェル, apps/ui-kit: 共有 UI)",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
