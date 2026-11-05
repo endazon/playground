@@ -45,6 +45,6 @@ fi
 
 if command -v npx >/dev/null 2>&1 && [ $QUICK -eq 0 ]; then
   step "markdownlint"
-  (cd ../../.. && npx --yes markdownlint-cli2 "projects/InvertedPendulumSil/WasmEmuSil/**/*.md") || true
+  (cd ../../.. && npx --yes markdownlint-cli2 "projects/InvertedPendulumSil/WasmEmuSil/**/*.md" "!**/node_modules/**") || true
 fi
 echo; echo "all checks passed"

@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../src/preload/simui.ts"],
-  "sourcesContent": ["/**\n * app://ui/ (\u30B7\u30DF\u30E5\u30EC\u30FC\u30BF UI \u30D0\u30F3\u30C9\u30EB) \u7528 preload\u3002\u30A8\u30F3\u30B8\u30F3\u306E\u63A5\u7D9A\u5148 (port / token) \u3068\u518D\u8D77\u52D5\u8981\u6C42\u3060\u3051\u3092\u6E21\u3059\u3002\n * UI \u306F\u3053\u306E\u60C5\u5831\u3067\u30A8\u30F3\u30B8\u30F3\u306E WS \u306B\u76F4\u63A5\u3064\u306A\u3050 (main \u3092\u7D4C\u7531\u3057\u306A\u3044\u306E\u3067 50Hz \u3067\u3082\u8EFD\u3044)\u3002\n */\nimport { contextBridge, ipcRenderer } from \"electron\";\n\ncontextBridge.exposeInMainWorld(\"ipemuEngine\", {\n  endpoint: () => ipcRenderer.invoke(\"simui:endpoint\"),\n  restartEngine: () => ipcRenderer.invoke(\"simui:restart-engine\"),\n  onEndpointChanged: (cb: (ep: { port: number; token: string }) => void) => {\n    const h = (_e: unknown, ep: { port: number; token: string }) => cb(ep);\n    ipcRenderer.on(\"simui:endpoint-changed\", h);\n    return () => ipcRenderer.removeListener(\"simui:endpoint-changed\", h);\n  },\n});\n"],
-  "mappings": ";;;AAIA,sBAA2C;AAE3C,8BAAc,kBAAkB,eAAe;AAAA,EAC7C,UAAU,MAAM,4BAAY,OAAO,gBAAgB;AAAA,EACnD,eAAe,MAAM,4BAAY,OAAO,sBAAsB;AAAA,EAC9D,mBAAmB,CAAC,OAAsD;AACxE,UAAM,IAAI,CAAC,IAAa,OAAwC,GAAG,EAAE;AACrE,gCAAY,GAAG,0BAA0B,CAAC;AAC1C,WAAO,MAAM,4BAAY,eAAe,0BAA0B,CAAC;AAAA,EACrE;AACF,CAAC;",
-  "names": []
-}
