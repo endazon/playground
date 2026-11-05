@@ -277,7 +277,7 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
   `app://shell/` は `'self'` のみ。UI バンドルは **単一ファイルの tar.gz** (manifest の `ui.bundle`、`kind: "ui"`) を
   `<userData>/ui-cache/<sha256>/` に展開して配信する (`untar.ts`: 絶対パス / `..` / リンクを拒否。manifest に sha256 があれば照合)。
 - `ipemu://launch?…` は `parseLaunchUrl` で厳格に解析し、**必ず確認ウィンドウ** (`confirm.html`、OS の dialog ではない) を出す。
-  信頼していないサーバは理由を表示して「起動する」を無効にする。開発用に `manifestPath=` (`allowLocalLaunch`) も受ける。`window.ipemu.launch` の `manifestPath` も同じ設定で縛る (既定は拒否。監査 M2-1)。
+  信頼していないサーバは理由を表示して「起動する」を無効にする。開発用に `manifestPath=` (`allowLocalLaunch`、既定は拒否) も受ける。`window.ipemu.launch` の `manifestPath` も同じ設定で縛る (既定は拒否。監査 M2-1)。
   OS への登録は packaged 時のみ。
 - エンジンは `serve --exit-on-stdin-close --catalog-dir …` で spawn し、stdout 1 行目を読んで接続。`restartRequired` (native FW) では
   直近の describe の `overrides` を launch に畳み込んで **同じ構成で spawn し直し**、`app://ui` のページに `endpoint-changed` を送る。

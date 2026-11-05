@@ -22,7 +22,9 @@ export interface ShellSettings {
 export const DEFAULT_SETTINGS: ShellSettings = {
   trustedServers: [],
   allowLocalhost: true,
-  allowLocalLaunch: true,
+  // ローカル manifest (sha256 検証なし) の起動を Web ページ / ipemu:// から受けるのは開発設定のときだけ (監査 M2-1)。
+  // シェル自身のローカルカタログ (shell:launch-local) はこの設定に依らない
+  allowLocalLaunch: false,
   catalogDirs: [],
   registerProtocol: true,
 };

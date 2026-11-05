@@ -35,7 +35,7 @@ pnpm --filter @ipemu/shell start                 # ビルドして electron を�
 
 - 設定: `<userData>/settings.json` (`trustedServers`, `allowLocalhost`, `allowLocalLaunch`, `enginePath`, `catalogDirs`, `homeUrl`, `registerProtocol`)
 - `ipemu://launch?server=…&manifest=…&rev=…&ticket=…` は必ず確認ダイアログを出す。信頼していないサーバは「起動する」が押せない。
-  開発用に `ipemu://launch?manifestPath=/abs/path.manifest.json` も受ける (`allowLocalLaunch`)。
+  開発用に `ipemu://launch?manifestPath=/abs/path.manifest.json` も受ける (`allowLocalLaunch: true` を settings.json に書いたときだけ。既定は拒否)。
   OS への登録は packaged のときだけ (`electron .` では実行ファイルが electron 自身のため)
 - 配布 zip: `scripts/package.sh` (Docs/07 の「配布 (M6)」)
 - テスト: `pnpm --filter @ipemu/shell test` (origin 判定、URL 解析、tar 展開、app:// の経路、設定)。
