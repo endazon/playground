@@ -4,7 +4,7 @@
 //! サーバに届かないときは、キャッシュに manifest とアーティファクトが揃っていればそれで起動する
 //! (02-architecture.md 起動シーケンス 6〜9 の失敗時)。署名検証はどちらの経路でも行う。
 
-use crate::cache::Cache;
+use crate::cache::{check_manifest_id, Cache};
 use crate::session::{ArtifactResolver, SessionOptions};
 use anyhow::{anyhow, bail, Context};
 use ipemu_sign::TrustedKeys;
@@ -87,8 +87,10 @@ pub struct BootstrapOptions {
 }
 
 impl BootstrapOptions {
-    pub fn new(server: &str, manifest_id: &str, cache: Cache) -> Self {
-        Self {
+    /// `manifest_id` は CLI (`--launch`) や `ipemu://` から来る未検証の値なので、ここで検査する (D46)。
+    pub fn new(server: &str, manifest_id: &str, cache: Cache) -> anyhow::Result<Self> {
+        check_manifest_id(manifest_id)?;
+        Ok(Self {
             server: server.trim_end_matches('/').to_owned(),
             manifest_id: manifest_id.to_owned(),
             revision: None,
@@ -100,7 +102,7 @@ impl BootstrapOptions {
             telemetry: true,
             client: ClientInfo::default(),
             timeout: Duration::from_secs(30),
-        }
+        })
     }
 }
 
@@ -287,6 +289,8 @@ fn name_of(manifest: &Value) -> String {
 
 /// 入口。オンラインで取得し、失敗したらキャッシュに落ちる。
 pub fn bootstrap(opts: &BootstrapOptions) -> anyhow::Result<Bootstrapped> {
+    // フィールドは公開なので、new の後に書き換えられた場合に備えて入口でも検査する
+    check_manifest_id(&opts.manifest_id)?;
     if opts.offline {
         return from_cache(opts, "offline 指定");
     }
@@ -468,7 +472,7 @@ fn from_cache(opts: &BootstrapOptions, why: &str) -> anyhow::Result<Bootstrapped
         revision,
         manifest_path: opts
             .cache
-            .manifest_path(server, &opts.manifest_id, revision),
+            .manifest_path(server, &opts.manifest_id, revision)?,
         name: name_of(&manifest),
         manifest,
         from_cache: true,
@@ -522,4 +526,27 @@ pub const EMBEDDED_TRUSTED_KEYS: &str = include_str!("../keys/trusted-keys.json"
 #[allow(dead_code)]
 fn _credential_kind(c: &Credential) -> &'static str {
     c.kind()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_manifest_id_is_rejected_at_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache")).unwrap();
+        for bad in ["../x", "../../x", "A", "a", ""] {
+            assert!(
+                BootstrapOptions::new("http://127.0.0.1:9", bad, cache.clone()).is_err(),
+                "{bad:?}"
+            );
+        }
+        // new の後に書き換えても bootstrap の入口で止まる (通信もキャッシュ参照もしない)
+        let mut bo = BootstrapOptions::new("http://127.0.0.1:9", "cartpole", cache).unwrap();
+        bo.offline = true;
+        bo.manifest_id = "../../x".into();
+        let err = format!("{:#}", bootstrap(&bo).unwrap_err());
+        assert!(err.contains("manifest id"), "{err}");
+    }
 }

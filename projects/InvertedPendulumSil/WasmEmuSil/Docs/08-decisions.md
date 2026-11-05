@@ -47,6 +47,9 @@
 | D42 | チケット交換トークン (`lt_`) の権限 (監査 A2 で確定) | **配信 API 限定** (catalog / manifests / artifacts / telemetry / hello / launches/mine)。`UserAuth` (チケット発行・パスワード変更) と `AdminAuth` (管理 API 全部) は 403。`require_fresh_login` はログインセッション (`sess_`) にだけ成立し、`lt_` は発行直後でも「新鮮なログイン」と見なさない | ログインセッションと同権限: `ipemu://` の URL に載るチケットが漏れると 1 時間は承認・公開・ユーザ操作まで可能になる。種別ごとのスコープ表: v1 では種別が 3 つしかなく extractor で足りる |
 | D43 | 本文サイズの上限 (監査 A5 で確定) | 部品アップロード (`POST /api/admin/artifacts`) だけ `DefaultBodyLimit` を `max_artifact_bytes + 1MiB` に広げる。`max_artifact_bytes` を超えるファイルは 413。他の API は axum 既定 (2MB) のまま | `/api/admin` 全体や全ルートに大きな上限: 大きな JSON を受ける必要がなく、メモリを使わせる口が増えるだけ |
 | D44 | ログイン抑止の鍵 (監査 A8 で確定) | **(ユーザ名, 送信元 IP)** で連続失敗 5 回 / 30 秒、ユーザ名単独で 50 回 / 30 秒。送信元は TCP の接続元。`IPEMU_TRUST_PROXY=1` のときだけ `X-Forwarded-For` の先頭を使う | ユーザ名だけ: 第三者が 5 回失敗させるだけで正規ユーザを締め出せる。IP だけ: NAT の内側の利用者が巻き込まれ、ユーザ名を変えながらの総当たりを止められない |
+| D45 | 静的検証の位置 (監査 A3) | **記述を要しない検査 (`validate_static`: V2 / V3 の組み込み名 / capability の自己整合 / V10 / V11 / V12) を同意と実体化の前に行う**。エラーなら同意を求めず `init` も走らせない。`validate` は最初に `validate_static` を呼ぶ (署名は不変) | 従来どおり実体化の後にまとめて検証: V12 不一致の manifest でも同意を求め、実グラントで `init` 中の I/O が通る。署名検証だけに頼る: ローカル経路 (署名なし) で効かない |
+| D46 | manifest id の検証 (監査 A4) | **パスに使う前に `ipemu_core::manifest::is_valid_manifest_id` (スキーマと同じ `^[a-z0-9][a-z0-9-]{2,63}$`) で検査**し、`BootstrapOptions::new` / `bootstrap()` の入口と `Cache` の manifest 系メソッドの両方で不正なら Err | `server_key` と同様のサニタイズ: 別の id が同じディレクトリに潰れる。シェルの信頼 origin 判定だけに頼る: CLI (`--launch`) の経路に防御がない |
+| D47 | 同意鍵の大文字小文字 (監査 A6) | **小文字化は `<sha256>` 部分 (先頭 64 文字) だけ**。capability 文字列はそのまま比較する (`*:` も同じ) | 鍵全体を小文字化: `fs:rw:Logs` と `fs:rw:logs` が衝突し、片方の同意がもう片方に効く。正規化しない: 手で書いた大文字の sha256 が一致しない |
 
 ### D8 の調査結果: クロスプラットフォームで Chromium を同梱する手段
 | 方式 | Chromium の出所 | 成熟度 | Rust エンジンとの関係 | 評価 |
