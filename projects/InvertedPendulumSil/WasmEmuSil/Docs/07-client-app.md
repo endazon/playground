@@ -91,6 +91,7 @@ ipemu-engine
 Windows / macOS / Linux × x64 / arm64 の 6 通りをビルドします。Wasmtime (Cranelift) と Electron はいずれも対応済みで、
 ファームウェアの native 形はホストと同じアーキでビルドします (Apple Silicon では arm64 の `.dylib`)。
 wasm 形はアーキに依存しないため、配信物は 1 種類です。
+配布 zip の作り方と検証済みの範囲は末尾の「配布 (M6)」。
 
 ### Wasmtime の設定
 | 設定 | 値 | 理由 |
@@ -304,3 +305,51 @@ pnpm dev:ui     # http://localhost:5173/?port=<port>&token=<token>
 ```
 ![シェル](images/m2-shell.png)
 ![シミュレータ UI (ブラウザ)](images/m2-sim-ui.png)
+
+## 配布 (M6)
+クライアント (Electron シェル + 同梱の `ipemu-engine`) を **未署名 zip** で配る (D17)。作り方は D64 〜 D66。
+
+```bash
+scripts/package.sh --target linux-x64                      # → dist/ipemu-client-0.1.0-linux-x64.zip (ホストと同じ target は cargo build)
+scripts/package.sh --target linux-arm64 --cross zigbuild   # pip install ziglang && cargo install --locked cargo-zigbuild
+scripts/package.sh --target windows-x64 --cross xwin       # cargo install --locked cargo-xwin (Microsoft の CRT / SDK を取得する)
+scripts/package.sh --all --cross zigbuild                  # 6 通り。macOS / Windows MSVC は下の注意を読む
+```
+遮断環境では `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` が要る (`ELECTRON_BUILDER_BINARIES_MIRROR` も同様に
+`https://npmmirror.com/mirrors/electron-builder-binaries/`。zip だけなら 7zip の取得にだけ使う)。
+`--skip-engine` は `target/<triple>/release/` のビルド済みエンジンを使う。
+
+### zip の中身
+```text
+ipemu(.exe) / ipemu.app   Electron 本体 (Linux の実行名は ipemu、`linux.executableName`)
+resources/app.asar        dist/ (main / preload / renderer)。実行時の依存は無い
+resources/bin/ipemu-engine(.exe)   エンジン (macOS は ipemu.app/Contents/Resources/bin/)
+```
+- エンジンの探索順 (`apps/shell/src/main/engine.ts`): `settings.enginePath` → `IPEMU_ENGINE` → `process.resourcesPath/bin/` (packaged のみ) →
+  開発ツリーの `target/{release,debug}` (開発時のみ。packaged では `devRoot` を渡さない)。
+- `ipemu://` の OS への登録は packaged の初回起動で `app.setAsDefaultProtocolClient` (`registerProtocol` が true のとき)。
+- 部品 / FW / UI バンドルは zip に入れない。サーバのカタログから署名検証つきで取得してキャッシュする (M3)。
+- Linux は `chrome-sandbox` に setuid が付かないので、初回は `sudo chown root chrome-sandbox && sudo chmod 4755 chrome-sandbox` か
+  `sysctl kernel.unprivileged_userns_clone=1` が要る (コンテナ / root では `--no-sandbox`)。macOS は未署名のため、ダウンロードした zip は
+  `xattr -dr com.apple.quarantine ipemu.app` が要る。Windows は SmartScreen の警告が出る。
+
+### 署名の足し方 (D65)
+`apps/shell/electron-builder.yml` の冒頭に手順がある。macOS は `mac.identity: null` を消して `CSC_LINK` / `CSC_KEY_PASSWORD`
+(公証は `notarize: true` と `APPLE_API_KEY` 系)、Windows は `win.signAndEditExecutable: false` を消して `CSC_LINK` / `CSC_KEY_PASSWORD`
+(Azure Trusted Signing は `win.azureSignOptions`)。コードとスクリプトは変えない。
+
+### 検証済みの範囲 (Linux x64 のコンテナで 2026-11 に実施)
+| 配布 zip | エンジンのビルド | zip 作成 (electron-builder) | 確認した内容 |
+| --- | --- | --- | --- |
+| linux-x64 | ○ `cargo build --release` (ホスト) | ○ | **実行確認**: zip を展開し `resources/bin/ipemu-engine --help` / `validate` / `run dev/cartpole.manifest.json` 20 s (θ は 2π = 倒立に収束)。Xvfb で `./ipemu --no-sandbox` を起動し、`resources/bin/` のエンジンを `serve` で spawn することを確認 |
+| linux-arm64 | ○ zigbuild | ○ | `file`: ELF aarch64 (エンジンも Electron 本体も)。実行は未確認 |
+| windows-x64 | ○ cargo-xwin (MSVC) | ○ | `file`: PE32+ x86-64 (`ipemu.exe` / `resources/bin/ipemu-engine.exe`)。実行は未確認 (wine 無し) |
+| windows-arm64 | △ zigbuild の **gnullvm** (xwin は ring の C ビルドで失敗) | ○ | `file`: PE32+ Aarch64。実行は未確認。MSVC 版は Windows 実機で作り直す |
+| macos-x64 | △ zigbuild (SDK 無しでリンク) | ○ | `file`: Mach-O x86_64。`ipemu.app/Contents/Resources/bin/ipemu-engine` の位置まで確認。実行は未確認 |
+| macos-arm64 | △ zigbuild (SDK 無しでリンク) | ○ | `file`: Mach-O arm64。同上 |
+
+実機で作るときのコマンドは、その OS 上で `scripts/package.sh --target <os>-<arch>` (ホストと同じアーキなら `--cross` 不要。
+別アーキは `rustup target add` 済みなら `--cross cargo`。Windows は Visual Studio Build Tools、macOS は Xcode CLT が要る。
+Git Bash / WSL ではなく bash が使える環境で実行する)。
+zip の大きさは 125〜161 MB (linux-x64 129.6 MB / linux-arm64 128.7 MB / windows-x64 161.1 MB / windows-arm64 約 151 MB /
+macos-x64 130.3 MB / macos-arm64 125.1 MB)。ほぼ Electron 本体で、エンジンは 16〜28 MB。

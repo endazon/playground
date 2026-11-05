@@ -23,8 +23,8 @@ const preloads = {
   simui: join(distDir, "preload", "simui.cjs"),
   shellui: join(distDir, "preload", "shellui.cjs"),
 };
-/** 開発ツリーの WasmEmuSil ルート (apps/shell/dist/main → ../../../..) */
-const devRoot = resolve(distDir, "..", "..", "..");
+// 開発ツリーの WasmEmuSil ルート。packaged では asar の外の親を指してしまうので使わない (同梱先は resources/bin)
+const devRoot = app.isPackaged ? undefined : resolve(distDir, "..", "..", "..");
 const settingsPath = () => join(app.getPath("userData"), "settings.json");
 
 let settings: ShellSettings;
@@ -88,7 +88,7 @@ async function main() {
   if (!enginePath) {
     log(`ipemu-engine が見つかりません。settings.enginePath か IPEMU_ENGINE で指定してください (開発: cargo build -p ipemu-engine)`);
   }
-  const catalogDirs = settings.catalogDirs.length ? settings.catalogDirs : existsSync(join(devRoot, "dev")) ? [join(devRoot, "dev")] : [];
+  const catalogDirs = settings.catalogDirs.length ? settings.catalogDirs : devRoot && existsSync(join(devRoot, "dev")) ? [join(devRoot, "dev")] : [];
   sessions = new SessionManager({
     enginePath: enginePath ?? "ipemu-engine",
     engineArgs: catalogDirs.flatMap((d) => ["--catalog-dir", d]),

@@ -78,6 +78,12 @@ cargo run -p ipemu-engine -- attach --port <port> --token <token>   # 端末で 
 `dev/cartpole.manifest.json` は NetworkedSil の既定パラメータ (振子 0.6 m) で、0.5 s 後にスイングアップを自動開始し、
 約 6 s で倒立領域に入って LQR に切り替わります。`--record` で 10 ms ごとのスナップショットを CSV に出せます。
 
+### 配布 zip (M6)
+```bash
+scripts/package.sh --target linux-x64          # → dist/ipemu-client-<version>-linux-x64.zip (未署名。--all で 6 通り、--cross でクロスビルド)
+```
+中身・署名の足し方・検証済みの範囲は [`Docs/07-client-app.md`](Docs/07-client-app.md) の「配布 (M6)」。
+
 ## クイックスタート (M3/M4: サーバ配信)
 ```bash
 cargo run -q -p ipemu-server -- keygen --out dev/keys                      # 署名鍵 (秘密鍵はコミットしない)
