@@ -5,6 +5,7 @@ use crate::wasi::{WasiGrant, WasiHost, WasiState};
 use anyhow::Context;
 use ipemu_core::desc::{PartDesc, PortDesc, PortKind};
 use ipemu_core::hal::LogLevel;
+use ipemu_core::ImportInfo;
 use ipemu_core::Part;
 use std::path::Path;
 use wasmtime::component::{Component, HasSelf, Linker};
@@ -181,9 +182,27 @@ impl WasmPart {
         })
     }
 
-    /// 実体化せずに describe() だけ読む (サーバの登録時・manifest 検証用)。
+    /// 実体化せずに describe() だけ読む (capability を使わない部品向け。WASI を import する部品は失敗する)。
     pub fn describe_component(rt: &Runtime, component: &Component) -> anyhow::Result<PartDesc> {
         Ok(Self::instantiate(rt, component, "describe")?.desc)
+    }
+
+    /// manifest (宣言) がない文脈で describe() を読む: サーバの部品登録時 (M3 `server/src/inspect.rs`)、`inspect`。
+    ///
+    /// バイナリの import を調べ、対応する WASI インターフェースをすべて **deny-all** 形
+    /// (許可リスト空・preopen なし。clock / random は link) で link して実体化し、describe と import 一覧を返す。
+    /// describe / init の中で I/O を試みても拒否されるだけで外部には届かない。
+    /// `wasi:cli` など提供しない import があれば実体化で失敗する (= 登録時に弾ける)。
+    pub fn describe_component_sandboxed(
+        rt: &Runtime,
+        bytes: &[u8],
+    ) -> anyhow::Result<(PartDesc, Vec<ImportInfo>)> {
+        let imports = ipemu_core::imports::component_imports(bytes)?;
+        let caps = ipemu_core::Capabilities::covering_imports(&imports);
+        let grant = WasiGrant::deny_all_for(&caps);
+        let component = Self::compile(rt, bytes)?;
+        let part = Self::instantiate_with(rt, &component, "describe", grant)?;
+        Ok((part.desc, imports))
     }
 
     fn arm(&mut self) {

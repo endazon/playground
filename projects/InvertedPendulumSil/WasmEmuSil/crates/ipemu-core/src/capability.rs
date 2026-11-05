@@ -277,6 +277,44 @@ impl Capabilities {
         v
     }
 
+    /// import 一覧から「これを link するのに要る宣言」を逆引きする。
+    /// manifest (宣言) がない文脈 (サーバの部品登録時の describe、`inspect`) で、deny-all 形の付与に使う。
+    /// 値はダミー (`127.0.0.1:0`、`fs: sandbox`) で、許可リストとしての意味はない。
+    pub fn covering_imports(imports: &[ImportInfo]) -> Capabilities {
+        let mut c = Capabilities::default();
+        let dummy = HostPort {
+            host: HostPattern::Ip(IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)),
+            port: 0,
+        };
+        for i in imports.iter().filter(|i| !i.types_only) {
+            match classify_import(&i.name) {
+                ImportClass::Net => {
+                    let n = c.net.get_or_insert_with(NetCapabilities::default);
+                    if interface_of(&i.name).starts_with("udp") {
+                        if n.udp.is_empty() {
+                            n.udp.push(dummy.clone());
+                        }
+                    } else if n.tcp_connect.is_empty() {
+                        n.tcp_connect.push(dummy.clone());
+                    }
+                }
+                ImportClass::Fs => {
+                    if c.fs.is_empty() {
+                        c.fs.push(FsGrant {
+                            path: "sandbox".into(),
+                            mode: FsMode::Ro,
+                        });
+                    }
+                }
+                ImportClass::Clock => c.clock = true,
+                ImportClass::Random => c.random = true,
+                ImportClass::HostExt(n) if !c.host_ext.contains(&n) => c.host_ext.push(n),
+                _ => {}
+            }
+        }
+        c
+    }
+
     /// 宣言そのものの整合性 (import とは無関係に分かる誤り)。
     pub fn self_check(&self) -> Vec<String> {
         let mut errs = Vec::new();
@@ -636,6 +674,30 @@ mod tests {
         // wasi:cli は常に拒否
         let cli = [ImportInfo::new("wasi:cli/stdout@0.2.12")];
         assert_eq!(over.check_imports(&cli).0.len(), 1);
+    }
+
+    #[test]
+    fn covering_imports_reverses_classification() {
+        let imports = vec![
+            ImportInfo::new("wasi:sockets/tcp@0.2.12"),
+            ImportInfo::new("wasi:sockets/udp@0.2.12"),
+            ImportInfo::new("wasi:filesystem/types@0.2.12"),
+            ImportInfo::new("wasi:random/random@0.2.12"),
+            ImportInfo::new("ip:emu/serial-port@0.1.0"),
+            ImportInfo {
+                name: "wasi:clocks/wall-clock@0.2.12".into(),
+                types_only: true,
+            },
+        ];
+        let c = Capabilities::covering_imports(&imports);
+        let n = c.net.as_ref().unwrap();
+        assert!(n.uses_tcp() && n.uses_udp());
+        assert_eq!(c.fs.len(), 1);
+        assert!(c.random && !c.clock);
+        assert_eq!(c.host_ext, ["serial-port"]);
+        // 逆引きした宣言は V7 を通す
+        assert!(c.check_imports(&imports).0.is_empty());
+        assert!(Capabilities::covering_imports(&[]).is_empty());
     }
 
     #[test]
