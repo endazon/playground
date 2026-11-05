@@ -12,7 +12,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// 環境変数の設定で待ち受ける (IPEMU_LISTEN, IPEMU_STORE, IPEMU_DB, IPEMU_SIGNING_KEY, IPEMU_ADMIN_BOOTSTRAP_PASSWORD, IPEMU_PUBLIC_URL, IPEMU_WEB_DIR)
+    /// 環境変数の設定で待ち受ける (IPEMU_LISTEN, IPEMU_STORE, IPEMU_DB, IPEMU_SIGNING_KEY, IPEMU_ADMIN_BOOTSTRAP_PASSWORD, IPEMU_PUBLIC_URL, IPEMU_WEB_DIR, IPEMU_MAX_ARTIFACT_BYTES, IPEMU_TRUST_PROXY)
     Serve,
     /// Ed25519 署名鍵を生成する。`<out>/signing.json` (秘密、0600) と `<out>/public.json` (クライアントに配る) を書く
     Keygen {

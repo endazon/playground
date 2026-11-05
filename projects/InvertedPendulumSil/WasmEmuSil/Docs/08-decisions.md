@@ -43,6 +43,10 @@
 | D38 | manifest 署名の正規化 (M3 で確定) | `signature` を除いた本文を **D31 と同じ `ipemu_core::jcs`** で正規化して Ed25519 署名。`capabilitiesHash` も `ipemu_core::capabilities_hash` をそのまま使う (サーバとエンジンで二重実装しない) | `serde_jcs` 等の外部 crate: D31 と同じ理由。本文の生テキストに署名: 整形で署名が無効になる |
 | D39 | 本文の版採番と不変性 (M4 で確定) | revision はサーバ採番。承認済み / 公開済みは**編集不可**で新しい下書きを作る。公開済みは削除不可 | 承認後の編集で下書きに戻す: 履歴が追いにくく、承認の紐付けが曖昧になる |
 | D40 | 編集者と承認者の分離の実装 (M4 で確定) | revision の**最終編集者 (ユーザ名)** と承認者が同一なら admin でも拒否 | ロールの排他 (editor と approver を兼ねられない): 小規模運用で人が足りない。本文単位の分離で十分 |
+| D41 | 編集者と承認者の照合キー (監査 A1 で確定、D40 を補正) | revision に**作成者・最終編集者のユーザ id** (`created_by_id` / `updated_by_id`) を保存し、承認時は **id で比較**する。ユーザ名 (`created_by` / `updated_by`) は表示用に残す。id 列の無い古い行 (migration 0002 より前) だけユーザ名で比較する | ユーザ名で比較: 名前の変更や再利用で照合がずれる。id と名前を混ぜて比較した M4 の実装は常に不一致で、本人承認を素通しした |
+| D42 | チケット交換トークン (`lt_`) の権限 (監査 A2 で確定) | **配信 API 限定** (catalog / manifests / artifacts / telemetry / hello / launches/mine)。`UserAuth` (チケット発行・パスワード変更) と `AdminAuth` (管理 API 全部) は 403。`require_fresh_login` はログインセッション (`sess_`) にだけ成立し、`lt_` は発行直後でも「新鮮なログイン」と見なさない | ログインセッションと同権限: `ipemu://` の URL に載るチケットが漏れると 1 時間は承認・公開・ユーザ操作まで可能になる。種別ごとのスコープ表: v1 では種別が 3 つしかなく extractor で足りる |
+| D43 | 本文サイズの上限 (監査 A5 で確定) | 部品アップロード (`POST /api/admin/artifacts`) だけ `DefaultBodyLimit` を `max_artifact_bytes + 1MiB` に広げる。`max_artifact_bytes` を超えるファイルは 413。他の API は axum 既定 (2MB) のまま | `/api/admin` 全体や全ルートに大きな上限: 大きな JSON を受ける必要がなく、メモリを使わせる口が増えるだけ |
+| D44 | ログイン抑止の鍵 (監査 A8 で確定) | **(ユーザ名, 送信元 IP)** で連続失敗 5 回 / 30 秒、ユーザ名単独で 50 回 / 30 秒。送信元は TCP の接続元。`IPEMU_TRUST_PROXY=1` のときだけ `X-Forwarded-For` の先頭を使う | ユーザ名だけ: 第三者が 5 回失敗させるだけで正規ユーザを締め出せる。IP だけ: NAT の内側の利用者が巻き込まれ、ユーザ名を変えながらの総当たりを止められない |
 
 ### D8 の調査結果: クロスプラットフォームで Chromium を同梱する手段
 | 方式 | Chromium の出所 | 成熟度 | Rust エンジンとの関係 | 評価 |

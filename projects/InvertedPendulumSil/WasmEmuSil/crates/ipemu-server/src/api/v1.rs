@@ -1,4 +1,5 @@
 //! 配信 API `/api/v1`。すべて読み取り専用 (telemetry / hello / チケット発行を除く)。
+//! チケット交換トークン (`lt_`) が使えるのはここの `Auth` を取るハンドラだけ (D42)。
 
 use crate::auth::{Auth, UserAuth};
 use crate::error::{ApiError, ApiResult};
@@ -13,6 +14,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -38,14 +40,19 @@ async fn catalog(State(st): State<AppState>, Auth(p): Auth) -> ApiResult<Json<Va
     let rows = sqlx::query_as::<_, ManifestRow>("SELECT * FROM manifests ORDER BY id")
         .fetch_all(&st.pool)
         .await?;
+    // revision は 1 クエリでまとめて引き、manifest_id ごとに分ける (構成ごとに引くと N+1 になる)
+    let all_revs = sqlx::query_as::<_, RevisionRow>(
+        "SELECT * FROM manifest_revisions ORDER BY manifest_id, revision",
+    )
+    .fetch_all(&st.pool)
+    .await?;
+    let mut revs_by_id: HashMap<String, Vec<RevisionRow>> = HashMap::new();
+    for r in all_revs {
+        revs_by_id.entry(r.manifest_id.clone()).or_default().push(r);
+    }
     let mut items = Vec::new();
     for m in rows.into_iter().filter(|m| m.visible_to(&p)) {
-        let revs = sqlx::query_as::<_, RevisionRow>(
-            "SELECT * FROM manifest_revisions WHERE manifest_id = ? ORDER BY revision",
-        )
-        .bind(&m.id)
-        .fetch_all(&st.pool)
-        .await?;
+        let revs = revs_by_id.remove(&m.id).unwrap_or_default();
         // editor 以上は未公開 revision も「検証用に起動」できる (署名なし)
         let show_unpublished = p.can_edit();
         let visible: Vec<&RevisionRow> = revs
@@ -88,6 +95,7 @@ struct TicketReq {
 }
 
 /// 外部ブラウザからの `ipemu://` 起動用チケット (60 秒・単回)。
+/// `UserAuth` なので、チケット交換トークンからチケットを発行し直すことはできない (D42)。
 async fn create_ticket(
     State(st): State<AppState>,
     UserAuth(p): UserAuth,
@@ -361,12 +369,42 @@ struct TelemetryReq {
     detail: Value,
 }
 
+/// telemetry の `event` の最大長 (文字数)
+pub const TELEMETRY_EVENT_MAX: usize = 64;
+/// telemetry の `detail` (JSON 文字列化した後) の最大バイト数
+pub const TELEMETRY_DETAIL_MAX: usize = 16 * 1024;
+
+/// `event` は 1〜64 文字の `[a-z_]`、`detail` は JSON 文字列化して 16KB 以内。
+/// 前者の違反は 400、後者は 413。戻り値は保存する `detail` の JSON 文字列。
+fn check_telemetry(req: &TelemetryReq) -> ApiResult<String> {
+    if req.event.is_empty()
+        || req.event.len() > TELEMETRY_EVENT_MAX
+        || !req
+            .event
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b == b'_')
+    {
+        return Err(ApiError::bad_request(format!(
+            "event は 1〜{TELEMETRY_EVENT_MAX} 文字の英小文字と _ で指定してください"
+        )));
+    }
+    let detail = req.detail.to_string();
+    if detail.len() > TELEMETRY_DETAIL_MAX {
+        return Err(ApiError::too_large(format!(
+            "detail は JSON で {TELEMETRY_DETAIL_MAX} バイトまで ({} バイト)",
+            detail.len()
+        )));
+    }
+    Ok(detail)
+}
+
 /// 実行要約。launch_id があれば起動履歴の終わりを埋める。
 async fn telemetry(
     State(st): State<AppState>,
     Auth(p): Auth,
     Json(req): Json<TelemetryReq>,
 ) -> ApiResult<Json<Value>> {
+    let detail = check_telemetry(&req)?;
     let now = util::now_str();
     sqlx::query(
         "INSERT INTO telemetry (id, launch_id, principal_kind, principal_id, manifest_id, revision, event, detail, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -378,7 +416,7 @@ async fn telemetry(
     .bind(&req.manifest_id)
     .bind(req.revision)
     .bind(&req.event)
-    .bind(req.detail.to_string())
+    .bind(&detail)
     .bind(&now)
     .execute(&st.pool)
     .await?;
@@ -393,7 +431,7 @@ async fn telemetry(
              WHERE id = ? AND principal_kind = ? AND principal_id = ?",
         )
         .bind(&req.event)
-        .bind(req.detail.to_string())
+        .bind(&detail)
         .bind(ended)
         .bind(&now)
         .bind(lid)

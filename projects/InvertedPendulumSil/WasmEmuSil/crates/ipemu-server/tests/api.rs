@@ -40,8 +40,13 @@ struct Ctx {
 
 impl Ctx {
     async fn new() -> Ctx {
+        Ctx::with_config(|_| {}).await
+    }
+    async fn with_config(f: impl FnOnce(&mut Config)) -> Ctx {
         let dir = tempfile::tempdir().unwrap();
-        let app = App::start(Config::for_test(dir.path())).await.unwrap();
+        let mut cfg = Config::for_test(dir.path());
+        f(&mut cfg);
+        let app = App::start(cfg).await.unwrap();
         Ctx {
             app,
             http: Client::new(),
@@ -116,6 +121,16 @@ impl Ctx {
         path: &Path,
     ) -> (StatusCode, Value) {
         let bytes = std::fs::read(path).unwrap();
+        self.upload_bytes(tok, name, version, kind, bytes).await
+    }
+    async fn upload_bytes(
+        &self,
+        tok: &str,
+        name: &str,
+        version: &str,
+        kind: &str,
+        bytes: Vec<u8>,
+    ) -> (StatusCode, Value) {
         let form = reqwest::multipart::Form::new()
             .text("name", name.to_owned())
             .text("version", version.to_owned())
@@ -904,5 +919,390 @@ async fn capability_parts_are_inspected_and_checked_against_declarations() {
         signed.approval.as_ref().unwrap().capabilities_hash,
         ipemu_core::capabilities_hash(&signed)
     );
+    cx.app.stop().await;
+}
+
+/// 有効な cartpole 構成を公開まで進める (admin が下書きを作り、ap が承認・公開する)。
+async fn publish_cartpole(cx: &Ctx, admin: &str, ap: &str, id: &str) {
+    let (s, b) = cx
+        .post(
+            admin,
+            "/api/admin/manifests",
+            json!({"id": id, "body": cartpole_body(id)}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, b) = cx
+        .post(
+            ap,
+            &format!("/api/admin/manifests/{id}/revisions/1/approve"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, b) = cx
+        .post(
+            ap,
+            &format!("/api/admin/manifests/{id}/revisions/1/publish"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+}
+
+/// 監査 A1 (D41): editor と approver を兼ねるユーザが自分で編集した下書きは、id で照合して承認を拒否する。
+/// 別のユーザなら承認できる。id 列の無い古い行はユーザ名で照合する。
+#[tokio::test]
+async fn editor_cannot_approve_own_revision_even_with_both_roles() {
+    if !artifacts_ready() {
+        return;
+    }
+    let cx = Ctx::new().await;
+    let admin = cx.login("admin", "admin-password").await;
+    cx.create_user(&admin, "both", &["user", "editor", "approver"], &[])
+        .await;
+    cx.create_user(&admin, "ap", &["user", "approver"], &[])
+        .await;
+    let both = cx.login("both", "password-1234").await;
+    let ap = cx.login("ap", "password-1234").await;
+    register_cartpole_artifacts(&cx, &both).await;
+
+    // 作成 (insert) した本人の承認は拒否
+    let (s, b) = cx
+        .post(
+            &both,
+            "/api/admin/manifests",
+            json!({"id": "selfapp", "body": cartpole_body("selfapp")}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, b) = cx
+        .post(
+            &both,
+            "/api/admin/manifests/selfapp/revisions/1/approve",
+            json!({"reason": "self"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "{b}");
+
+    // 別人 (ap) が編集すると、今度は ap 本人が承認できず、both が承認できる
+    let (s, b) = cx
+        .put(
+            &admin,
+            "/api/admin/manifests/selfapp/revisions/1",
+            json!({"body": cartpole_body("selfapp")}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, _) = cx
+        .post(
+            &admin,
+            "/api/admin/manifests/selfapp/revisions/1/approve",
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "admin でも最終編集者なら拒否");
+    let (s, b) = cx
+        .post(
+            &both,
+            "/api/admin/manifests/selfapp/revisions/1/approve",
+            json!({"reason": "other"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["approvedBy"], json!("both"));
+    assert_eq!(b["updatedBy"], json!("admin"));
+
+    // 保存 (update) した本人の承認も拒否。別人なら 200
+    let (s, b) = cx
+        .post(&admin, "/api/admin/manifests", json!({"id": "selfapp2"}))
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, b) = cx
+        .put(
+            &both,
+            "/api/admin/manifests/selfapp2/revisions/1",
+            json!({"body": cartpole_body("selfapp2")}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, _) = cx
+        .post(
+            &both,
+            "/api/admin/manifests/selfapp2/revisions/1/approve",
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+
+    // id 列の無い古い行 (migration 0002 より前) はユーザ名で照合する
+    sqlx::query(
+        "UPDATE manifest_revisions SET updated_by_id = NULL, created_by_id = NULL WHERE manifest_id = 'selfapp2'",
+    )
+    .execute(&cx.app.state.pool)
+    .await
+    .unwrap();
+    let (s, _) = cx
+        .post(
+            &both,
+            "/api/admin/manifests/selfapp2/revisions/1/approve",
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "古い行は名前で照合");
+    let (s, b) = cx
+        .post(
+            &ap,
+            "/api/admin/manifests/selfapp2/revisions/1/approve",
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    cx.app.stop().await;
+}
+
+/// 監査 A2 (D42): チケット交換トークン (`lt_`) は配信 API 限定。
+/// admin のトークンでも管理 API・チケット発行・パスワード変更には使えず、新鮮なログインとも見なさない。
+#[tokio::test]
+async fn launch_token_is_limited_to_delivery_api() {
+    if !artifacts_ready() {
+        return;
+    }
+    let cx = Ctx::new().await;
+    let admin = cx.login("admin", "admin-password").await;
+    cx.create_user(&admin, "ap", &["user", "approver"], &[])
+        .await;
+    let ap = cx.login("ap", "password-1234").await;
+    register_cartpole_artifacts(&cx, &admin).await;
+    publish_cartpole(&cx, &admin, &ap, "cartpole").await;
+    // 承認待ちの下書き (admin が作成)
+    let (s, b) = cx
+        .post(&admin, "/api/admin/manifests/cartpole/revisions", json!({}))
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+
+    // ap (承認者) のチケット → 短命トークン
+    let (s, t) = cx
+        .post(
+            &ap,
+            "/api/v1/launch-tickets",
+            json!({"manifestId": "cartpole"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{t}");
+    let r = cx
+        .http
+        .post(cx.url(&format!(
+            "/api/v1/launch-tickets/{}/exchange",
+            t["ticket"].as_str().unwrap()
+        )))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let lt = r.json::<Value>().await.unwrap()["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(lt.starts_with("lt_"));
+
+    // 配信 API は使える
+    let (s, cat) = cx.get(&lt, "/api/v1/catalog").await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(cat["items"].as_array().unwrap().len(), 1);
+    let r = cx
+        .http
+        .get(cx.url("/api/v1/manifests/cartpole"))
+        .bearer_auth(&lt)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let launch_id = r.headers()["x-ipemu-launch-id"]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    let r = cx
+        .http
+        .get(cx.url("/api/v1/artifacts/plant-cartpole/0.1.0"))
+        .bearer_auth(&lt)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let (s, _) = cx.post(&lt, "/api/v1/telemetry", json!({"launchId": launch_id, "manifestId": "cartpole", "revision": 1, "event": "started", "detail": {}})).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _) = cx
+        .post(
+            &lt,
+            "/api/v1/clients/hello",
+            json!({"engineVersion": "0.1.0", "os": "linux", "arch": "x86_64"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _) = cx.get(&lt, "/api/v1/launches/mine").await;
+    assert_eq!(s, StatusCode::OK);
+
+    // 承認 (管理 API) は 403。比較のためログインセッションなら通ることも確かめる
+    let (s, b) = cx
+        .post(
+            &lt,
+            "/api/admin/manifests/cartpole/revisions/2/approve",
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "{b}");
+    let (s, _) = cx.get(&lt, "/api/admin/manifests").await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    // チケットの再発行 (UserAuth) とパスワード変更も 403
+    let (s, _) = cx
+        .post(
+            &lt,
+            "/api/v1/launch-tickets",
+            json!({"manifestId": "cartpole"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = cx
+        .post(
+            &lt,
+            "/api/auth/password",
+            json!({"currentPassword": "password-1234", "newPassword": "password-5678"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, b) = cx
+        .post(
+            &ap,
+            "/api/admin/manifests/cartpole/revisions/2/approve",
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+
+    // admin のチケットでも同じ (ユーザ作成・API キー発行は不可)
+    let (_, t) = cx
+        .post(
+            &admin,
+            "/api/v1/launch-tickets",
+            json!({"manifestId": "cartpole"}),
+        )
+        .await;
+    let r = cx
+        .http
+        .post(cx.url(&format!(
+            "/api/v1/launch-tickets/{}/exchange",
+            t["ticket"].as_str().unwrap()
+        )))
+        .send()
+        .await
+        .unwrap();
+    let lt_admin = r.json::<Value>().await.unwrap()["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let (s, _) = cx
+        .post(&lt_admin, "/api/admin/api-keys", json!({"name": "x"}))
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = cx
+        .post(
+            &lt_admin,
+            "/api/admin/users",
+            json!({"username": "evil", "password": "password-1234", "roles": ["admin"]}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = cx.get(&lt_admin, "/api/v1/catalog").await;
+    assert_eq!(s, StatusCode::OK);
+    cx.app.stop().await;
+}
+
+/// 監査 A5 (D43): 部品アップロードは axum 既定の 2MB ではなく `max_artifact_bytes` + 余裕まで受ける。
+/// 上限を超えると 413。成果物のビルドは不要 (中身の検査で落ちてよい)。
+#[tokio::test]
+async fn artifact_upload_accepts_bodies_beyond_axum_default() {
+    let cx = Ctx::with_config(|c| c.max_artifact_bytes = 4 * 1024 * 1024).await;
+    let admin = cx.login("admin", "admin-password").await;
+    // 3MB (axum 既定の 2MB 超): 413 にならず、中身の検査の結果 (422) が返る
+    let junk: Vec<u8> = (0..3 * 1024 * 1024u32)
+        .map(|i| (i.wrapping_mul(2654435761) >> 24) as u8)
+        .collect();
+    let (s, b) = cx
+        .upload_bytes(&admin, "big-ui", "0.1.0", "ui", junk.clone())
+        .await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "{b}");
+    let (s, b) = cx
+        .upload_bytes(&admin, "big-part", "0.1.0", "part", junk)
+        .await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "{b}");
+    // 3MB の tar.gz (gzip の magic だけ合わせる) は登録まで通る
+    let mut gz = vec![0u8; 3 * 1024 * 1024];
+    gz[0] = 0x1f;
+    gz[1] = 0x8b;
+    let (s, b) = cx.upload_bytes(&admin, "big-ui", "0.1.0", "ui", gz).await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["size"], json!(3 * 1024 * 1024));
+    // max_artifact_bytes 超過 (本文上限の余裕の内側) は 413
+    let (s, b) = cx
+        .upload_bytes(
+            &admin,
+            "too-big",
+            "0.1.0",
+            "ui",
+            vec![0u8; 4 * 1024 * 1024 + 512 * 1024],
+        )
+        .await;
+    assert_eq!(s, StatusCode::PAYLOAD_TOO_LARGE, "{b}");
+    // 他の管理 API は既定の上限 (2MB) のまま
+    let big = "x".repeat(3 * 1024 * 1024);
+    let (s, _) = cx
+        .post(&admin, "/api/admin/validate", json!({"pad": big}))
+        .await;
+    assert_eq!(s, StatusCode::PAYLOAD_TOO_LARGE);
+    cx.app.stop().await;
+}
+
+/// 監査 A9: telemetry の `event` は 64 文字以内の `[a-z_]`、`detail` は 16KB 以内。
+#[tokio::test]
+async fn telemetry_rejects_oversized_or_malformed_fields() {
+    let cx = Ctx::new().await;
+    let admin = cx.login("admin", "admin-password").await;
+    let base = |event: &str, detail: Value| json!({"manifestId": "demo", "revision": 1, "event": event, "detail": detail});
+    let (s, _) = cx
+        .post(
+            &admin,
+            "/api/v1/telemetry",
+            base("started", json!({"n": 1})),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _) = cx
+        .post(
+            &admin,
+            "/api/v1/telemetry",
+            base(&"a".repeat(64), json!({})),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    for bad in ["", "Started", "run-summary", "x y", &"a".repeat(65)] {
+        let (s, b) = cx
+            .post(&admin, "/api/v1/telemetry", base(bad, json!({})))
+            .await;
+        assert_eq!(s, StatusCode::BAD_REQUEST, "event={bad:?}: {b}");
+    }
+    let (s, _) = cx
+        .post(
+            &admin,
+            "/api/v1/telemetry",
+            base("stopped", json!({"log": "x".repeat(16 * 1024)})),
+        )
+        .await;
+    assert_eq!(s, StatusCode::PAYLOAD_TOO_LARGE);
+    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM telemetry")
+        .fetch_one(&cx.app.state.pool)
+        .await
+        .unwrap();
+    assert_eq!(n, 2, "拒否したものは保存しない");
     cx.app.stop().await;
 }

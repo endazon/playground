@@ -8,14 +8,24 @@ use crate::manifests::{self, ArtifactRow, ManifestRow, RevisionRow};
 use crate::state::AppState;
 use crate::util;
 use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
+use axum::handler::Handler;
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+/// 部品アップロードの本文上限に足す余裕 (multipart の境界と name / version / kind の分)
+const UPLOAD_OVERHEAD: usize = 1024 * 1024;
+
 pub fn router(max_upload: usize) -> Router<AppState> {
     Router::new()
-        .route("/artifacts", get(list_artifacts).post(upload_artifact))
+        // 本文上限は部品アップロードの POST にだけ広げる (D43)。他は axum 既定 (2MB) のまま
+        .route(
+            "/artifacts",
+            get(list_artifacts).post(upload_artifact.layer(DefaultBodyLimit::max(
+                max_upload.saturating_add(UPLOAD_OVERHEAD),
+            ))),
+        )
         .route("/artifacts/{id}", get(get_artifact))
         .route("/manifests", get(list_manifests).post(create_manifest))
         .route("/manifests/{id}", get(get_manifest))
@@ -53,8 +63,6 @@ pub fn router(max_upload: usize) -> Router<AppState> {
         .route("/audit", get(list_audit))
         .route("/launches", get(list_launches))
         .route("/clients", get(list_clients))
-        // multipart の上限 = アーティファクト上限 + 余裕
-        .layer(DefaultBodyLimit::max(max_upload + 1024 * 1024))
 }
 
 fn artifact_json(a: &ArtifactRow) -> Value {
@@ -341,15 +349,18 @@ async fn insert_revision(
     let text = body.to_string();
     let now = util::now_str();
     sqlx::query(
-        "INSERT INTO manifest_revisions (manifest_id, revision, state, body, body_sha256, created_by, updated_by, created_at, updated_at)
-         VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO manifest_revisions (manifest_id, revision, state, body, body_sha256, created_by, updated_by, created_by_id, updated_by_id, created_at, updated_at)
+         VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(id)
     .bind(rev)
     .bind(&text)
     .bind(util::sha256_hex(text.as_bytes()))
+    // 名前は表示用、id は editor ≠ approver の判定用 (D41)
     .bind(&p.name)
     .bind(&p.name)
+    .bind(&p.id)
+    .bind(&p.id)
     .bind(&now)
     .bind(&now)
     .execute(&st.pool)
@@ -576,12 +587,13 @@ async fn update_revision(
     let text = body.to_string();
     let now = util::now_str();
     sqlx::query(
-        "UPDATE manifest_revisions SET body = ?, body_sha256 = ?, validation = ?, updated_by = ?, updated_at = ? WHERE manifest_id = ? AND revision = ?",
+        "UPDATE manifest_revisions SET body = ?, body_sha256 = ?, validation = ?, updated_by = ?, updated_by_id = ?, updated_at = ? WHERE manifest_id = ? AND revision = ?",
     )
     .bind(&text)
     .bind(util::sha256_hex(text.as_bytes()))
     .bind(serde_json::to_string(&report)?)
     .bind(&p.name)
+    .bind(&p.id)
     .bind(&now)
     .bind(&id)
     .bind(rev)
