@@ -9,6 +9,7 @@
     .s  { fill:#475569; font-size:12px; }
     .h  { fill:#0f172a; font-weight:700; font-size:16px; }
     .h2 { fill:#0f172a; font-weight:700; font-size:14px; }
+    .h3 { fill:#0f172a; font-weight:700; font-size:12.5px; }
     .mono { font-family: ui-monospace, Consolas, 'SF Mono', Menlo, monospace; font-size:12px; fill:#0f172a; }
     .box { fill:#ffffff; stroke:#94a3b8; stroke-width:1.2; rx:6; }
     .zone { fill:#f8fafc; stroke:#64748b; stroke-width:1.5; stroke-dasharray:6 4; rx:10; }
@@ -26,8 +27,8 @@
   </style>
 
   <rect width="1400" height="1040" fill="#ffffff"/>
-  <text x="24" y="34" class="h" font-size="20">WasmEmuSil 構成図 — サーバアプリ / クライアントアプリ (Electron シェル + Rust エンジン) / 開発ツール</text>
-  <text x="24" y="56" class="s">制御ループは仮想 MCU の中で閉じる。サーバは構成情報と部品の配信・管理に専念する。サーバとの通信は起動時・手動更新時のみ。</text>
+  <text x="24" y="34" class="h" font-size="20">WasmEmuSil 構成図 — サーバ (ポータル + 配信 + 管理) / クライアント (Electron シェル + Rust エンジン) / 開発ツール</text>
+  <text x="24" y="56" class="s">利用者はシェル (または通常のブラウザ) でサーバのポータルを開き、カタログから構成を選んで「起動」する。制御ループは仮想 MCU の中で閉じる。</text>
 
   <!-- ===================== SERVER ===================== -->
   <rect x="24" y="80" width="420" height="400" class="zone srv"/>
@@ -35,16 +36,16 @@
   <text x="40" y="124" class="s">Rust / axum / tokio ・ Docker + リバースプロキシ (TLS)</text>
 
   <rect x="40" y="140" width="388" height="78" class="box"/>
-  <text x="52" y="160" class="h2">配信 API  /api/v1   (クライアント API キー)</text>
-  <text x="52" y="180" class="mono">POST clients/hello         → 割当 {manifestId, revision}</text>
+  <text x="52" y="160" class="h2">配信 API  /api/v1   (セッショントークン or API キー)</text>
+  <text x="52" y="180" class="mono">GET  catalog                → 利用者に公開された構成</text>
   <text x="52" y="196" class="mono">GET  manifests/{id}         → 署名付き JSON</text>
   <text x="52" y="212" class="mono">GET  artifacts/{name}/{ver} → .wasm (ETag=sha256)</text>
 
   <rect x="40" y="228" width="388" height="112" class="box"/>
-  <text x="52" y="248" class="h2">管理 SPA  /admin   (Vite + React + TS)</text>
-  <text x="52" y="268" class="t">・部品登録: wasm アップロード → WIT 抽出 → ポート / import 表示</text>
-  <text x="52" y="286" class="t">・manifest: 下書き → 検証 → 承認 (capability) → 公開 → 巻き戻し</text>
-  <text x="52" y="304" class="t">・クライアント割当、API キー発行、監査ログ</text>
+  <text x="52" y="248" class="h2">SPA  (Vite + React + TS)   /portal + /admin</text>
+  <text x="52" y="268" class="t">・ポータル: ログイン → カタログ → 「起動」(ブリッジ / ipemu://)</text>
+  <text x="52" y="286" class="t">・管理: 部品登録 (WIT 抽出)、manifest 検証→承認→公開</text>
+  <text x="52" y="304" class="t">・公開範囲、ユーザ / ロール、API キー、監査、起動履歴</text>
   <text x="52" y="324" class="s">ロール分離: editor (下書き) ≠ approver (承認・公開)</text>
 
   <rect x="40" y="350" width="186" height="116" class="box"/>
@@ -52,16 +53,16 @@
   <text x="52" y="390" class="t">artifacts/ 内容アドレス</text>
   <text x="52" y="406" class="mono">sha256/ab/cd/&lt;hex&gt;</text>
   <text x="52" y="426" class="t">SQLite (sqlx)</text>
-  <text x="52" y="442" class="s">manifests / clients /</text>
-  <text x="52" y="456" class="s">approvals / audit</text>
+  <text x="52" y="442" class="s">manifests / users / launches /</text>
+  <text x="52" y="456" class="s">approvals / telemetry / audit</text>
 
   <rect x="242" y="350" width="186" height="116" class="box"/>
-  <text x="254" y="370" class="h2">検証・署名</text>
-  <text x="254" y="390" class="t">ipemu-core で manifest 検証</text>
-  <text x="254" y="406" class="s">(クライアントと同一クレート)</text>
+  <text x="254" y="370" class="h2">認証・署名</text>
+  <text x="254" y="390" class="t">ローカルアカウント (argon2id)</text>
+  <text x="254" y="406" class="s">user / editor / approver / admin</text>
   <text x="254" y="426" class="t">Ed25519 で manifest 署名</text>
-  <text x="254" y="442" class="s">鍵はサーバのみ。公開鍵は</text>
-  <text x="254" y="456" class="s">クライアントに同梱 (keyId)</text>
+  <text x="254" y="442" class="s">manifest 検証は ipemu-core</text>
+  <text x="254" y="456" class="s">(クライアントと同一クレート)</text>
 
   <!-- ===================== LEGEND ===================== -->
   <rect x="24" y="500" width="420" height="400" class="zone"/>
@@ -79,52 +80,57 @@
   <text x="40" y="668" class="h2">アーティファクト</text>
   <text x="40" y="686" class="t">部品 wasm / ファームウェア wasm / UI バンドル。sha256 で同定。</text>
   <text x="40" y="702" class="t">イミュータブル。キャッシュと CDN に載る。</text>
-  <text x="40" y="730" class="h2">配線 (wire)</text>
-  <text x="40" y="748" class="t">latency 1 (既定): 次ステップで反映。閉路は無条件に可。</text>
-  <text x="40" y="764" class="t">latency 0: 同一ステップ。閉路は manifest 検証で拒否。</text>
+  <text x="40" y="730" class="h2">起動の入口</text>
+  <text x="40" y="748" class="t">ポータルの「起動」。シェル内は window.ipemu、</text>
+  <text x="40" y="764" class="t">Chrome / Edge からは ipemu:// リンク (確認ダイアログ付き)。</text>
   <text x="40" y="792" class="h2">capability</text>
   <text x="40" y="810" class="t">宣言 (manifest) → 承認・署名 (サーバ) → 初回同意 (クライアント)。</text>
   <text x="40" y="826" class="t">宣言のない import は link されず、実体化で失敗する。</text>
-  <text x="40" y="854" class="h2">NetworkedSil との違い</text>
-  <text x="40" y="872" class="t">制御ループに通信路が入らない。時間は仮想・決定的。</text>
-  <text x="40" y="888" class="t">サーバはコントローラではなく配信・管理。</text>
+  <text x="40" y="854" class="h2">クライアントは対象を知らない</text>
+  <text x="40" y="872" class="t">部品・FW・UI・構成はすべて配信物。別の機構も登録だけで動く。</text>
+  <text x="40" y="888" class="t">本体更新が要るのは組み込み部品 / WIT / IPC の非互換変更のみ。</text>
 
   <!-- ===================== CLIENT ===================== -->
   <rect x="490" y="80" width="886" height="820" class="zone"/>
-  <text x="506" y="106" class="h">クライアントアプリ  (Windows / macOS / Linux)</text>
-  <text x="506" y="124" class="s">2 プロセス構成。シェルは状態を持たず、エンジンは UI なしでも動く。</text>
+  <text x="506" y="106" class="h">クライアントアプリ  (Windows / macOS / Linux × x64 / arm64)</text>
+  <text x="506" y="124" class="s">2 プロセス構成。シェルはシミュレータの状態を持たず、エンジンは UI なしでも動く。v1 は同時 1 セッション。</text>
 
-  <!-- server -> engine corridor (y 140..195) -->
+  <!-- server <-> engine corridor (y 140..195) -->
   <path d="M444,160 L1000,160 L1000,256" class="lineB"/>
-  <text x="470" y="152" class="lblB">① hello → 割当 manifest (署名付き)   ② 不足アーティファクトを取得して sha256 照合   (HTTPS, 起動時・手動更新時のみ)</text>
+  <text x="470" y="152" class="lblB">① 「起動」→ 署名付き manifest   ② 不足アーティファクトを取得して sha256 照合   (HTTPS, 利用者のセッショントークン)</text>
   <path d="M1060,256 L1060,182 L444,182" class="line" stroke-dasharray="3 3" opacity="0.8"/>
-  <text x="470" y="196" class="s">③ telemetry: 実行要約 (開始 / 終了 / FAULT 理由 / capability 使用回数)。任意、既定は要裁定</text>
+  <text x="470" y="196" class="s">③ telemetry: 実行要約 (開始 / 終了 / FAULT / capability 使用回数)。既定 on、クライアント設定で off</text>
+
+  <!-- shell -> server portal browsing -->
+  <path d="M506,296 L444,296" class="lineB"/>
+  <text x="466" y="289" class="lblB">⓪</text>
 
   <!-- Shell -->
   <rect x="506" y="204" width="300" height="440" class="zone shl"/>
-  <text x="520" y="228" class="h">UI シェル  (Electron)</text>
+  <text x="520" y="228" class="h">UI シェル  (Electron, 汎用ブラウザ)</text>
   <text x="520" y="246" class="s">差し替え可能: Electrobun(CEF) / Qt WebEngine / cef-rs</text>
 
   <rect x="520" y="260" width="272" height="118" class="box"/>
   <text x="532" y="280" class="h2">main (Node)</text>
-  <text x="532" y="300" class="t">・エンジンを子プロセスで起動・監視</text>
-  <text x="532" y="318" class="t">・app:// でキャッシュ内の UI バンドルを配信</text>
-  <text x="532" y="336" class="t">・同意ダイアログ (capability の初回同意)</text>
-  <text x="532" y="360" class="s">sandbox / contextIsolation / CSP: app:// と 127.0.0.1 のみ</text>
+  <text x="532" y="298" class="t">・タブ / アドレスバー (任意のサイト可)</text>
+  <text x="532" y="316" class="t">・信頼 origin にだけ window.ipemu を注入</text>
+  <text x="532" y="334" class="t">・ipemu:// ハンドラ (外部ブラウザから起動)</text>
+  <text x="532" y="352" class="t">・エンジン起動・監視、app://、同意</text>
+  <text x="532" y="370" class="s">sandbox / contextIsolation / 全ページで Node 不可</text>
 
   <rect x="520" y="390" width="272" height="150" class="box"/>
   <text x="532" y="410" class="h2">renderer (Chromium)</text>
-  <text x="532" y="430" class="t">React + ui-kit</text>
-  <text x="532" y="448" class="t">・2D / 3D / スコープ  (sim-view.js を移植)</text>
-  <text x="532" y="466" class="t">・トポロジ図 (部品と配線)</text>
-  <text x="532" y="484" class="t">・操作: 開始 / 停止 / パラメータ / FW 差し替え</text>
-  <text x="532" y="508" class="s">状態は IPC の state 通知を描くだけ</text>
-  <text x="532" y="526" class="s">UI バンドルは manifest で配られるアーティファクト</text>
+  <text x="532" y="430" class="t">⓪ ポータル (サーバのページ) を閲覧 → 「起動」</text>
+  <text x="532" y="448" class="t">シミュレータ UI (app://, 配信物)</text>
+  <text x="532" y="466" class="t">・2D / 3D / スコープ  (sim-view.js を移植)</text>
+  <text x="532" y="484" class="t">・トポロジ図、操作 (開始 / 停止 / パラメータ)</text>
+  <text x="532" y="508" class="s">FW 差替: wasm はホット (状態保持) / native は再起動</text>
+  <text x="532" y="526" class="s">状態は IPC の state 通知を描くだけ</text>
 
   <rect x="520" y="552" width="272" height="78" class="box"/>
   <text x="532" y="572" class="h2">IPC 契約  (crates/ipemu-ipc)</text>
   <text x="532" y="590" class="s">ループバック WebSocket + トークン</text>
-  <text x="532" y="606" class="s">JSON-RPC: 操作 / 通知 / consent.required ⇄ answer</text>
+  <text x="532" y="606" class="s">JSON-RPC: session.launch / 操作 / consent ⇄ answer</text>
   <text x="532" y="622" class="s">MessagePack: state (50Hz), scope ストリーム</text>
 
   <!-- IPC arrows in the gap -->
@@ -140,9 +146,9 @@
 
   <rect x="880" y="256" width="226" height="92" class="box"/>
   <text x="892" y="276" class="h2">bootstrap</text>
-  <text x="892" y="296" class="t">hello → manifest → 署名検証</text>
+  <text x="892" y="296" class="t">launch → manifest → 署名検証</text>
   <text x="892" y="314" class="t">→ artifacts 取得 → sha256 照合</text>
-  <text x="892" y="332" class="s">キャッシュ sha256/… ・ オフライン起動可</text>
+  <text x="892" y="332" class="s">資格: セッション / チケット / API キー</text>
 
   <rect x="1120" y="256" width="226" height="92" class="box"/>
   <text x="1132" y="276" class="h2">ipemu-core</text>
@@ -160,50 +166,56 @@
   <text x="894" y="460" class="h2">Wasmtime  (Component Model / WIT  ip:emu@0.1.0)</text>
   <text x="894" y="476" class="s">部品ごとに Store。wasi:* は承認・同意済みのものだけ link。NaN 正規化で決定的</text>
 
-  <rect x="894" y="488" width="140" height="64" class="box wasm"/>
-  <text x="904" y="507" class="h2">plant-cartpole</text>
-  <text x="904" y="524" class="s">台車+振子+DC モータ</text>
-  <text x="904" y="540" class="s">RK4 1ms (ip-model)</text>
+  <rect x="894" y="488" width="112" height="64" class="box wasm"/>
+  <text x="902" y="506" class="h3">plant-cartpole</text>
+  <text x="902" y="523" class="s" font-size="11">台車+振子+モータ</text>
+  <text x="902" y="539" class="s" font-size="11">RK4 1ms / ip-model</text>
 
-  <rect x="1048" y="488" width="140" height="64" class="box wasm"/>
-  <text x="1058" y="507" class="h2">motor-driver</text>
-  <text x="1058" y="524" class="s">PWM→電圧, 保護</text>
-  <text x="1058" y="540" class="s">E-STOP / 指令TO 500ms</text>
+  <rect x="1014" y="488" width="104" height="64" class="box wasm"/>
+  <text x="1022" y="506" class="h3">motor-driver</text>
+  <text x="1022" y="523" class="s" font-size="11">PWM→電圧</text>
+  <text x="1022" y="539" class="s" font-size="11">保護 (E-STOP/TO)</text>
 
-  <rect x="1202" y="488" width="134" height="64" class="box wasm"/>
-  <text x="1212" y="507" class="h2">encoder ×2</text>
-  <text x="1212" y="524" class="s">量子化・計数</text>
-  <text x="1212" y="540" class="s">(cart / pendulum)</text>
+  <rect x="1126" y="488" width="98" height="64" class="box wasm"/>
+  <text x="1134" y="506" class="h3">encoder ×2</text>
+  <text x="1134" y="523" class="s" font-size="11">量子化・計数</text>
+  <text x="1134" y="539" class="s" font-size="11">cart / pend.</text>
+
+  <rect x="1232" y="488" width="104" height="64" class="box wasm"/>
+  <text x="1240" y="506" class="h3">comm-link</text>
+  <text x="1240" y="523" class="s" font-size="11">遅延・ジッタ・</text>
+  <text x="1240" y="539" class="s" font-size="11">再送スパイク</text>
 
   <!-- wires between parts -->
-  <path d="M1048,536 L1034,536" class="line"/>
-  <text x="1000" y="572" class="s" font-size="10">◀ voltage</text>
-  <path d="M1188,520 L1202,520" class="line"/>
-  <text x="1206" y="566" class="s" font-size="10">x, θ ▶</text>
+  <path d="M1014,536 L1006,536" class="line"/>
+  <path d="M1118,520 L1126,520" class="line"/>
+  <text x="992" y="566" class="s" font-size="10">◀ voltage</text>
 
   <!-- cpu-virtual -->
   <rect x="894" y="578" width="442" height="180" class="box fw"/>
-  <text x="906" y="598" class="h2">builtin:cpu-virtual — 仮想 MCU (tick 1kHz, 実行時間 zero/fixed/fuel)</text>
+  <text x="906" y="598" class="h2">builtin:cpu-virtual — 仮想 MCU (1kHz, 実行時間 zero/fixed/fuel)</text>
   <text x="906" y="614" class="s">周辺 = ポート (enc0/1, pwm0, gpio, uart0) → HAL レジスタ像 → firmware.tick()</text>
 
   <rect x="906" y="624" width="418" height="124" class="box fw" stroke-dasharray="4 3"/>
-  <text x="918" y="643" class="h2">ファームウェア slot "balance"  — 外部から注入 (HAL だけに依存)</text>
+  <text x="918" y="643" class="h2">FW slot "balance" — 外部から注入 (HAL のみ依存、C 版 / Rust 版)</text>
   <rect x="918" y="654" width="196" height="84" class="box"/>
   <text x="928" y="672" class="h2">fw-balance.wasm  (配布形・正)</text>
-  <text x="928" y="690" class="s">wasm32-wasip2 ・ 全 OS 同一</text>
-  <text x="928" y="706" class="s">fuel で実行時間を見積り</text>
+  <text x="928" y="690" class="s">wasm32-wasip2、全環境で同一</text>
+  <text x="928" y="706" class="s">ホット差替 (状態保持) / fuel 計時</text>
   <text x="928" y="722" class="s">LLDB (DWARF) でソースデバッグ</text>
   <rect x="1124" y="654" width="190" height="84" class="box dev"/>
   <text x="1134" y="672" class="h2">fw_balance.dll/.so  (開発形)</text>
-  <text x="1134" y="690" class="s">同じ C / Rust ソース ・ libloading</text>
+  <text x="1134" y="690" class="s">同じソース / 差替はエンジン再起動</text>
   <text x="1134" y="706" class="s">Visual Studio で F5 / アタッチ</text>
   <text x="1134" y="722" class="s">決定性・サンドボックスの保証外</text>
 
   <!-- wires parts <-> mcu -->
-  <path d="M1269,552 L1269,578" class="line"/>
-  <text x="1276" y="569" class="s" font-size="11">count</text>
-  <path d="M1118,578 L1118,552" class="line"/>
-  <text x="1126" y="572" class="s" font-size="11">pwm0, enable</text>
+  <path d="M1175,552 L1175,578" class="line"/>
+  <text x="1182" y="572" class="s" font-size="11">count</text>
+  <path d="M1066,578 L1066,552" class="line"/>
+  <text x="1072" y="572" class="s" font-size="11">pwm0, enable</text>
+  <path d="M1284,552 L1284,578" class="line"/>
+  <text x="1290" y="572" class="s" font-size="11">uart</text>
 
   <!-- capability box -->
   <rect x="880" y="778" width="466" height="96" class="box"/>
@@ -224,8 +236,8 @@
   <text x="806" y="974" class="h2">VS Code + CodeLLDB (全 OS)</text>
   <text x="806" y="992" class="s">native 形にアタッチ / wasm 形は DWARF 経由</text>
   <rect x="1086" y="956" width="276" height="52" class="box"/>
-  <text x="1096" y="974" class="h2">ipemu-engine --headless / validate</text>
-  <text x="1096" y="992" class="s">CI、ゴールデントレース、manifest 検証、WIT 表示</text>
+  <text x="1096" y="974" class="h2">headless CLI / scripts/check.sh</text>
+  <text x="1096" y="992" class="s">ゴールデン、manifest 検証、lint。CI は置かない</text>
 
   <path d="M600,956 C600,905 1219,920 1219,884" class="lineR"/>
 </svg>

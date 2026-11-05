@@ -2,7 +2,8 @@
 
 ## 方針
 外部の基準値 (C# 実装や実測) に依存せず、**Rust の中で閉じて**正しさを示します。
-CI は `cargo test` (+ `pnpm test`) だけで完結させます。
+CI は置かず (裁定済み)、`scripts/check.sh` / `scripts/check.ps1` が `cargo fmt --check` / `clippy` / `cargo test` /
+`pnpm lint` / `pnpm test` / `markdownlint-cli2` を一括で回します。PR を出す前に手元で通すのが手順です。
 
 ## 層
 | 層 | 対象 | 手段 | 走る場所 |
@@ -10,10 +11,11 @@ CI は `cargo test` (+ `pnpm test`) だけで完結させます。
 | L1 性質 | `ip-model` (物理)、LQR | 下表の不変量・性質テスト (`proptest`) | `cargo test` |
 | L2 回帰 | 部品 wasm、ファームウェア wasm | ゴールデントレース (ハッシュ + 許容誤差) | `cargo test` (wasm をビルドして Wasmtime で実行) |
 | L3 適合性 | 任意の部品 wasm | `ip:emu/part` の契約 (describe と実挙動の一致、reset の冪等、snapshot/restore の往復) | `ipemu-engine conformance <wasm>`、サーバのアップロード時にも実行 |
-| L4 決定性 | エンジン全体 | 同じ manifest + 操作列を 2 回 / 別 OS で走らせてトレースのハッシュが一致 | `cargo test` + CI マトリクス (Linux / Windows / macOS) |
+| L4 決定性 | エンジン全体 | 同じ manifest + 操作列を 2 回 / 別 OS・別アーキで走らせてトレースのハッシュが一致 | `cargo test` (同一機)。OS / アーキ間は手元の 2 台以上で `scripts/check.sh --golden-compare` を走らせて記録 |
 | L5 結合 | エンジン + ファームウェア | headless で閉ループ: スイングアップ → 倒立維持 → 外乱 → 復帰、FAULT 経路 | `cargo test` (NetworkedSil の `SilHarness` 相当) |
 | L6 契約 | IPC、配信 API | `ipemu-ipc` の型からの TS 生成が最新であること、API のスナップショットテスト | `cargo test` / `pnpm test` |
-| L7 E2E | シェル + エンジン + サーバ | Playwright (Electron 対応) で起動 → 同意 → 実行 → 表示を確認 | 専有ランナー |
+| L7 E2E | シェル + エンジン + サーバ | Playwright (Electron 対応) でポータルにログイン → 起動 → 同意 → 実行 → 表示、および `ipemu://` 起動を確認 | 手元 (`scripts/e2e.sh`) |
+| L8 FW 同等性 | C 版と Rust 版の fw-balance | 同じ manifest・同じ外乱で両者のトレースが許容誤差内 (wasm 形同士はビット一致を目標) | `cargo test` |
 
 ## L1 性質テストの中身
 | 性質 | 確認すること |

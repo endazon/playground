@@ -14,7 +14,19 @@
 | D9 | 許可制 | manifest 宣言 + 管理者承認 (署名) + クライアントで初回同意 | 承認のみ: 利用者が拒否できない。ローカル設定のみ: 配布管理と切り離される |
 | D10 | サーバの言語 | **Rust (axum)** + TypeScript の管理 SPA | ASP.NET Core + Blazor: manifest 検証を C# で二重実装するか Rust 製 CLI を呼ぶ必要がある |
 | D11 | 検証 (オラクル) | Rust 内で閉じた性質検証 + 自前ゴールデントレース。C# との突合せは移植時 1 回だけ手動 | C# を CI で実行: .NET SDK が CI に要り、基準値の更新が属人化する |
-| D12 | UI フレームワーク | **Vite + React + TypeScript** (管理 SPA とシェル renderer で共通) | Svelte: 軽いが共有部品のエコシステム (CodeMirror / three.js 連携) の情報量で劣る。Vue: 同等だが人手の都合で React |
+| D12 | UI フレームワーク | **Vite + React + TypeScript** (ポータル / 管理 SPA とシミュレータ UI で共通) | Svelte: 軽いが共有部品のエコシステム (CodeMirror / three.js 連携) の情報量で劣る。Vue: 同等だが人手の都合で React |
+| D13 | 起動の入口 | **サーバのポータル**でカタログから「起動」。シェル内はブリッジ、外部ブラウザは `ipemu://` | エンジンが割当を取る方式: 利用者が構成を選ぶ場面がなく、キオスク向け |
+| D14 | シェルの性格 | **汎用ブラウザ** (任意のサイトを閲覧可)。ブリッジは信頼 origin のみ | 信頼 origin 限定: 安全だが「普通のブラウザとして使える」要件を満たさない |
+| D15 | ポータル認証 | 利用者ログイン (管理者と同じアカウント基盤、`user` ロール)。エンジンはセッショントークンを使う。API キーは headless 用 | 認証なし: 誰が起動したかが残らない。端末 API キーのみ: 共有端末で監査が曖昧 |
+| D16 | 同時実行 | v1 は **1 セッション**。別構成の起動は切り替え | 最初から複数: 実時間ペーシングの干渉と UI の複雑さ |
+| D17 | 本体の配布 | **未署名 zip** の社内配布。electron-builder は署名可能な構成にしておく | 最初からコード署名: 証明書費用と鍵運用 |
+| D18 | テレメトリ | **既定 on**、要約のみ、クライアント設定で off | 既定 off: 管理画面の「クライアント」情報が乏しい。v1 から外す: 後から入れると契約変更になる |
+| D19 | 管理者認証 | **ローカルアカウント (argon2id) のみ**。OIDC は拡張点 | 最初から OIDC: 評価環境でも IdP が要る |
+| D20 | 対象アーキ | **x64 + arm64** を 3 OS すべてで | x64 のみ: Apple Silicon で Rosetta 依存 |
+| D21 | comm-link | **v1 (M1) に含める** | M6 送り: NetworkedSil の遅延実験との比較が遅れる |
+| D22 | FW の初回実装 | **C と Rust の 2 本** (同じ仕様、同じゴールデン) | C のみ: HAL 境界が C 寄りになっていても気づけない |
+| D23 | FW リビルドの反映 | **wasm はホット差替 (状態保持)、native はエンジン再起動** | 再起動のみ: wasm の利点を捨てる。全部ホット: native のアンロードが信頼できない |
+| D24 | CI | **置かない**。`scripts/check.*` のローカル検証と手順書 | GitHub Actions: 今は運用コストを払わない判断。NetworkedSil と同じ |
 
 ### D8 の調査結果: クロスプラットフォームで Chromium を同梱する手段
 | 方式 | Chromium の出所 | 成熟度 | Rust エンジンとの関係 | 評価 |
@@ -39,23 +51,20 @@
 | 署名鍵の世代 | `keyId` で管理、公開鍵はクライアント同梱 | v1 では鍵更新 = 本体更新。KMS は後 |
 | DB | SQLite (sqlx) | 小規模運用。抽象を保って PostgreSQL へ移行可能に |
 
-## 未決事項 (実装前に裁定が欲しいもの)
+## 未決事項
+Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに出た判断はこの表に追記し、裁定を仰ぎます。
+
 | # | 項目 | 選択肢 | 影響 |
 | --- | --- | --- | --- |
-| Q1 | クライアント本体の配布と署名 | (a) 未署名 zip / (b) OS ごとのコード署名 (Authenticode / notarization) | 配布経路と費用。v1 は (a) で、社内配布を想定 |
-| Q2 | テレメトリの既定 | (a) 既定 on (要約のみ) / (b) 既定 off | 管理画面の「クライアント」タブの情報量 |
-| Q3 | 管理者認証 | (a) ローカルアカウントのみ / (b) 最初から OIDC | 運用環境の IdP 有無 |
-| Q4 | 対象アーキテクチャ | x64 のみ / + arm64 (Apple Silicon、Raspberry Pi) | Electron / エンジンのビルドマトリクス |
-| Q5 | `comm-link` 部品の v1 同梱 | 含める / M6 まで送る | NetworkedSil の遅延実験との比較をいつ取るか |
-| Q6 | ファームウェアの最初の実装 | C のみ / C + Rust の 2 本 | HAL 境界の 2 言語での検証を初回から行うか |
+| (なし) | | | |
 
 ## マイルストーン (承認後)
 | M | 内容 | 完了条件 |
 | --- | --- | --- |
 | M0 | 設計 (本 PR) | 設計資料の承認 |
-| M1 | エンジン核 | ローカル manifest から plant / driver / encoder (Rust 部品) + `fw-balance` (C、wasm と native) を組み立て、headless で倒立維持。決定性テストと性質テストが通る |
-| M2 | シェル | Electron + sim-view 移植。IPC 契約の TS 型生成。VS の F5 デバッグ手順がドキュメントどおりに動く |
-| M3 | サーバ配信 | hello / manifests / artifacts API、署名、クライアントの bootstrap とキャッシュ、オフライン起動 |
-| M4 | 管理 SPA | 部品登録 (WIT 抽出)、manifest 編集と検証、承認 / 公開、割当、監査 |
+| M1 | エンジン核 | ローカル manifest から plant / driver / encoder / comm-link (Rust 部品) + `fw-balance` (C 版と Rust 版、各 wasm と native) を組み立て、headless で倒立維持。決定性・性質・FW 同等性テストが `scripts/check.sh` で通る |
+| M2 | シェル | Electron の汎用ブラウザ UI + 信頼 origin ブリッジ + `ipemu://` ハンドラ + シミュレータ UI (sim-view 移植)。IPC 契約の TS 型生成。wasm ホット差替 / native 再起動。VS の F5 手順がドキュメントどおりに動く |
+| M3 | サーバ配信 + ポータル | ログイン、カタログ、起動 (ブリッジ / `ipemu://` チケット)、manifests / artifacts API、署名、エンジンの bootstrap とキャッシュ、ローカルカタログでのオフライン起動、telemetry |
+| M4 | 管理画面 | 部品登録 (WIT 抽出)、manifest 編集と検証、承認 / 公開 / 公開範囲、ユーザとロール、API キー、監査 |
 | M5 | capability | WASI p2 の sockets / filesystem を宣言 → 承認 → 同意で付与。同意 UI。拒否時の挙動 |
-| M6 | 拡張 | fuel ベースの実行時間モデル、`comm-link`、NetworkedSil の遅延実験との比較記録 |
+| M6 | 拡張 | fuel ベースの実行時間モデル、NetworkedSil の遅延実験との比較記録 (comm-link を使う)、6 プラットフォームの zip ビルド |

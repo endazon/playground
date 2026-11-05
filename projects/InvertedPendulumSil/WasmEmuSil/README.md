@@ -8,8 +8,9 @@
 **クライアント側で組み立てるエミュレータ**として実現します。
 
 - **サーバアプリ**: アクセスすると構成情報 (manifest) と部品 (WASM) をダウンロードできる配信サーバ + 管理画面
-- **クライアントアプリ**: Chromium (UI シェル) + Wasmtime (エミュレータエンジン) のデスクトップアプリ。Windows / macOS / Linux。
-  起動時にサーバから構成情報を取り、構成に書かれた部品 WASM を取り寄せてエミュレータ環境を組み立てる
+- **クライアントアプリ**: Chromium (UI シェル) + Wasmtime (エミュレータエンジン) のデスクトップアプリ。Windows / macOS / Linux、x64 / arm64。
+  シェルは**普通のブラウザとして**サーバのポータルを開き、利用者がカタログから構成を選んで「起動」を押すと、
+  エンジンが構成情報と部品 WASM を取り寄せてエミュレータ環境を組み立てる。Chrome / Edge から `ipemu://` リンクで起動することもできる
 - **仮想 MCU**: エミュレータの中の CPU 部品。その中で走る**制御プログラム (ファームウェア) は外部から注入**する。
   配布形は WASM (全 OS 共通)。同じ C / Rust ソースをネイティブ共有ライブラリにもビルドでき、
   Windows では Visual Studio で F5 / アタッチしてブレークポイントを置ける
@@ -26,7 +27,9 @@
 | 時間 | 実時間 (ブラウザの Stopwatch とサーバの時計) | **仮想時間**。固定ステップで決定的。実時間へのペーシングは任意 |
 | 制御プログラム | C# (`ControllerCore`) がサーバに固定 | C / Rust ソースを WASM (配布) とネイティブ (デバッグ) にビルドして注入 |
 | デバッグ | ブレークで止めるとウォッチドッグが鳴る | ブレークで止めると**仮想世界ごと止まる**。再開しても矛盾しない |
-| 部品の差し替え | ソース変更と再デプロイ | 構成情報の編集と部品 WASM の登録。クライアントは再起動のみ |
+| 部品の差し替え | ソース変更と再デプロイ | 構成情報の編集と部品 WASM の登録。クライアント本体は更新不要 |
+| 対象の広がり | 倒立振子専用 | クライアントは対象を知らない。部品・ファームウェア・UI・構成はすべて配信物で、別の機構も登録だけで動く |
+| 起動の入口 | ブラウザで URL を開く | シェル (または通常のブラウザ) でサーバのポータルを開き、カタログから「起動」 |
 | 実装言語 | C# (.NET 10) | エンジン / サーバ / 部品: Rust、UI: TypeScript、ファームウェア: C / C++ / Rust |
 
 ## ドキュメント
@@ -57,16 +60,18 @@ WasmEmuSil/
     ipemu-wasm/                 Wasmtime ホスティング、部品 / ファームウェアのローダ、WASI 付与
     ipemu-ipc/                  シェル ⇄ エンジンの IPC 契約 (JSON-RPC + MessagePack)
     ipemu-engine/               クライアントのエンジン実行ファイル (headless CLI も兼ねる)
-    ipemu-server/               配信 API + 管理 SPA の配信 (axum)
+    ipemu-server/               配信 API + ポータル / 管理 SPA の配信 (axum)
     ip-model/                   台車+振子+DC モータの物理モデル (no_std、部品とテストで共有)
   components/                   部品 (cargo component → .wasm)
     plant-cartpole/  motor-driver/  encoder/  comm-link/
   firmware/
-    fw-balance/                 C: 状態機械 + LQR + スイングアップ。wasm と native の両方にビルド
+    fw-balance-c/               C: 状態機械 + LQR + スイングアップ。wasm と native の両方にビルド
+    fw-balance-rs/              同じ仕様の Rust 実装。HAL 境界を 2 言語で検証する
   apps/
-    shell/                      Electron シェル (main / preload / renderer)
-    admin/                      管理 SPA (Vite + React)
+    shell/                      Electron シェル: 汎用ブラウザ UI (タブ / アドレスバー) + 信頼 origin 限定のブリッジ + ipemu:// ハンドラ
+    web/                        サーバが配信する SPA (Vite + React): ポータル (利用者) と管理画面 (管理者) をロールで出し分け
     ui-kit/                     共有 UI (sim-view の移植、スコープ、トポロジ表示)
+  scripts/                      ローカル検証スクリプト (check.sh / check.ps1)。CI は置かない
   tests/                        結合テスト、ゴールデントレース、適合性テスト
   Docs/
 ```

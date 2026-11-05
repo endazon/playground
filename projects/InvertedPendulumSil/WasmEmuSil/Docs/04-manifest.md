@@ -10,7 +10,7 @@ manifest は「どの部品を、どのパラメータで、どう配線し、�
 ```jsonc
 {
   "manifestVersion": 1,
-  "id": "cartpole-lqr-default",          // 安定な識別子。クライアントへの割当はこの id 単位
+  "id": "cartpole-lqr-default",          // 安定な識別子。カタログと公開範囲はこの id 単位
   "revision": 3,                          // 公開のたびに +1。クライアントは id + revision を記録する
   "name": "台車型倒立振子 / LQR 既定構成",
   "scheduler": { "baseStepNs": 1000000, "pacing": "realtime", "maxSlipMs": 200, "snapshotDivider": 20 },
@@ -70,19 +70,25 @@ V3 / V7 / V8 は wasm バイナリの WIT を読む必要があるため、サ�
 - クライアント側の同意は `(artifact sha256, capability 文字列)` を鍵に記憶します。部品を更新すると再同意になります。
   これは意図した挙動です (別のコードに同じ許可を引き継がない)。
 
-## 版と割当
+## 版と公開範囲
 ```text
 manifest (id)  ──┬── revision 1  (公開済み)
-                 ├── revision 2  (公開済み)   ← クライアント A に割当
+                 ├── revision 2  (公開済み・カタログの既定)   ← 利用者がポータルで選んで起動
                  └── revision 3  (下書き → 検証 → 承認 → 公開)
 ```
 - 下書きは何度でも保存でき、検証の結果が画面に出ます。
 - 承認は capability を含む本文に対して行い、承認後の本文変更は新しい下書きになります。
-- 公開で署名が付き、クライアントから取得可能になります。巻き戻しは「古い revision を再度割当てる」操作です。
-- `clients/hello` で返す割当は `(id, revision | "latest")` です。`latest` を割当てたクライアントは次回起動で新しい revision を取ります。
+- 公開で署名が付き、カタログに載ります。巻き戻しは「カタログの既定を古い revision に戻す」操作です。
+- **公開範囲** (全利用者 / 特定グループ) と **カタログでの既定 revision** は manifest 本文ではなくサーバ側のメタデータです。
+  本文に入れると署名のやり直しになるためです。
+- 利用者はカタログから `(id, revision)` を選びます。通常は既定 revision だけを見せ、
+  `editor` 以上のロールには過去 revision や未公開の下書きも「検証用に起動」できるようにします (署名はない旨を UI に表示)。
+- クライアントは複数の `(id, revision)` をキャッシュに持てますが、同時に動かすのは 1 つです。
 
 ## 上書き (開発用)
 ファームウェアの差し替えなど、開発者がローカルで manifest の一部を上書きできます。
+実行中の差し替え (`firmware.load`) は wasm 形ならプラントの状態を保ったままホットリロード、
+native 形はエンジン再起動 (プラントも初期状態) になります ([05-firmware.md](05-firmware.md))。
 
 ```bash
 ipemu-engine --manifest ./dev/cartpole.manifest.json \

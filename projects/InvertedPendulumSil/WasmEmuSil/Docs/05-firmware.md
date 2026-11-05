@@ -37,16 +37,21 @@
 | native (第 2) | `fw_balance.dll` / `.so` / `.dylib` | 開発・デバッグ | `libloading` でエンジンに読み込む | **Visual Studio** (Windows)、LLDB / GDB |
 
 同じソースから両方をビルドします。HAL の境界は WIT の `ip:emu/hal` (wasm) と `abi/ip_hal.h` (native) で、
-**関数名・引数・意味は 1 対 1** です。ソースは `ip_hal.h` だけを include し、
-ビルド時に `IP_HAL_TARGET_WASM` / `IP_HAL_TARGET_NATIVE` でバックエンドが切り替わります。
+**関数名・引数・意味は 1 対 1** です。
+
+v1 では **C と Rust の 2 本**を同じ仕様で実装します。HAL 境界が特定言語のバインディングに寄っていないことを
+初回から確かめるためで、2 本は同じゴールデントレースを通さなければなりません。
 
 ```text
-firmware/fw-balance/
-  src/ fw_main.c  controller.c  lqr_gain.h …   ← HAL だけに依存
+firmware/fw-balance-c/                    ← ip_hal.h だけを include
+  src/ fw_main.c  controller.c  lqr_gain.h …
   CMakeLists.txt
     target wasm   : clang --target=wasm32-wasip2 (wasi-sdk) + wit-bindgen c → fw-balance.wasm
     target native : cl / clang / gcc → fw_balance.{dll,so,dylib}  (PDB / DWARF 付き)
-  Cargo.toml (Rust で書く場合): cdylib + wasm32-wasip2 の 2 ターゲット
+    IP_HAL_TARGET_WASM / IP_HAL_TARGET_NATIVE でバックエンドを切替
+firmware/fw-balance-rs/                   ← ip-hal クレート (wit-bindgen 生成 + native 用 vtable 実装) だけに依存
+  Cargo.toml : crate-type = ["cdylib"] + target wasm32-wasip2
+  src/ lib.rs  controller.rs …
 ```
 
 ### HAL (抜粋。全文は [`../abi/ip_hal.h`](../abi/ip_hal.h))
@@ -98,8 +103,8 @@ Rust のビルド環境は不要です (エンジン自体をデバッグする�
    ```
 3. `controller.c` にブレークポイントを置いて F5。エンジンが起動し、`--shell auto` で UI シェルも立ち上がります。
    ブレークで止まると**仮想時間ごと止まる**ので、再開してもウォッチドッグや保護は鳴りません。
-4. 変更 → ビルド → F5 のサイクル。エンジンは起動のたびに DLL を読み直します (ホットリロードはしません。
-   ネイティブ DLL のアンロードは信頼できないためです)。
+4. 変更 → ビルド → F5 のサイクル。native 形は**エンジンを再起動して**読み直します (ネイティブ DLL の
+   プロセス内アンロードは信頼できないためです)。プラントも初期状態に戻ります。
 
 ### 方法 B: 起動中のエンジンにアタッチ
 「デバッグ → プロセスにアタッチ」で `ipemu-engine.exe` を選び、コードの種類を「ネイティブ」にします。
@@ -109,6 +114,16 @@ PDB が DLL の隣にあればブレークポイントが効きます。UI か�
 - 実時間ペーシングの追いつきを無効化 (ブレーク中に溜まった壁時計を捨てる)
 - epoch interruption の予算を無制限にする (ブレーク中に trap させない)
 - デバッガの接続 (`IsDebuggerPresent` / `ptrace` 検出) で自動的に有効化もする
+
+## リビルド後の反映 (ホットリロード)
+| 形 | `firmware.load` の挙動 | プラント状態 |
+| --- | --- | --- |
+| wasm | 実行中に slot だけ差し替える。古い `Store` を破棄し、新しいコンポーネントを `init` して次 tick から呼ぶ | **保持** (倒立中に差し替えると、そのまま制御が引き継がれる) |
+| native | エンジンを再起動する (シェルが自動で spawn し直し、同じ manifest と上書きで再 bootstrap) | 初期状態 |
+
+挙動が違うので、UI の「ファームウェア再読込」は形ごとにラベルを変え (「ホット差替」/「再起動して差替」)、
+`--watch` 指定時はビルド成果物の更新を検知して同じ処理を自動で行います。
+wasm のホット差替は、新しいファームウェアの `init` が失敗したら古い slot を残して FAULT にせず警告だけ出します。
 
 ## VS Code + LLDB (全 OS、wasm 形も可)
 - **ネイティブ形**: CodeLLDB の `attach` / `launch` で `ipemu-engine` を対象にする。方法 A と同じ引数。
