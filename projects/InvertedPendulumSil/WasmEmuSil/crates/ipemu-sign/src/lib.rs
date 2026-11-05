@@ -1,14 +1,16 @@
 //! ipemu-sign — manifest の署名まわり。サーバ (署名) とエンジン (検証) が同じ規則を使う。
 //!
-//! - 本文の正規化は RFC 8785 (JCS)。`signature` を除いた manifest 全体を正規化して Ed25519 で署名する
-//! - `approval.capabilitiesHash` は `components[].capabilities` の正規化 sha256 ([`capabilities_hash`])
+//! - 本文の正規化は RFC 8785 (JCS) で、実装は `ipemu_core::jcs` (D31 / D38: capabilitiesHash と同じもの。二重実装しない)。
+//!   `signature` を除いた manifest 全体を正規化して Ed25519 で署名する
+//! - `approval.capabilitiesHash` は `ipemu_core::capabilities_hash` ([`capabilities_hash`] はその Value 版の入口)
 //! - 鍵の配布形式は **raw 32 バイトの hex** を JSON に包んだもの ([`PublicKeyEntry`] / [`SigningKeyFile`])。
-//!   PEM (PKCS#8) は ASN.1 の解釈が要り、クライアントに同梱する値としては hex の方が検査しやすいため
+//!   PEM (PKCS#8) は ASN.1 の解釈が要り、クライアントに同梱する値としては hex の方が検査しやすいため (D37)
 
 use base64::Engine as _;
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use ipemu_core::Manifest;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
@@ -34,32 +36,17 @@ pub enum SignError {
     MalformedKey(String),
 }
 
-/// RFC 8785 で正規化したバイト列。
+/// RFC 8785 で正規化したバイト列 (`ipemu_core::jcs` に委譲)。
 pub fn canonicalize(value: &Value) -> Result<Vec<u8>, SignError> {
-    serde_jcs::to_vec(value).map_err(|e| SignError::Canonicalize(e.to_string()))
+    Ok(ipemu_core::jcs::canonicalize(value).into_bytes())
 }
 
-/// `components[].capabilities` を正規化して sha256 した hex。
-///
-/// 対象は capabilities を持つ部品だけで、`[{"instance": .., "capabilities": ..}, ...]` を manifest の順に並べた
-/// JSON 配列の JCS 形を取る。instance を含めるのは「同じ宣言を別の部品に付け替える」改変を検出するため。
+/// `approval.capabilitiesHash` (`ipemu_core::capabilities_hash` の定義: `{instance: Capabilities}` を型経由で
+/// 正規化 → JCS → sha256。D31)。JSON 値から呼ぶための入口で、manifest として読めない本文はエラーにする。
 pub fn capabilities_hash(manifest: &Value) -> Result<String, SignError> {
-    let mut items = Vec::new();
-    if let Some(comps) = manifest.get("components").and_then(|c| c.as_array()) {
-        for c in comps {
-            if let Some(cap) = c.get("capabilities") {
-                let mut o = Map::new();
-                o.insert(
-                    "instance".into(),
-                    c.get("instance").cloned().unwrap_or(Value::Null),
-                );
-                o.insert("capabilities".into(), cap.clone());
-                items.push(Value::Object(o));
-            }
-        }
-    }
-    let bytes = canonicalize(&Value::Array(items))?;
-    Ok(hex::encode(Sha256::digest(bytes)))
+    let m: Manifest = serde_json::from_value(manifest.clone())
+        .map_err(|e| SignError::Canonicalize(format!("manifest として読めません: {e}")))?;
+    Ok(ipemu_core::capabilities_hash(&m))
 }
 
 /// 署名対象 (signature を除いた本文) の正規化バイト列。
@@ -299,9 +286,9 @@ mod tests {
         json!({
             "manifestVersion": 1, "id": "x", "revision": 2, "name": "n",
             "scheduler": {"baseStepNs": 1000000},
-            "artifacts": {},
+            "artifacts": {"p@1.0.0": {"url": "/api/v1/artifacts/p/1.0.0", "sha256": "0".repeat(64)}},
             "components": [
-                {"instance": "b", "kind": "builtin:cpu-virtual", "params": {}},
+                {"instance": "b", "kind": "builtin:snapshot", "params": {}},
                 {"instance": "a", "artifact": "p@1.0.0", "capabilities": {"net": {"tcpConnect": ["h:1"]}}}
             ],
             "wires": []
@@ -362,13 +349,25 @@ mod tests {
     }
 
     #[test]
-    fn capabilities_hash_ignores_unrelated_fields_but_binds_instance() {
+    fn capabilities_hash_matches_core_and_binds_instance() {
         let a = sample();
+        let m: Manifest = serde_json::from_value(a.clone()).unwrap();
+        assert_eq!(
+            capabilities_hash(&a).unwrap(),
+            ipemu_core::capabilities_hash(&m)
+        );
         let mut b = sample();
         b["name"] = json!("other");
         assert_eq!(
             capabilities_hash(&a).unwrap(),
             capabilities_hash(&b).unwrap()
+        );
+        // 既定値の明示 (clock: false) では変わらない (型経由の正規化)
+        let mut d = sample();
+        d["components"][1]["capabilities"]["clock"] = json!(false);
+        assert_eq!(
+            capabilities_hash(&a).unwrap(),
+            capabilities_hash(&d).unwrap()
         );
         let mut c = sample();
         c["components"][1]["instance"] = json!("z");

@@ -70,7 +70,7 @@ fn artifact_json(a: &ArtifactRow) -> Value {
         "world": a.world,
         "describe": a.describe_json.as_deref().and_then(|s| serde_json::from_str::<Value>(s).ok()),
         "wasiImports": util::json_vec(&a.wasi_imports),
-        "imports": util::json_vec(&a.imports),
+        "imports": serde_json::from_str::<Value>(&a.imports).unwrap_or(Value::Array(vec![])),
         "uploadedBy": a.uploaded_by,
         "createdAt": a.created_at,
         "url": format!("/api/v1/artifacts/{}/{}", a.name, a.version),

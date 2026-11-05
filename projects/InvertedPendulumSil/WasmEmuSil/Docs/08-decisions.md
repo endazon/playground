@@ -84,6 +84,6 @@ Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに�
 | M1 ✅ | エンジン核 | ローカル manifest から plant / driver / encoder / comm-link (Rust 部品) + `fw-balance` (C 版と Rust 版、各 wasm と native) を組み立て、headless で倒立維持。決定性・性質・FW 同等性テストが `scripts/check.sh` で通る。**完了** (ip-model 12 / ipemu-core 8 / 結合 7 テスト) |
 | M2 | シェル | Electron の汎用ブラウザ UI + 信頼 origin ブリッジ + `ipemu://` ハンドラ + シミュレータ UI (sim-view 移植)。IPC 契約の TS 型生成。wasm ホット差替 / native 再起動。VS の F5 手順がドキュメントどおりに動く |
 | M3 ✅ | サーバ配信 + ポータル | ログイン、カタログ、起動 (ブリッジ / `ipemu://` チケット)、manifests / artifacts API、署名、エンジンの bootstrap とキャッシュ、ローカルカタログでのオフライン起動、telemetry。**完了** (`crates/ipemu-server`, `crates/ipemu-sign`, `crates/ipemu-engine/src/{bootstrap,cache}.rs`, `apps/web` のポータル。結合テスト: サーバ API 4 / bootstrap 2 (サーバから取得して倒立維持 → オフラインで同じ軌道)) |
-| M4 ✅ | 管理画面 | 部品登録 (WIT 抽出)、manifest 編集と検証、承認 / 公開 / 公開範囲、ユーザとロール、API キー、監査。**完了** (`/api/admin` と `apps/web` の管理画面。V7 / V8 は `ipemu_core::validate` の `DescResolver::imports` に登録時の import 一覧を渡して行う) |
+| M4 ✅ | 管理画面 | 部品登録 (WIT 抽出)、manifest 編集と検証、承認 / 公開 / 公開範囲、ユーザとロール、API キー、監査。**完了** (`/api/admin` と `apps/web` の管理画面。capability 宣言部品 (tcp-reporter) の登録 → V7 → 承認 → 公開まで結合テストで確認。V7 / V8 は `ipemu_core::validate` の `DescResolver::imports` に登録時の import 一覧を渡して行う) |
 | M5 ✅ (エンジン側) | capability | WASI p2 の sockets / filesystem を宣言 → 承認 (capabilitiesHash) → 同意で付与。拒否 / 未同意なら起動不可。検証用部品 `tcp-reporter` で実証。**エンジン側完了** (ipemu-core 12 / ipemu-wasm 3+7 / ipemu-engine 6 テスト)。同意 UI は M2 のシェルが `ConsentProvider` を IPC で実装する |
 | M6 | 拡張 | fuel ベースの実行時間モデル、NetworkedSil の遅延実験との比較記録 (comm-link を使う)、6 プラットフォームの zip ビルド |

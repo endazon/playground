@@ -120,6 +120,7 @@ fn parse_launch(s: &str) -> anyhow::Result<(String, Option<u32>)> {
 }
 
 #[derive(Subcommand)]
+#[allow(clippy::large_enum_variant)] // ServerArgs を flatten する Run / Catalog が大きいだけ
 enum Cmd {
     /// manifest を組み立てて仮想時間で実行する (--manifest か --server --launch のどちらか)
     Run {

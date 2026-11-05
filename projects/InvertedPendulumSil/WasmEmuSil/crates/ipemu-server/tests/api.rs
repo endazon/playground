@@ -800,3 +800,109 @@ async fn api_keys_scope_and_revocation() {
     assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
     cx.app.stop().await;
 }
+
+/// capability を宣言する部品 (M5 の tcp-reporter): 登録時に deny-all 形で describe を取れ、
+/// 宣言のない manifest は V7 で落ち、宣言があれば通る。
+#[tokio::test]
+async fn capability_parts_are_inspected_and_checked_against_declarations() {
+    if !artifacts_ready() || !root().join("build/components/tcp-reporter.wasm").exists() {
+        eprintln!("SKIP: build/components/tcp-reporter.wasm がありません");
+        return;
+    }
+    let cx = Ctx::new().await;
+    let admin = cx.login("admin", "admin-password").await;
+    register_cartpole_artifacts(&cx, &admin).await;
+    let (s, b) = cx
+        .upload(
+            &admin,
+            "tcp-reporter",
+            "0.1.0",
+            "part",
+            &root().join("build/components/tcp-reporter.wasm"),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(
+        b["describe"]["name"],
+        json!("tcp-reporter"),
+        "deny-all 形で describe が取れる"
+    );
+    let wasi: Vec<&str> = b["wasiImports"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        wasi.iter().any(|i| i.starts_with("wasi:sockets/")),
+        "{wasi:?}"
+    );
+    assert!(b["imports"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|i| i["name"].as_str().is_some_and(|n| n.starts_with("wasi:"))));
+
+    let mut body: Value = serde_json::from_str(
+        &std::fs::read_to_string(root().join("dev/cartpole-tcp.manifest.json")).unwrap(),
+    )
+    .unwrap();
+    body["id"] = json!("cartpole-tcp");
+    for (_, a) in body["artifacts"].as_object_mut().unwrap().iter_mut() {
+        a.as_object_mut().unwrap().remove("path");
+        a["url"] = json!("placeholder");
+    }
+    // 宣言どおり → OK (V8 の警告はあってもよい)
+    let (s, r) = cx.post(&admin, "/api/admin/validate", body.clone()).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(r["report"]["ok"], json!(true), "{}", r["report"]);
+    // 宣言を外す → V7
+    let mut undeclared = body.clone();
+    for c in undeclared["components"].as_array_mut().unwrap() {
+        c.as_object_mut().unwrap().remove("capabilities");
+    }
+    let (_, r) = cx.post(&admin, "/api/admin/validate", undeclared).await;
+    assert_eq!(r["report"]["ok"], json!(false));
+    assert!(
+        r["report"]["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["rule"] == json!("V7")),
+        "{}",
+        r["report"]
+    );
+    // 公開まで通り、capabilitiesHash は ipemu-core の定義と一致する
+    cx.create_user(&admin, "ap", &["approver"], &[]).await;
+    let ap = cx.login("ap", "password-1234").await;
+    let (s, _) = cx
+        .post(
+            &admin,
+            "/api/admin/manifests",
+            json!({"id": "cartpole-tcp", "body": body}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, r) = cx
+        .post(
+            &ap,
+            "/api/admin/manifests/cartpole-tcp/revisions/1/approve",
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{r}");
+    let (s, r) = cx
+        .post(
+            &ap,
+            "/api/admin/manifests/cartpole-tcp/revisions/1/publish",
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{r}");
+    let signed: ipemu_core::Manifest = serde_json::from_value(r["signedBody"].clone()).unwrap();
+    assert_eq!(
+        signed.approval.as_ref().unwrap().capabilities_hash,
+        ipemu_core::capabilities_hash(&signed)
+    );
+    cx.app.stop().await;
+}

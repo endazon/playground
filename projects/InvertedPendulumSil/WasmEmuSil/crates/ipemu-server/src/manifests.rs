@@ -5,8 +5,11 @@ use crate::auth::Principal;
 use crate::error::{ApiError, ApiResult};
 use crate::state::AppState;
 use crate::util;
+use ipemu_core::capability::ImportInfo;
 use ipemu_core::manifest::{ComponentSpec, Manifest};
-use ipemu_core::validate::{validate, validate_schema, Diagnostics, Severity, ValidateOptions};
+use ipemu_core::validate::{
+    validate, validate_schema, DescResolver, Diagnostics, Severity, ValidateOptions,
+};
 use ipemu_core::PartDesc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -105,75 +108,49 @@ pub async fn enrich_artifacts(pool: &SqlitePool, body: &mut Value) -> ApiResult<
     Ok(notes)
 }
 
-/// wasi import とcapability 宣言の対応 (V7 / V8)。ipemu-core の validate は WIT を読まないので、
-/// サーバはアップロード時に保存した import 一覧でここを補う。
-fn wasi_rules(
-    c: &ComponentSpec,
-    wasi_imports: &[String],
-    diags: &mut Vec<DiagItem>,
-    warns: &mut Vec<DiagItem>,
-) {
-    let caps = c.capabilities.clone().unwrap_or(json!({}));
-    let declared = |group: &str| -> bool {
-        match group {
-            "clocks" => caps.get("clock").and_then(|v| v.as_bool()) == Some(true),
-            "random" => caps.get("random").and_then(|v| v.as_bool()) == Some(true),
-            "sockets" => caps
-                .get("net")
-                .and_then(|n| n.as_object())
-                .map(|n| {
-                    n.values()
-                        .any(|v| v.as_array().is_some_and(|a| !a.is_empty()))
-                })
-                .unwrap_or(false),
-            "filesystem" => caps
-                .get("fs")
-                .and_then(|v| v.as_array())
-                .is_some_and(|a| !a.is_empty()),
-            _ => false,
-        }
-    };
-    let mut used = std::collections::BTreeSet::new();
-    for imp in wasi_imports {
-        // wasi:clocks/wall-clock@0.2.0 → clocks
-        let group = imp
-            .trim_start_matches("wasi:")
-            .split(['/', '@'])
-            .next()
-            .unwrap_or("");
-        let group = match group {
-            "clocks" | "random" | "sockets" | "filesystem" => group,
-            // io / cli は上の 4 つに付随して来るものとして扱う
-            "io" | "cli" => continue,
-            other => {
-                diags.push(DiagItem {
-                    rule: "V7".into(),
-                    message: format!(
-                        "部品 `{}`: import `{imp}` ({other}) は capability で表現できません",
-                        c.instance
-                    ),
-                });
-                continue;
+/// 検証に使う部品の記述と import。`ipemu_core::validate` の `DescResolver` を実装し、
+/// 登録時に保存した import 一覧を V7 / V8 に渡す (エンジンは実物から再抽出して同じ規則で照合する)。
+struct ServerResolver {
+    /// artifact ref → (describe, imports)
+    parts: HashMap<String, (PartDesc, Vec<ImportInfo>)>,
+    /// firmware ref → imports (cpu-virtual の instance に返す)
+    firmware: HashMap<String, Vec<ImportInfo>>,
+    collected: Vec<InstanceDesc>,
+}
+
+impl DescResolver for ServerResolver {
+    fn describe(&mut self, spec: &ComponentSpec) -> anyhow::Result<PartDesc> {
+        let d = match (&spec.artifact, spec.kind.as_deref()) {
+            (Some(a), None) => self
+                .parts
+                .get(a)
+                .map(|(d, _)| d.clone())
+                .ok_or_else(|| anyhow::anyhow!("`{a}` の記述がありません"))?,
+            (None, Some("builtin:cpu-virtual")) => {
+                let p = ipemu_core::builtins::CpuVirtualParams::from_json(&spec.params)?;
+                ipemu_core::builtins::CpuVirtual::describe_for(&p)
             }
+            (None, Some(k)) => ipemu_core::builtins::describe_builtin(k, &spec.params)?,
+            _ => anyhow::bail!("artifact と kind のどちらか一方が必要"),
         };
-        used.insert(group);
-        if !declared(group) {
-            diags.push(DiagItem {
-                rule: "V7".into(),
-                message: format!(
-                    "部品 `{}` は `{imp}` を import しますが capabilities で宣言されていません",
-                    c.instance
-                ),
-            });
-        }
+        self.collected.push(InstanceDesc {
+            instance: spec.instance.clone(),
+            desc: d.clone(),
+        });
+        Ok(d)
     }
-    for g in ["clocks", "random", "sockets", "filesystem"] {
-        if declared(g) && !used.contains(g) {
-            warns.push(DiagItem {
-                rule: "V8".into(),
-                message: format!("部品 `{}`: capability `{g}` は宣言されていますが部品は import していません (過剰宣言)", c.instance),
-            });
+
+    fn imports(&mut self, spec: &ComponentSpec) -> anyhow::Result<Option<Vec<ImportInfo>>> {
+        if let Some(a) = &spec.artifact {
+            return Ok(self.parts.get(a).map(|(_, i)| i.clone()));
         }
+        // cpu-virtual は既定ファームウェアの import を照合する (上書き FW はクライアント側で再照合)
+        if spec.kind.as_deref() == Some("builtin:cpu-virtual") {
+            if let Some(def) = spec.firmware.as_ref().and_then(|f| f.default.as_ref()) {
+                return Ok(self.firmware.get(def).cloned());
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -212,11 +189,15 @@ pub async fn validate_body(pool: &SqlitePool, body: &Value) -> ApiResult<Validat
         }
     };
 
-    // 登録済みアーティファクトの describe を集める
-    let mut descs: HashMap<String, (PartDesc, Vec<String>)> = HashMap::new();
+    // 登録済みアーティファクトの describe と import を集める
+    let mut resolver = ServerResolver {
+        parts: HashMap::new(),
+        firmware: HashMap::new(),
+        collected: Vec::new(),
+    };
     for c in &manifest.components {
         if let Some(a) = &c.artifact {
-            if descs.contains_key(a) {
+            if resolver.parts.contains_key(a) {
                 continue;
             }
             if let Some(row) = load_artifact(pool, a).await? {
@@ -230,14 +211,15 @@ pub async fn validate_body(pool: &SqlitePool, body: &Value) -> ApiResult<Validat
                     });
                     continue;
                 }
-                let wasi: Vec<String> = serde_json::from_str(&row.wasi_imports).unwrap_or_default();
+                let imports: Vec<ImportInfo> =
+                    serde_json::from_str(&row.imports).unwrap_or_default();
                 match row.describe_json.as_deref().map(serde_json::from_str::<PartDesc>) {
                     Some(Ok(d)) => {
-                        descs.insert(a.clone(), (d, wasi));
+                        resolver.parts.insert(a.clone(), (d, imports));
                     }
                     _ => report.errors.push(DiagItem {
                         rule: "V3".into(),
-                        message: format!("部品 `{}`: `{a}` の describe が保存されていません (wasi を import する部品の検証は M5)", c.instance),
+                        message: format!("部品 `{}`: `{a}` の describe が保存されていません (登録をやり直してください)", c.instance),
                     }),
                 }
             } else {
@@ -251,6 +233,10 @@ pub async fn validate_body(pool: &SqlitePool, body: &Value) -> ApiResult<Validat
             if let Some(def) = &fw.default {
                 match load_artifact(pool, def).await? {
                     Some(row) if row.kind == "firmware" => {
+                        resolver.firmware.insert(
+                            def.clone(),
+                            serde_json::from_str(&row.imports).unwrap_or_default(),
+                        );
                         if !row.world.is_empty() && row.world != fw.world {
                             report.errors.push(DiagItem {
                                 rule: "V3".into(),
@@ -301,26 +287,7 @@ pub async fn validate_body(pool: &SqlitePool, body: &Value) -> ApiResult<Validat
         return Ok(report);
     }
 
-    let mut collected: Vec<InstanceDesc> = Vec::new();
-    let mut resolver = |spec: &ComponentSpec| -> anyhow::Result<PartDesc> {
-        let d = match (&spec.artifact, spec.kind.as_deref()) {
-            (Some(a), None) => descs
-                .get(a)
-                .map(|(d, _)| d.clone())
-                .ok_or_else(|| anyhow::anyhow!("`{a}` の記述がありません"))?,
-            (None, Some("builtin:cpu-virtual")) => {
-                let p = ipemu_core::builtins::CpuVirtualParams::from_json(&spec.params)?;
-                ipemu_core::builtins::CpuVirtual::describe_for(&p)
-            }
-            (None, Some(k)) => ipemu_core::builtins::describe_builtin(k, &spec.params)?,
-            _ => anyhow::bail!("artifact と kind のどちらか一方が必要"),
-        };
-        collected.push(InstanceDesc {
-            instance: spec.instance.clone(),
-            desc: d.clone(),
-        });
-        Ok(d)
-    };
+    // V2〜V12 (V7 / V8 は resolver.imports 経由、V12 のハッシュ照合は approval があるときだけ)
     let (d2, _graph) = validate(
         &manifest,
         &mut resolver,
@@ -329,16 +296,7 @@ pub async fn validate_body(pool: &SqlitePool, body: &Value) -> ApiResult<Validat
         },
     );
     push(&mut report, &d2);
-    report.descs = collected;
-
-    // V7 / V8
-    for c in &manifest.components {
-        if let Some(a) = &c.artifact {
-            if let Some((_, wasi)) = descs.get(a) {
-                wasi_rules(c, wasi, &mut report.errors, &mut report.warnings);
-            }
-        }
-    }
+    report.descs = std::mem::take(&mut resolver.collected);
     report.ok = report.errors.is_empty();
     Ok(report)
 }

@@ -1,8 +1,13 @@
-//! アップロードされた wasm の検査: Component Model の import 一覧 (wasi:* の抽出) と、
+//! アップロードされた wasm の検査: Component Model の import 一覧 (`ipemu_core::imports`、エンジンの V7 / V8 と同じ抽出) と、
 //! `ipemu-wasm` による実体化 (part なら describe()、firmware なら world の適合確認)。
 
 use anyhow::Context;
-use ipemu_core::PartDesc;
+use ipemu_core::capability::{
+    classify_import, Capabilities, FsGrant, FsMode, HostPort, ImportClass, ImportInfo,
+    NetCapabilities,
+};
+use ipemu_core::{Part, PartDesc};
+use ipemu_wasm::wasi::WasiGrant;
 use ipemu_wasm::{Runtime, WasmFirmware, WasmPart};
 use serde::{Deserialize, Serialize};
 
@@ -11,19 +16,18 @@ use serde::{Deserialize, Serialize};
 pub struct Inspection {
     /// 実装するワールド (`ip:emu/part-world@0.1.0` / `ip:emu/firmware@0.1.0`)。export 名から推定
     pub world: String,
-    /// 最上位の import 名 (例 `ip:emu/host@0.1.0`, `wasi:clocks/wall-clock@0.2.0`)
-    pub imports: Vec<String>,
-    /// imports のうち `wasi:` で始まるもの (V7 / V8 の照合用)
+    /// 最上位の import (`ipemu_core::imports::component_imports`)。manifest 検証の V7 / V8 にそのまま渡す
+    pub imports: Vec<ImportInfo>,
+    /// imports のうち `wasi:` で始まるもの (表示用)
     pub wasi_imports: Vec<String>,
     pub exports: Vec<String>,
     /// part のときの describe()
     pub describe: Option<PartDesc>,
 }
 
-/// Component Model バイナリの最上位 import / export 名を wasmparser で読む。
-pub fn component_io(bytes: &[u8]) -> anyhow::Result<(Vec<String>, Vec<String>)> {
+/// Component Model バイナリの最上位 export 名を読む (world の推定用。import は ipemu-core に任せる)。
+fn component_exports(bytes: &[u8]) -> anyhow::Result<Vec<String>> {
     use wasmparser::{Parser, Payload};
-    let mut imports = Vec::new();
     let mut exports = Vec::new();
     let mut depth = 0usize;
     let mut is_component = false;
@@ -42,11 +46,6 @@ pub fn component_io(bytes: &[u8]) -> anyhow::Result<(Vec<String>, Vec<String>)> 
             Payload::ModuleSection { .. } | Payload::ComponentSection { .. } => {
                 // parse_all は入れ子も payload として流してくるので depth で区別する
             }
-            Payload::ComponentImportSection(s) if depth == 1 => {
-                for imp in s {
-                    imports.push(imp?.name.name.to_owned());
-                }
-            }
             Payload::ComponentExportSection(s) if depth == 1 => {
                 for exp in s {
                     exports.push(exp?.name.name.to_owned());
@@ -59,7 +58,42 @@ pub fn component_io(bytes: &[u8]) -> anyhow::Result<(Vec<String>, Vec<String>)> 
         is_component,
         "Component Model 形式の wasm ではありません (wasm-tools component new を通してください)"
     );
-    Ok((imports, exports))
+    Ok(exports)
+}
+
+/// import から「その部品が必要とするインターフェース集合」を宣言の形に写し、deny-all 形の grant にする (D34)。
+/// 登録時点では manifest の宣言がないので、import に対応するものをすべて (許可リスト空で) link して describe を取る。
+/// 接続・名前解決・ファイル操作はすべて拒否されるため、describe / init 中に外へ出ることはない。
+fn deny_all_grant_for_imports(imports: &[ImportInfo]) -> anyhow::Result<WasiGrant> {
+    let mut caps = Capabilities::default();
+    let mut net = NetCapabilities::default();
+    for imp in imports.iter().filter(|i| !i.types_only) {
+        match classify_import(&imp.name) {
+            ImportClass::Net => {
+                let placeholder = HostPort::parse("deny.invalid:1")
+                    .map_err(|e| anyhow::anyhow!("placeholder host: {e}"))?;
+                if imp.name.contains("/udp") {
+                    net.udp = vec![placeholder];
+                } else {
+                    net.tcp_connect = vec![placeholder];
+                }
+            }
+            ImportClass::Fs => {
+                caps.fs = vec![FsGrant {
+                    path: "deny".into(),
+                    mode: FsMode::Ro,
+                }];
+            }
+            ImportClass::Clock => caps.clock = true,
+            ImportClass::Random => caps.random = true,
+            ImportClass::HostExt(ext) => caps.host_ext.push(ext),
+            _ => {}
+        }
+    }
+    if !net.is_empty() {
+        caps.net = Some(net);
+    }
+    Ok(WasiGrant::deny_all_for(&caps))
 }
 
 fn guess_world(exports: &[String]) -> String {
@@ -83,15 +117,18 @@ pub fn inspect(kind: &str, bytes: &[u8]) -> anyhow::Result<Inspection> {
             Ok(Inspection::default())
         }
         "part" | "firmware" => {
-            let (imports, exports) = component_io(bytes)?;
+            let exports = component_exports(bytes)?;
+            let imports = ipemu_core::imports::component_imports(bytes)?;
+            // 型だけの instance import は Linker に実体が要らない (D32) ので、表示でも区別しない
             let wasi_imports: Vec<String> = imports
                 .iter()
-                .filter(|i| i.starts_with("wasi:"))
-                .cloned()
+                .filter(|i| i.name.starts_with("wasi:") && !i.types_only)
+                .map(|i| i.name.clone())
                 .collect();
             let world = guess_world(&exports);
-            // 実体化は wasi:* を一切 link しない Runtime で行う。wasi を import する部品は
-            // ここでは describe を取れない (capability 付きの link は M5)。import 一覧だけ保存して先へ進む
+            // 実体化は deny-all 形の grant で行う: import に対応する wasi:* は link するが何も許可しない。
+            // describe() は通り、外部への副作用は起きない (エンジンの validate / inspect と同じ D34)
+            let grant = deny_all_grant_for_imports(&imports)?;
             let rt = Runtime::new(ipemu_wasm::runtime::RuntimeOptions {
                 call_budget: Some(std::time::Duration::from_secs(5)),
                 measure_fuel: false,
@@ -102,23 +139,17 @@ pub fn inspect(kind: &str, bytes: &[u8]) -> anyhow::Result<Inspection> {
                     world.starts_with("ip:emu/part-world@"),
                     "part は ip:emu/part を export する必要があります (exports: {exports:?})"
                 );
-                if wasi_imports.is_empty() {
-                    let component = WasmPart::compile(&rt, bytes)?;
-                    Some(
-                        WasmPart::describe_component(&rt, &component)
-                            .context("describe() の実行に失敗")?,
-                    )
-                } else {
-                    None
-                }
+                let component = WasmPart::compile(&rt, bytes)?;
+                let part = WasmPart::instantiate_with(&rt, &component, "describe", grant)
+                    .context("describe() の実行に失敗 (import 不足か world 不一致)")?;
+                Some(part.describe().clone())
             } else {
                 anyhow::ensure!(
                     world.starts_with("ip:emu/firmware@"),
                     "firmware は ip:emu/fw を export する必要があります (exports: {exports:?})"
                 );
-                if wasi_imports.is_empty() {
-                    WasmFirmware::load(&rt, bytes).context("ファームウェアの実体化に失敗")?;
-                }
+                WasmFirmware::load_with(&rt, bytes, grant)
+                    .context("ファームウェアの実体化に失敗")?;
                 None
             };
             Ok(Inspection {

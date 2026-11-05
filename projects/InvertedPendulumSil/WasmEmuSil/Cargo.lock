@@ -1602,7 +1602,7 @@ dependencies = [
  "anyhow",
  "hex",
  "jsonschema",
- "ryu-js 1.0.3",
+ "ryu-js",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -1675,9 +1675,9 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "hex",
+ "ipemu-core",
  "rand_core 0.6.4",
  "serde",
- "serde_jcs",
  "serde_json",
  "sha2 0.11.1",
  "thiserror 2.0.21",
@@ -2821,12 +2821,6 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "ryu-js"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6518fc26bced4d53678a22d6e423e9d8716377def84545fe328236e3af070e7f"
-
-[[package]]
-name = "ryu-js"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04d056b875a9d2e6cb9a61d127afee9ac5999b9f87bcb32079d1318e505be714"
@@ -2875,17 +2869,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "serde_jcs"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cacecf649bc1a7c5f0e299cc813977c6a78116abda2b93b1ee01735b71ead9a8"
-dependencies = [
- "ryu-js 0.2.2",
- "serde",
- "serde_json",
 ]
 
 [[package]]

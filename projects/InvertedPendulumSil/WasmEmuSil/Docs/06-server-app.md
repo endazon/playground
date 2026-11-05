@@ -117,12 +117,12 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
 | telemetry | `{launchId?, manifestId, revision, event, detail}`。`event` が `stopped/fault/error/aborted` なら起動履歴の終了を埋める | 自分の起動だけ更新できる |
 | hello | `{clientId?, engineVersion, witVersions[], os, arch}` を `(clientId, 主体)` で upsert。応答に公開鍵一覧を添える | |
 | 管理 API | `/api/admin/{artifacts,manifests,validate,users,groups,api-keys,audit,launches,clients}` | ロール検査は extractor (`AdminAuth`) + ハンドラ内の `require` |
-| 部品登録 | multipart (`name`, `version`, `kind`, `file`)。`wasmparser` で最上位の import / export 名を読み、`wasi:*` を抽出。part は `WasmPart::describe_component`、firmware は `WasmFirmware::load` で実体化できることを確認。wasi を import する部品は describe を取らず import 一覧だけ保存 (capability 付き link は M5) | 同名同版は 409。UI は tar.gz の magic だけ検査 |
+| 部品登録 | multipart (`name`, `version`, `kind`, `file`)。import は `ipemu_core::imports::component_imports` (エンジンの V7 / V8 と同じ抽出。型だけの instance import は区別して保存)、export 名は `wasmparser` で読んで world を推定。実体化は **import に対応する wasi:* を deny-all 形 (`WasiGrant::deny_all_for`、D34) で link** して行い、part は describe()、firmware は world の適合を確認する。describe / init 中に接続・名前解決・ファイル操作はすべて拒否される | 同名同版は 409。UI は tar.gz の magic だけ検査 |
 | 下書き保存 | 本文の `id` / `revision` をパスに揃え、`approval` / `signature` を落とし、`artifacts` を登録済みアーティファクトで補完 (`sha256` / `size` / `kind` / `url`、`path` は除去)。保存のたびに検証して `validation` に残す | 本文が別の sha256 を主張していれば 422 |
-| 検証 | V1 (スキーマ) → `ipemu_core::validate` (V2〜V6, V9〜V11) → サーバ側で V7 / V8 (保存した wasi import と `capabilities` の照合) | 検証結果に部品の記述 (`descs`) を含め、トポロジ図の描画に使う |
+| 検証 | V1 (スキーマ) → `ipemu_core::validate` (V2〜V12)。V7 / V8 は `DescResolver::imports` に登録時の import 一覧を渡して core 側の規則で照合する (サーバ独自の規則は持たない) | 検証結果に部品の記述 (`descs`) を含め、トポロジ図の描画に使う |
 | 状態遷移 | `draft` → (承認) `approved` → (公開) `published`。承認済み / 公開済みは編集不可で、新しい revision を作る。公開済みは削除不可 (巻き戻しは既定 revision の変更) | |
 | 承認 | approver 以上、かつ**最終編集者と別人** (admin でも例外なし)。承認時に再検証し、`capabilitiesHash` を記録 | |
-| 公開 | `approval` を本文に付け、JCS 正規化して Ed25519 署名。`signed_body` と `keyId` を保存し、既定 revision が未設定なら既定にする | 署名後の全文もスキーマで再検証 |
+| 公開 | `approval` (`capabilitiesHash` は `ipemu_core::capabilities_hash`) を本文に付け、`ipemu_core::jcs` で正規化して Ed25519 署名。`signed_body` と `keyId` を保存し、既定 revision が未設定なら既定にする | 署名後の全文もスキーマで再検証 |
 | 公開範囲 | `all` / `groups` (ユーザの `groups` と照合)。API キーは `allowedManifests` (`*` で全部) | 範囲外は 404 |
 | ユーザ | ロールは集合 (`user/viewer/editor/approver/admin`)。自分の admin を外す / 自分を無効化する操作は拒否。無効化とパスワード再設定でセッションを全部消す | |
 | 監査 | すべての変更操作 (`artifact.register`, `manifest.*`, `user.*`, `api_key.*`, `auth.login`, …) を `audit` に記録 | |
