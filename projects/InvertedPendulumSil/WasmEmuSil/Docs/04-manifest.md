@@ -16,6 +16,8 @@ manifest は「どの部品を、どのパラメータで、どう配線し、�
   "scheduler": { "baseStepNs": 1000000, "pacing": "realtime", "maxSlipMs": 200, "snapshotDivider": 20 },
   "artifacts": {                          // 名前 → 取得先と内容ハッシュ。部品もファームウェアも UI もここ
     "plant-cartpole@1.2.0": { "sha256": "…", "url": "/api/v1/artifacts/plant-cartpole/1.2.0", "size": 184320 }
+    // ローカル開発用 manifest では "path": "../build/components/plant-cartpole.wasm" と sha256 省略が許される
+    // (エンジンの --no-signature-check。配信用では V2 がエラーにする)
   },
   "components": [
     { "instance": "plant", "artifact": "plant-cartpole@1.2.0", "params": { "pendulumLength": 1.0 } },
@@ -39,7 +41,7 @@ manifest は「どの部品を、どのパラメータで、どう配線し、�
 | # | 規則 | 段 |
 | --- | --- | --- |
 | V1 | JSON Schema に適合する | Error |
-| V2 | `components[].artifact` が `artifacts` に存在し、`sha256` が 64 桁 hex | Error |
+| V2 | `components[].artifact` が `artifacts` に存在し、`sha256` が 64 桁 hex (ローカル開発モードでは欠落を Warning に緩める)、`url` か `path` がある | Error |
 | V3 | 各部品の WIT ワールドが `ip:emu/part` (または `firmware`) を実装している | Error |
 | V4 | 配線の `from` / `to` が存在するポートで、方向 (出力 → 入力) が正しい | Error |
 | V5 | 同じ入力ポートに複数の配線がない | Error |

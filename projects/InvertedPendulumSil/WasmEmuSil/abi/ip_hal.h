@@ -69,7 +69,7 @@ typedef struct ip_hal_vtable {
  *   ip_fw_abi_version : IP_FW_ABI_VERSION を返す
  *   ip_fw_init        : HAL テーブルを受け取り、cfg_json (manifest の firmware.params) で初期化。0 以外は失敗
  *   ip_fw_tick / irq / idle : wasm 形の fw.tick / fw.irq / fw.idle と同義
- * ip_hal_* の実装 (テーブルへの委譲) は ip_hal_native.c が提供する。ファームウェア本体は書かない。
+ * これらは glue (ip_hal_native.c) が実装し、ファームウェア本体の fw_app_* へ委譲する。
  */
 IP_FW_EXPORT uint32_t ip_fw_abi_version(void);
 IP_FW_EXPORT int32_t  ip_fw_init(const ip_hal_vtable *hal, const char *cfg_json, size_t cfg_len);
@@ -78,10 +78,16 @@ IP_FW_EXPORT void     ip_fw_irq(uint32_t id);
 IP_FW_EXPORT void     ip_fw_idle(void);
 #endif /* IP_HAL_TARGET_NATIVE */
 
+/* ---- ファームウェア本体が実装する関数 (両形で共通。glue がここへ委譲する) ---- */
+int32_t fw_app_init(const char *cfg_json, size_t cfg_len);   /* 0 で成功 */
+void    fw_app_tick(void);
+void    fw_app_irq(uint32_t id);
+void    fw_app_idle(void);
+
 /*
- * wasm 形では、wit-bindgen c が生成する exports_ip_emu_fw_* を ip_fw_* に橋渡しする薄いファイル
- * (ip_hal_wasm.c) をビルドに含める。ファームウェア本体は ip_fw_init / ip_fw_tick / ip_fw_irq / ip_fw_idle
- * を通常の C 関数として定義するだけでよい。
+ * wasm 形では wit-bindgen c が生成する exports_ip_emu_fw_* を fw_app_* に橋渡しする glue (ip_hal_wasm.c)、
+ * ネイティブ形では ip_fw_* を fw_app_* に橋渡しする glue (ip_hal_native.c) をビルドに含める。
+ * ファームウェア本体はどちらの形でも fw_app_* を定義するだけでよい。
  */
 
 #ifdef __cplusplus

@@ -27,6 +27,10 @@
 | D22 | FW の初回実装 | **C と Rust の 2 本** (同じ仕様、同じゴールデン) | C のみ: HAL 境界が C 寄りになっていても気づけない |
 | D23 | FW リビルドの反映 | **wasm はホット差替 (状態保持)、native はエンジン再起動** | 再起動のみ: wasm の利点を捨てる。全部ホット: native のアンロードが信頼できない |
 | D24 | CI | **置かない**。`scripts/check.*` のローカル検証と手順書 | GitHub Actions: 今は運用コストを払わない判断。NetworkedSil と同じ |
+| D25 | 部品 / FW の wasm ターゲット (M1 で確定) | **`wasm32-unknown-unknown` + `wasm-tools component new`** | `cargo component` / `wasm32-wasip2`: std が `wasi:cli` 等を import し、WASI なしの原則と V7 に反する |
+| D26 | C 版 FW の libc / libm (M1 で確定) | **freestanding + `ip-cmath` (Rust libm の C ABI) + 極小 libc** | wasi-sdk: wasi-libc が WASI を import する。外部ツールチェーンの取得も要る。Rust libm を共有すると C / Rust の wasm で数値が一致する |
+| D27 | 指令タイムアウトの表現 (M1 で確定) | **ハートビート信号** (gpio-out1 の反転) を motor-driver が監視 | 指令値の更新検知: 同じ値が続く正常運転と区別できない |
+| D28 | FW cfg の形 (M1 で確定) | **フラットな JSON** + 極小パーサ (C / Rust 同規則) | 入れ子 JSON + serde: C 版に JSON ライブラリが要り、MCU 向けの制約から外れる |
 
 ### D8 の調査結果: クロスプラットフォームで Chromium を同梱する手段
 | 方式 | Chromium の出所 | 成熟度 | Rust エンジンとの関係 | 評価 |
@@ -62,7 +66,7 @@ Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに�
 | M | 内容 | 完了条件 |
 | --- | --- | --- |
 | M0 | 設計 (本 PR) | 設計資料の承認 |
-| M1 | エンジン核 | ローカル manifest から plant / driver / encoder / comm-link (Rust 部品) + `fw-balance` (C 版と Rust 版、各 wasm と native) を組み立て、headless で倒立維持。決定性・性質・FW 同等性テストが `scripts/check.sh` で通る |
+| M1 ✅ | エンジン核 | ローカル manifest から plant / driver / encoder / comm-link (Rust 部品) + `fw-balance` (C 版と Rust 版、各 wasm と native) を組み立て、headless で倒立維持。決定性・性質・FW 同等性テストが `scripts/check.sh` で通る。**完了** (ip-model 12 / ipemu-core 8 / 結合 7 テスト) |
 | M2 | シェル | Electron の汎用ブラウザ UI + 信頼 origin ブリッジ + `ipemu://` ハンドラ + シミュレータ UI (sim-view 移植)。IPC 契約の TS 型生成。wasm ホット差替 / native 再起動。VS の F5 手順がドキュメントどおりに動く |
 | M3 | サーバ配信 + ポータル | ログイン、カタログ、起動 (ブリッジ / `ipemu://` チケット)、manifests / artifacts API、署名、エンジンの bootstrap とキャッシュ、ローカルカタログでのオフライン起動、telemetry |
 | M4 | 管理画面 | 部品登録 (WIT 抽出)、manifest 編集と検証、承認 / 公開 / 公開範囲、ユーザとロール、API キー、監査 |

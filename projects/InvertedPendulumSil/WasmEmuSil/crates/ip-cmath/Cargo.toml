@@ -1,0 +1,13 @@
+[package]
+name = "ip-cmath"
+description = "C ファームウェアの wasm ビルド用 libm (Rust の libm crate を C ABI で公開)。Rust 版 FW と同じ実装になり、wasm 同士でビット一致する"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+libm = { workspace = true }

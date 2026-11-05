@@ -1,0 +1,252 @@
+//! ipemu-engine CLI (M1: headless)。
+
+use anyhow::Context;
+use clap::{Parser, Subcommand};
+use ipemu_core::hal::LogLevel;
+use ipemu_engine::{FirmwareSource, Recorder, Session, SessionOptions, TraceHash};
+use std::path::PathBuf;
+
+#[derive(Parser)]
+#[command(name = "ipemu-engine", about = "WasmEmuSil エンジン (M1: headless)")]
+struct Cli {
+    #[command(subcommand)]
+    cmd: Cmd,
+}
+
+#[derive(Subcommand)]
+enum Cmd {
+    /// manifest を組み立てて仮想時間で実行する
+    Run {
+        #[arg(long)]
+        manifest: PathBuf,
+        /// slot=wasm:<path> | slot=native:<path>
+        #[arg(long = "firmware")]
+        firmware: Vec<String>,
+        /// instance.key=value (JSON 値)
+        #[arg(long = "param")]
+        params: Vec<String>,
+        #[arg(long, default_value_t = 10.0)]
+        run_seconds: f64,
+        /// スナップショットを CSV に記録する
+        #[arg(long)]
+        record: Option<PathBuf>,
+        /// ローカル manifest (sha256 / 署名なし) を許す
+        #[arg(long)]
+        no_signature_check: bool,
+        /// 部品 / FW のログを表示するレベル (trace|debug|info|warn|error|off)
+        #[arg(long, default_value = "info")]
+        log: String,
+        /// 進捗を N 秒ごとに 1 行出す (0 で無効)
+        #[arg(long, default_value_t = 1.0)]
+        print_every: f64,
+    },
+    /// manifest を検証する (サーバと同じ規則)
+    Validate {
+        manifest: PathBuf,
+        #[arg(long)]
+        no_signature_check: bool,
+    },
+    /// 部品 wasm の describe() を表示する
+    Inspect { wasm: PathBuf },
+    /// 離散 LQR ゲインを設計して firmware.params 用の JSON を出す
+    Lqr {
+        #[arg(long, default_value_t = 0.6)]
+        length: f64,
+        #[arg(long, default_value_t = 0.005)]
+        ts: f64,
+        #[arg(long, value_delimiter = ',', default_value = "40,60,1,0.5")]
+        q: Vec<f64>,
+        #[arg(long, default_value_t = 0.6)]
+        r: f64,
+    },
+}
+
+fn parse_level(s: &str) -> Option<LogLevel> {
+    match s {
+        "trace" => Some(LogLevel::Trace),
+        "debug" => Some(LogLevel::Debug),
+        "info" => Some(LogLevel::Info),
+        "warn" => Some(LogLevel::Warn),
+        "error" => Some(LogLevel::Error),
+        _ => None,
+    }
+}
+
+fn level_rank(l: LogLevel) -> u8 {
+    match l {
+        LogLevel::Trace => 0,
+        LogLevel::Debug => 1,
+        LogLevel::Info => 2,
+        LogLevel::Warn => 3,
+        LogLevel::Error => 4,
+    }
+}
+
+fn main() {
+    if let Err(e) = real_main() {
+        eprintln!("error: {e:#}");
+        std::process::exit(1);
+    }
+}
+
+fn real_main() -> anyhow::Result<()> {
+    let cli = Cli::parse();
+    match cli.cmd {
+        Cmd::Run {
+            manifest,
+            firmware,
+            params,
+            run_seconds,
+            record,
+            no_signature_check,
+            log,
+            print_every,
+        } => {
+            let mut opts = SessionOptions {
+                allow_unhashed: no_signature_check,
+                ..Default::default()
+            };
+            for f in firmware {
+                let (slot, src) = f
+                    .split_once('=')
+                    .context("--firmware は slot=wasm:<path> の形式")?;
+                opts.firmware_overrides
+                    .insert(slot.to_owned(), FirmwareSource::parse(src)?);
+            }
+            for p in params {
+                let (lhs, rhs) = p
+                    .split_once('=')
+                    .context("--param は instance.key=value の形式")?;
+                let (inst, key) = lhs
+                    .split_once('.')
+                    .context("--param は instance.key=value の形式")?;
+                let val: serde_json::Value =
+                    serde_json::from_str(rhs).unwrap_or(serde_json::Value::String(rhs.to_owned()));
+                opts.param_overrides
+                    .push((inst.to_owned(), key.to_owned(), val));
+            }
+            let min_level = parse_level(&log);
+            let mut session = Session::load(&manifest, &opts)?;
+            for w in session.diagnostics.warnings() {
+                eprintln!("warning[{}]: {}", w.rule, w.message);
+            }
+            eprintln!(
+                "manifest `{}` rev {}: 部品 {} 個, 配線 {} 本, 実行順 [{}], baseStep {} ns",
+                session.manifest.id,
+                session.manifest.revision,
+                session.engine.graph().instances.len(),
+                session.engine.graph().wires.len(),
+                session
+                    .engine
+                    .graph()
+                    .order
+                    .iter()
+                    .map(|&i| session.engine.graph().instances[i].as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                session.engine.base_step_ns()
+            );
+
+            let columns = session.snapshot_ports.clone();
+            let mut recorder = match &record {
+                Some(p) => Some(Recorder::new(
+                    std::io::BufWriter::new(std::fs::File::create(p)?),
+                    &columns,
+                )?),
+                None => None,
+            };
+            let mut hash = TraceHash::default();
+            let mut next_print_ns = if print_every > 0.0 {
+                (print_every * 1e9) as i64
+            } else {
+                i64::MAX
+            };
+            let mut last: Vec<f64> = Vec::new();
+            let started = std::time::Instant::now();
+            session.run_for(run_seconds, |t_ns, values, logs| {
+                hash.push_row(t_ns, values);
+                if let Some(r) = recorder.as_mut() {
+                    let _ = r.row(t_ns, values);
+                }
+                for (inst, lvl, msg) in logs.drain(..) {
+                    if min_level.is_some_and(|m| level_rank(lvl) >= level_rank(m)) {
+                        eprintln!("[{:>9.3}s] {inst}: {msg}", t_ns as f64 * 1e-9);
+                    }
+                }
+                if t_ns >= next_print_ns {
+                    next_print_ns += (print_every * 1e9) as i64;
+                    let line: Vec<String> = columns
+                        .iter()
+                        .zip(values)
+                        .take(6)
+                        .map(|(c, v)| format!("{c}={v:.4}"))
+                        .collect();
+                    eprintln!("[{:>9.3}s] {}", t_ns as f64 * 1e-9, line.join(" "));
+                }
+                last.clear();
+                last.extend_from_slice(values);
+            })?;
+            let elapsed = started.elapsed();
+            let h = hash.finish();
+            println!("trace-hash {h}");
+            println!(
+                "virtual {run_seconds:.3} s in {:.3} s wall ({:.1}x realtime)",
+                elapsed.as_secs_f64(),
+                run_seconds / elapsed.as_secs_f64().max(1e-9)
+            );
+            for (c, v) in columns.iter().zip(&last) {
+                println!("{c} = {v}");
+            }
+            Ok(())
+        }
+        Cmd::Validate {
+            manifest,
+            no_signature_check,
+        } => {
+            let opts = SessionOptions {
+                allow_unhashed: no_signature_check,
+                ..Default::default()
+            };
+            match Session::load(&manifest, &opts) {
+                Ok(s) => {
+                    print!("{}", s.diagnostics);
+                    println!(
+                        "ok: {} 部品, {} 配線",
+                        s.engine.graph().instances.len(),
+                        s.engine.graph().wires.len()
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("{e:#}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Cmd::Inspect { wasm } => {
+            let rt = ipemu_wasm::Runtime::new(Default::default())?;
+            let component = ipemu_wasm::WasmPart::compile_file(&rt, &wasm)?;
+            let desc = ipemu_wasm::WasmPart::describe_component(&rt, &component)?;
+            println!("{}", serde_json::to_string_pretty(&desc)?);
+            Ok(())
+        }
+        Cmd::Lqr { length, ts, q, r } => {
+            anyhow::ensure!(q.len() == 4, "--q は 4 要素");
+            let p = ip_model::Params {
+                pendulum_length: length,
+                ..Default::default()
+            };
+            let qd = [q[0], q[1], q[2], q[3]];
+            let (sol, lin, _, _) =
+                ip_model::lqr::design_gains(&p, ts, &qd, r).context("LQR が解けません")?;
+            let round15 = |v: f64| -> f64 { format!("{v:.15e}").parse().unwrap() };
+            let out = serde_json::json!({
+                "k0": round15(sol.k[0]), "k1": round15(sol.k[1]), "k2": round15(sol.k[2]), "k3": round15(sol.k[3]),
+                "controlHz": 1.0 / ts, "pendulumLength": length,
+                "_unstablePoleRadPerSec": lin.unstable_pole, "_iterations": sol.iterations,
+            });
+            println!("{}", serde_json::to_string_pretty(&out)?);
+            Ok(())
+        }
+    }
+}

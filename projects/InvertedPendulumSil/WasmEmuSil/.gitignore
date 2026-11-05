@@ -1,0 +1,10 @@
+# Rust
+target/
+# ビルド成果物 (scripts/build-*.sh が build/ に出す)
+build/
+# ネイティブ FW のビルド
+firmware/fw-balance-c/build/
+# Node
+node_modules/
+# wit-bindgen が生成するオブジェクト (build.sh が再生成する)
+firmware/fw-balance-c/gen/*.o

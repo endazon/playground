@@ -115,6 +115,19 @@ PDB が DLL の隣にあればブレークポイントが効きます。UI か�
 - epoch interruption の予算を無制限にする (ブレーク中に trap させない)
 - デバッガの接続 (`IsDebuggerPresent` / `ptrace` 検出) で自動的に有効化もする
 
+## M1 での実装状況
+- 両版とも実装済みで、同じ manifest (`dev/cartpole.manifest.json`) でスイングアップ → 倒立維持まで動く。
+  wasm / native の 4 形態すべてでプラントの軌道がビット一致する (結合テスト `c_and_rust_firmware_produce_equivalent_trajectories`)。
+- C 版の wasm は **freestanding** (libc なし) でビルドし、数学関数は `crates/ip-cmath` (Rust の `libm` を C ABI で公開) をリンクする。
+  wasi-sdk が不要で、WASI を import しない。詳細は [`../firmware/fw-balance-c/README.md`](../firmware/fw-balance-c/README.md)。
+- cfg JSON は**フラット** (入れ子なし) にして、C 版は極小パーサ (`cfg.c`)、Rust 版も同じ規則の `cfg.rs` で読む。
+  数値は 15 桁以内で書けば両版で同じ double になる (`ipemu-engine lqr` はそう出力する)。
+- ドライブへの「指令タイムアウト」は、FW が制御周期ごとに反転する **ハートビート (gpio-out1)** で表現する。
+  ハートビートが止まると motor-driver が遮断する (通信断・FW 停止の模擬)。
+- オペレータ操作は UART0 の 1 バイトコマンド (`s` スイングアップ / `b` 倒立 / `x` 停止 / `c` 異常リセット)。
+  M1 の headless では `autoStart` パラメータで自動開始する。
+- fuel 計測は wasm 形のみ (`timingModel: fuel` で `exec-ns` に出る。既定 manifest では 1 tick ≈ 1.7 µs 相当)。native 形は 0。
+
 ## リビルド後の反映 (ホットリロード)
 | 形 | `firmware.load` の挙動 | プラント状態 |
 | --- | --- | --- |

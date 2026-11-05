@@ -1,0 +1,22 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "name": "ipemu-engine (native firmware, headless)",
+      "project": "CMakeLists.txt",
+      "projectTarget": "fw_balance.dll (fw-balance-c.dll)",
+      "exe": "${env.IPEMU_ENGINE}",
+      "args": [
+        "run",
+        "--manifest", "${workspaceRoot}\\..\\..\\dev\\cartpole.manifest.json",
+        "--firmware", "balance=native:${cmake.buildRoot}\\fw-balance-c.dll",
+        "--no-signature-check",
+        "--run-seconds", "30",
+        "--print-every", "1"
+      ],
+      "env": { "RUST_BACKTRACE": "0" }
+    }
+  ]
+}

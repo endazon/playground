@@ -17,6 +17,16 @@ CI は置かず (裁定済み)、`scripts/check.sh` / `scripts/check.ps1` が `c
 | L7 E2E | シェル + エンジン + サーバ | Playwright (Electron 対応) でポータルにログイン → 起動 → 同意 → 実行 → 表示、および `ipemu://` 起動を確認 | 手元 (`scripts/e2e.sh`) |
 | L8 FW 同等性 | C 版と Rust 版の fw-balance | 同じ manifest・同じ外乱で両者のトレースが許容誤差内 (wasm 形同士はビット一致を目標) | `cargo test` |
 
+## M1 で実装したテスト
+| 層 | テスト | 場所 |
+| --- | --- | --- |
+| L1 | エネルギー保存、平衡の不変、鏡像対称、RK4 の 4 次収束、線形化の整合、ZOH の半群性、リカッチ残差と閉ループ減衰、非線形プラントでの倒立維持、スイングアップのエネルギー到達、速度推定、wrap の性質 (proptest) | `crates/ip-model/tests/properties.rs` |
+| 検証規則 | latency-0 閉路の拒否 / latency-1 閉路の許容、不正ポート、入力の重複配線、sha256 欠落、実行順、latency の転記規則、rateDivider、仮想 MCU の tick と実行時間モデル、スキーマ | `crates/ipemu-core/tests/core.rs` |
+| L2 | ゴールデントレース (`tests/golden/cartpole-c.csv`、100 ms ごとの θ / x / u。ビット一致 → 許容誤差の 2 段) | `crates/ipemu-engine/tests/closed_loop.rs` |
+| L4 | 同じ manifest を 2 回走らせてハッシュ一致 | 同上 |
+| L5 | C wasm / Rust wasm / C native / Rust native の 4 形態でスイングアップ → 倒立維持。吊り下げから LQR を始めると転倒検知 → FAULT → ドライブ無効 | 同上 |
+| L8 | C 版と Rust 版の軌道一致 (現状ビット一致) | 同上 |
+
 ## L1 性質テストの中身
 | 性質 | 確認すること |
 | --- | --- |

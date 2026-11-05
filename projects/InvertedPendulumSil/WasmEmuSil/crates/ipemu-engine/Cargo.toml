@@ -1,0 +1,22 @@
+[package]
+name = "ipemu-engine"
+description = "クライアントのエミュレータエンジン。M1 では headless CLI (run / validate / inspect / lqr)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "ipemu-engine"
+path = "src/main.rs"
+
+[dependencies]
+ipemu-core = { workspace = true }
+ipemu-wasm = { workspace = true }
+ip-model = { workspace = true, features = ["std"] }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
