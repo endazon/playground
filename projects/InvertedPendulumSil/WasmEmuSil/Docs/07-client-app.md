@@ -97,8 +97,8 @@ wasm 形はアーキに依存しないため、配信物は 1 種類です。
 | --- | --- | --- |
 | `wasm_component_model` | on | WIT 境界 |
 | `cranelift_nan_canonicalization` | on | 決定性 |
-| `epoch_interruption` | on (全部品) | 暴走した `step` を trap させる |
-| `consume_fuel` | ファームウェア slot のみ | 実行時間モデル |
+| `epoch_interruption` | on (全部品) | 暴走した `step` を trap させる (壁時計。後ろ盾) |
+| `consume_fuel` | ファームウェア slot のみ | 実行時間モデルと、決定的なウォッチドッグ `maxFuelPerTick` / `maxFuelPerInit` ([05](05-firmware.md#ウォッチドッグ-fuel-上限と-epoch)、D57) |
 | `debug_info` | `--wasm-debug-info` のときのみ | LLDB からのソースデバッグ。性能が落ちるので既定 off |
 | `cache` | on (キャッシュ dir 配下) | コンパイル結果の再利用で起動を速く |
 | `wasm_threads` / `shared_memory` | off | 決定性と単純さ |
@@ -115,9 +115,10 @@ wasm 形はアーキに依存しないため、配信物は 1 種類です。
 **宣言のないものは import 自体を link しない**ので、実体化の時点で `unresolved import` として失敗し、
 「承認なしに呼ばれる」経路がありません。これが WASI preview 2 を選んだ理由です。
 
-既知の制約: 許可ホストの名前解決 (`NetAllow::resolve`) は `to_socket_addrs` を同期で呼ぶため、DNS の遅延がそのままスケジューラスレッドを止め、
-仮想時間の進行も止まります (epoch interruption はホスト関数の中では効かない)。単一スレッド前提の設計上は許容とし、
-M6 でタイムアウト付きの解決 (別スレッド + 期限) を検討します (監査 A7)。
+許可ホストの名前解決 (`NetAllow::resolve`) は別スレッドで行い、期限 (既定 2 s) を過ぎたら `temporary-resolver-failure` を返します
+(M6、監査 A7、D58)。epoch interruption はホスト関数の中では効かないため、遅い DNS がスケジューラスレッドを止める時間をこの期限で抑えます。
+期限切れの解決は走らせたままにして結果を次の呼び出しで回収し、同じ名前の同時解決は 1 本にまとめます (同時 4 本まで)。
+成功した結果は instance ごとに 60 s キャッシュします。許可リストの判定は解決の前に行うので、宣言外の名前は解決器に届きません。
 
 ### 同意 (consent)
 ```text

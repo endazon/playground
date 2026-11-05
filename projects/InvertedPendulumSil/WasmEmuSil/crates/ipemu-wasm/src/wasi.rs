@@ -4,6 +4,7 @@
 //! - **宣言のないものは import 自体を link しない。** 実体化が `unresolved import` で失敗し、承認なしに呼ばれる経路がない。
 //! - `net` は `wasi:sockets/*` を link し、宛先は [`NetAllow`] (許可リスト) で `socket_addr_check` する。
 //!   名前解決は自前の `wasi:sockets/ip-name-lookup` 実装で許可ホストに限定し、解決で得た IP だけを接続可にする。
+//!   解決は別スレッドで行い、期限 ([`DnsConfig::timeout`]) を過ぎたら待たずに返す (監査 A7、D58)。
 //! - `fs` はデータディレクトリ配下の宣言パスだけを `preopened_dir` で与える (ro / rw)。
 //! - `clock` / `random` は link すると決定性の保証外 (`deterministic = false`)。
 //! - `wasi:io/*` は sockets / filesystem / monotonic-clock の土台なので、いずれかの capability があるときだけ link する。
@@ -11,10 +12,11 @@
 
 use anyhow::{bail, Context};
 use ipemu_core::capability::{Capabilities, FsMode, HostPort};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
 use wasmtime::component::{HasData, Linker, Resource, ResourceTable};
 use wasmtime_wasi::p2::bindings::sockets::network::{ErrorCode, IpAddress, Network};
 use wasmtime_wasi::p2::{subscribe, DynPollable, Pollable};
@@ -153,6 +155,112 @@ impl WasiGrant {
     }
 }
 
+/// 名前解決の実体。既定は OS ([`SystemResolver`])。テストでは止まる DNS などに差し替える。
+pub trait Resolver: Send + Sync {
+    fn lookup(&self, name: &str) -> std::io::Result<Vec<IpAddr>>;
+}
+
+/// OS の名前解決 (`getaddrinfo`)。呼び出したスレッドを DNS の応答まで止める。
+#[derive(Debug, Default)]
+pub struct SystemResolver;
+
+impl Resolver for SystemResolver {
+    fn lookup(&self, name: &str) -> std::io::Result<Vec<IpAddr>> {
+        Ok((name, 0u16).to_socket_addrs()?.map(|a| a.ip()).collect())
+    }
+}
+
+/// 名前解決の期限とキャッシュ (D58)。
+#[derive(Clone)]
+pub struct DnsConfig {
+    /// 1 回の `resolve-addresses` が待つ上限 (壁時計)。過ぎたら `temporary-resolver-failure`
+    pub timeout: Duration,
+    /// 解決結果を再利用する期間。失敗は覚えない
+    pub cache_ttl: Duration,
+    pub resolver: Arc<dyn Resolver>,
+}
+
+impl DnsConfig {
+    /// 既定の期限。epoch ウォッチドッグの既定予算 (5 s) より短くし、1 回の待ちで呼び出しが trap しないようにする
+    pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2);
+    pub const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60);
+}
+
+impl Default for DnsConfig {
+    fn default() -> Self {
+        Self {
+            timeout: Self::DEFAULT_TIMEOUT,
+            cache_ttl: Self::DEFAULT_CACHE_TTL,
+            resolver: Arc::new(SystemResolver),
+        }
+    }
+}
+
+impl std::fmt::Debug for DnsConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DnsConfig")
+            .field("timeout", &self.timeout)
+            .field("cache_ttl", &self.cache_ttl)
+            .finish_non_exhaustive()
+    }
+}
+
+/// キャッシュに置く名前の上限。
+const DNS_CACHE_MAX: usize = 32;
+/// 同時に走らせる解決スレッドの上限 (`*.example.com` の許可で名前を変えながら呼ばれても増え続けない)。
+const DNS_INFLIGHT_MAX: usize = 4;
+
+type Lookup = Result<Vec<IpAddr>, ErrorCode>;
+
+/// 解決スレッド 1 本の結果の受け渡し口。
+#[derive(Debug, Default)]
+struct PendingLookup {
+    result: Mutex<Option<Lookup>>,
+    done: Condvar,
+}
+
+#[derive(Debug, Default)]
+struct DnsState {
+    /// 名前 (小文字) → (解決した時刻, IP)
+    cache: HashMap<String, (Instant, Vec<IpAddr>)>,
+    /// 走っている (または結果をまだ回収していない) 解決。同じ名前は 1 本にまとめる
+    inflight: HashMap<String, Arc<PendingLookup>>,
+}
+
+impl DnsState {
+    fn remember(&mut self, key: String, ips: Vec<IpAddr>) {
+        if self.cache.len() >= DNS_CACHE_MAX && !self.cache.contains_key(&key) {
+            if let Some(oldest) = self
+                .cache
+                .iter()
+                .min_by_key(|(_, (at, _))| *at)
+                .map(|(k, _)| k.clone())
+            {
+                self.cache.remove(&oldest);
+            }
+        }
+        self.cache.insert(key, (Instant::now(), ips));
+    }
+
+    /// 期限切れの後に終わった解決を回収する (成功はキャッシュへ)。
+    fn reap(&mut self) {
+        let finished: Vec<(String, Lookup)> = self
+            .inflight
+            .iter()
+            .filter_map(|(k, p)| {
+                let r = p.result.lock().unwrap_or_else(|e| e.into_inner());
+                r.clone().map(|r| (k.clone(), r))
+            })
+            .collect();
+        for (k, r) in finished {
+            self.inflight.remove(&k);
+            if let Ok(ips) = r {
+                self.remember(k, ips);
+            }
+        }
+    }
+}
+
 /// ネットワークの許可リスト。`socket_addr_check` と名前解決が共有する。
 #[derive(Debug, Default)]
 pub struct NetAllow {
@@ -163,10 +271,17 @@ pub struct NetAllow {
     resolved: Mutex<Vec<(IpAddr, HostPort)>>,
     /// 拒否した宛先 (診断用)
     denied: Mutex<Vec<String>>,
+    dns_config: DnsConfig,
+    dns: Mutex<DnsState>,
 }
 
 impl NetAllow {
     fn new(g: &WasiGrant) -> Self {
+        Self::with_dns(g, DnsConfig::default())
+    }
+
+    /// 名前解決の期限・キャッシュ・実体を指定して作る。
+    pub fn with_dns(g: &WasiGrant, dns_config: DnsConfig) -> Self {
         // deny-all 形では許可リストを空にする (インターフェースは link されるが全宛先を拒否)
         let pick = |v: &Vec<HostPort>| if g.deny_all { Vec::new() } else { v.clone() };
         Self {
@@ -175,7 +290,81 @@ impl NetAllow {
             udp: pick(&g.udp),
             resolved: Mutex::new(Vec::new()),
             denied: Mutex::new(Vec::new()),
+            dns_config,
+            dns: Mutex::new(DnsState::default()),
         }
+    }
+
+    /// 許可済みの名前を、キャッシュ → 解決スレッド (期限付き) の順で引く。
+    /// 期限を過ぎてもスレッドは止められないので走らせたままにし、結果は次の呼び出しで回収する。
+    fn lookup(&self, name: &str) -> Lookup {
+        let key = name.to_ascii_lowercase();
+        let pending = {
+            let mut d = self.dns.lock().unwrap_or_else(|e| e.into_inner());
+            d.reap();
+            if let Some((at, ips)) = d.cache.get(&key) {
+                if at.elapsed() < self.dns_config.cache_ttl {
+                    return Ok(ips.clone());
+                }
+            }
+            match d.inflight.get(&key) {
+                Some(p) => p.clone(),
+                None => {
+                    if d.inflight.len() >= DNS_INFLIGHT_MAX {
+                        return Err(ErrorCode::TemporaryResolverFailure);
+                    }
+                    let p = Arc::new(PendingLookup::default());
+                    let (p2, resolver, n) =
+                        (p.clone(), self.dns_config.resolver.clone(), name.to_owned());
+                    std::thread::Builder::new()
+                        .name("ipemu-dns".into())
+                        .spawn(move || {
+                            // 解決順は OS のまま (先頭を使う部品が多い)。重複だけ除く
+                            let r = resolver
+                                .lookup(&n)
+                                .map(|ips| {
+                                    let mut seen = HashSet::new();
+                                    ips.into_iter()
+                                        .map(|ip| ip.to_canonical())
+                                        .filter(|ip| seen.insert(*ip))
+                                        .collect()
+                                })
+                                .map_err(|_| ErrorCode::NameUnresolvable);
+                            *p2.result.lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
+                            p2.done.notify_all();
+                        })
+                        .map_err(|_| ErrorCode::TemporaryResolverFailure)?;
+                    d.inflight.insert(key.clone(), p.clone());
+                    p
+                }
+            }
+        };
+        let deadline = Instant::now() + self.dns_config.timeout;
+        let mut r = pending.result.lock().unwrap_or_else(|e| e.into_inner());
+        while r.is_none() {
+            let now = Instant::now();
+            if now >= deadline {
+                return Err(ErrorCode::TemporaryResolverFailure);
+            }
+            r = pending
+                .done
+                .wait_timeout(r, deadline - now)
+                .unwrap_or_else(|e| e.into_inner())
+                .0;
+        }
+        let result = r.clone().expect("待ち合わせで結果を確認済み");
+        drop(r);
+        let mut d = self.dns.lock().unwrap_or_else(|e| e.into_inner());
+        if d.inflight
+            .get(&key)
+            .is_some_and(|p| Arc::ptr_eq(p, &pending))
+        {
+            d.inflight.remove(&key);
+        }
+        if let Ok(ips) = &result {
+            d.remember(key, ips.clone());
+        }
+        result
     }
 
     fn permits(&self, list: &[HostPort], addr: SocketAddr) -> bool {
@@ -236,14 +425,7 @@ impl NetAllow {
         if let Ok(ip) = name.parse::<IpAddr>() {
             return Ok(vec![ip]);
         }
-        // 解決順は OS のまま (先頭を使う部品が多い)。重複だけ除く
-        let mut seen = HashSet::new();
-        let ips: Vec<IpAddr> = (name, 0u16)
-            .to_socket_addrs()
-            .map_err(|_| ErrorCode::NameUnresolvable)?
-            .map(|a| a.ip().to_canonical())
-            .filter(|ip| seen.insert(*ip))
-            .collect();
+        let ips = self.lookup(name)?;
         let mut resolved = self.resolved.lock().unwrap_or_else(|e| e.into_inner());
         for ip in &ips {
             for e in &entries {
@@ -403,7 +585,7 @@ mod name_lookup {
     }
     use bindings::wasi::sockets::ip_name_lookup::{Host, HostResolveAddressStream};
 
-    /// 解決済みアドレスの列。同期で解決するので pollable は常に ready。
+    /// 解決済みアドレスの列。期限付きで待ってから返すので pollable は常に ready。
     pub struct ResolvedAddresses(std::vec::IntoIter<IpAddr>);
 
     #[wasmtime_wasi::async_trait]
@@ -564,6 +746,107 @@ mod tests {
             a.resolve("a.example.invalid").err(),
             Some(ErrorCode::AccessDenied)
         );
+    }
+
+    /// 呼ばれた回数を数え、`gate` が開くまで (または即座に) 192.0.2.7 を返す解決器。
+    struct FakeResolver {
+        calls: std::sync::atomic::AtomicU32,
+        gate: Mutex<Option<std::sync::mpsc::Receiver<()>>>,
+    }
+    impl FakeResolver {
+        fn new(gate: Option<std::sync::mpsc::Receiver<()>>) -> Arc<Self> {
+            Arc::new(Self {
+                calls: Default::default(),
+                gate: Mutex::new(gate),
+            })
+        }
+        fn calls(&self) -> u32 {
+            self.calls.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+    impl Resolver for FakeResolver {
+        fn lookup(&self, _name: &str) -> std::io::Result<Vec<IpAddr>> {
+            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if let Some(rx) = self.gate.lock().unwrap().take() {
+                let _ = rx.recv();
+            }
+            Ok(vec![
+                "192.0.2.7".parse().unwrap(),
+                "192.0.2.7".parse().unwrap(),
+            ])
+        }
+    }
+
+    fn dns(resolver: Arc<FakeResolver>, timeout_ms: u64) -> DnsConfig {
+        DnsConfig {
+            timeout: Duration::from_millis(timeout_ms),
+            cache_ttl: Duration::from_secs(60),
+            resolver,
+        }
+    }
+
+    #[test]
+    fn hanging_resolver_returns_within_deadline_and_result_is_reaped_later() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let r = FakeResolver::new(Some(rx));
+        let a = NetAllow::with_dns(
+            &grant(&["slow.example.test:80"], &[], &[]),
+            dns(r.clone(), 150),
+        );
+        let t0 = Instant::now();
+        assert_eq!(
+            a.resolve("slow.example.test").unwrap_err(),
+            ErrorCode::TemporaryResolverFailure
+        );
+        let waited = t0.elapsed();
+        assert!(
+            waited >= Duration::from_millis(150) && waited < Duration::from_secs(2),
+            "期限 150ms で返っていない: {waited:?}"
+        );
+        // 期限切れの間は再試行しても新しいスレッドを立てず、同じ解決を待つ
+        assert!(a.resolve("slow.example.test").is_err());
+        assert_eq!(r.calls(), 1);
+        // DNS が応答したら、次の呼び出しで結果を回収して使う (許可リストの規則は従来どおり)
+        tx.send(()).unwrap();
+        let t1 = Instant::now();
+        let ips = loop {
+            match a.resolve("slow.example.test") {
+                Ok(ips) => break ips,
+                Err(_) if t1.elapsed() < Duration::from_secs(5) => continue,
+                Err(e) => panic!("解決できない: {e:?}"),
+            }
+        };
+        assert_eq!(ips, vec!["192.0.2.7".parse::<IpAddr>().unwrap()]);
+        assert_eq!(r.calls(), 1);
+        assert!(a.check("192.0.2.7:80".parse().unwrap(), SocketAddrUse::TcpConnect));
+        assert!(!a.check("192.0.2.7:81".parse().unwrap(), SocketAddrUse::TcpConnect));
+    }
+
+    #[test]
+    fn resolution_is_cached_per_allow_list() {
+        let r = FakeResolver::new(None);
+        let a = NetAllow::with_dns(
+            &grant(&["db.example.test:5432"], &[], &[]),
+            dns(r.clone(), 1000),
+        );
+        let first = a.resolve("db.example.test").unwrap();
+        let second = a.resolve("DB.example.test").unwrap();
+        assert_eq!(first, second);
+        assert_eq!(r.calls(), 1, "2 回目はキャッシュから返る");
+        // 許可外の名前はキャッシュや解決器に届く前に拒否される
+        assert_eq!(
+            a.resolve("other.example.test").unwrap_err(),
+            ErrorCode::AccessDenied
+        );
+        assert_eq!(r.calls(), 1);
+        // 期限 0 のキャッシュなら毎回引き直す
+        let r2 = FakeResolver::new(None);
+        let mut cfg = dns(r2.clone(), 1000);
+        cfg.cache_ttl = Duration::ZERO;
+        let b = NetAllow::with_dns(&grant(&["db.example.test:5432"], &[], &[]), cfg);
+        b.resolve("db.example.test").unwrap();
+        b.resolve("db.example.test").unwrap();
+        assert_eq!(r2.calls(), 2);
     }
 
     #[test]

@@ -150,6 +150,23 @@ pub struct TickStats {
     pub fuel: Option<u64>,
 }
 
+/// 1 呼び出しあたりの fuel 上限 (決定的なウォッチドッグ)。None は無制限 (壁時計の epoch だけが歯止め)。
+///
+/// 上限を超えた呼び出しは仮想時刻・壁時計によらず同じ命令位置で trap する (D57)。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FuelLimits {
+    /// `tick` と `irq` の 1 回あたり
+    pub per_tick: Option<u64>,
+    /// `abi-version` と `init` の 1 回あたり (cfg の解釈やゲイン計算で tick より重いことがある)
+    pub per_init: Option<u64>,
+}
+
+impl FuelLimits {
+    pub fn is_unlimited(&self) -> bool {
+        self.per_tick.is_none() && self.per_init.is_none()
+    }
+}
+
 /// 注入されるファームウェアの抽象。wasm 形も native 形も同じ呼び出しで扱う。
 pub trait Firmware {
     fn abi_version(&mut self) -> anyhow::Result<u32>;
@@ -162,4 +179,10 @@ pub trait Firmware {
     fn hot_reloadable(&self) -> bool {
         false
     }
+    /// fuel を計測する形か (wasm で計測が有効なとき true)。false なら `TickStats::fuel` は常に None
+    fn meters_fuel(&self) -> bool {
+        false
+    }
+    /// 呼び出しごとの fuel 上限を設定する。`abi_version` / `init` より前に呼ぶ。fuel を計測しない形では何もしない
+    fn set_fuel_limits(&mut self, _limits: FuelLimits) {}
 }

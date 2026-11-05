@@ -3,10 +3,10 @@
 use crate::runtime::Runtime;
 use crate::wasi::{WasiGrant, WasiHost, WasiState};
 use anyhow::Context;
-use ipemu_core::hal::{Firmware, HalRegs, LogLevel, TickStats};
+use ipemu_core::hal::{Firmware, FuelLimits, HalRegs, LogLevel, TickStats};
 use std::path::Path;
 use wasmtime::component::{Component, HasSelf, Linker};
-use wasmtime::Store;
+use wasmtime::{Store, Trap};
 use wasmtime_wasi::{WasiCtxView, WasiView};
 
 mod bindings {
@@ -82,11 +82,42 @@ impl bindings::ip::emu::hal::Host for FwHost {
     }
 }
 
+/// 上限なしのときに毎回与える fuel。1 呼び出しで使い切れる量ではない
+const UNLIMITED_FUEL: u64 = u64::MAX / 2;
+
+/// 呼び出しの種類 (fuel 上限の選択とエラー文言に使う)。
+#[derive(Clone, Copy)]
+enum Call {
+    AbiVersion,
+    Init,
+    Tick,
+    Irq,
+}
+
+impl Call {
+    fn name(self) -> &'static str {
+        match self {
+            Call::AbiVersion => "abi-version",
+            Call::Init => "init",
+            Call::Tick => "tick",
+            Call::Irq => "irq",
+        }
+    }
+    /// 効く上限の manifest キー
+    fn limit_key(self) -> &'static str {
+        match self {
+            Call::AbiVersion | Call::Init => "maxFuelPerInit",
+            Call::Tick | Call::Irq => "maxFuelPerTick",
+        }
+    }
+}
+
 pub struct WasmFirmware {
     store: Store<FwHost>,
     world: bindings::Firmware,
     epoch_budget: u64,
     measure_fuel: bool,
+    limits: FuelLimits,
 }
 
 impl WasmFirmware {
@@ -119,7 +150,8 @@ impl WasmFirmware {
         let epoch_budget = rt.epoch_budget();
         store.set_epoch_deadline(epoch_budget);
         if rt.options.measure_fuel {
-            store.set_fuel(u64::MAX / 2)?;
+            // 実体化 (start 関数など) の分。呼び出しごとに arm で張り直す
+            store.set_fuel(UNLIMITED_FUEL)?;
         }
         let world = bindings::Firmware::instantiate(&mut store, &component, &linker)
             .map_err(anyhow::Error::from)
@@ -129,7 +161,50 @@ impl WasmFirmware {
             world,
             epoch_budget,
             measure_fuel: rt.options.measure_fuel,
+            limits: FuelLimits::default(),
         })
+    }
+
+    /// 呼び出しの直前に、壁時計の予算 (epoch) と fuel の予算を張り直す。戻り値は張った fuel 量。
+    /// fuel は呼び出しごとに上限ちょうどから始めるので、消費量と trap の位置は直前の呼び出しに依存しない。
+    fn arm(&mut self, call: Call) -> Option<u64> {
+        self.store.set_epoch_deadline(self.epoch_budget);
+        if !self.measure_fuel {
+            return None;
+        }
+        let fuel = self.limit(call).unwrap_or(UNLIMITED_FUEL);
+        self.store.set_fuel(fuel).ok().map(|_| fuel)
+    }
+
+    fn limit(&self, call: Call) -> Option<u64> {
+        match call {
+            Call::AbiVersion | Call::Init => self.limits.per_init,
+            Call::Tick | Call::Irq => self.limits.per_tick,
+        }
+    }
+
+    fn consumed(&self, armed: Option<u64>) -> Option<u64> {
+        let a = armed?;
+        self.store
+            .get_fuel()
+            .ok()
+            .map(|left| a.saturating_sub(left))
+    }
+
+    /// wasmtime のエラーを、fuel 切れなら上限の値が分かる文言にして返す。
+    fn map_err(&self, call: Call, e: wasmtime::Error) -> anyhow::Error {
+        match (e.downcast_ref::<Trap>(), self.limit(call)) {
+            (Some(Trap::OutOfFuel), Some(n)) => anyhow::Error::from(e).context(format!(
+                "ファームウェアの {} が fuel の上限 ({}={n}) を使い切りました (無限ループか予算不足)",
+                call.name(),
+                call.limit_key()
+            )),
+            (Some(Trap::Interrupt), _) => anyhow::Error::from(e).context(format!(
+                "ファームウェアの {} が壁時計の予算 (epoch ウォッチドッグ) を超えました",
+                call.name()
+            )),
+            _ => anyhow::Error::from(e),
+        }
     }
 
     fn with_regs<R>(&mut self, regs: &mut HalRegs, f: impl FnOnce(&mut Self) -> R) -> R {
@@ -142,38 +217,35 @@ impl WasmFirmware {
 
 impl Firmware for WasmFirmware {
     fn abi_version(&mut self) -> anyhow::Result<u32> {
-        self.store.set_epoch_deadline(self.epoch_budget);
-        Ok(self.world.ip_emu_fw().call_abi_version(&mut self.store)?)
+        self.arm(Call::AbiVersion);
+        self.world
+            .ip_emu_fw()
+            .call_abi_version(&mut self.store)
+            .map_err(|e| self.map_err(Call::AbiVersion, e))
     }
 
     fn init(&mut self, regs: &mut HalRegs, cfg_json: &str) -> anyhow::Result<()> {
-        self.store.set_epoch_deadline(self.epoch_budget);
-        self.with_regs(regs, |s| {
-            s.world
-                .ip_emu_fw()
-                .call_init(&mut s.store, cfg_json)?
-                .map_err(|e| anyhow::anyhow!("ファームウェアの init が失敗: {e}"))
-        })
+        self.arm(Call::Init);
+        let r = self.with_regs(regs, |s| {
+            s.world.ip_emu_fw().call_init(&mut s.store, cfg_json)
+        });
+        r.map_err(|e| self.map_err(Call::Init, e))?
+            .map_err(|e| anyhow::anyhow!("ファームウェアの init が失敗: {e}"))
     }
 
     fn tick(&mut self, regs: &mut HalRegs) -> anyhow::Result<TickStats> {
-        self.store.set_epoch_deadline(self.epoch_budget);
-        let before = if self.measure_fuel {
-            self.store.get_fuel().ok()
-        } else {
-            None
-        };
-        self.with_regs(regs, |s| s.world.ip_emu_fw().call_tick(&mut s.store))?;
-        let fuel = match before {
-            Some(b) => self.store.get_fuel().ok().map(|a| b.saturating_sub(a)),
-            None => None,
-        };
-        Ok(TickStats { fuel })
+        let armed = self.arm(Call::Tick);
+        let r = self.with_regs(regs, |s| s.world.ip_emu_fw().call_tick(&mut s.store));
+        r.map_err(|e| self.map_err(Call::Tick, e))?;
+        Ok(TickStats {
+            fuel: self.consumed(armed),
+        })
     }
 
     fn irq(&mut self, regs: &mut HalRegs, id: u32) -> anyhow::Result<()> {
-        self.store.set_epoch_deadline(self.epoch_budget);
-        Ok(self.with_regs(regs, |s| s.world.ip_emu_fw().call_irq(&mut s.store, id))?)
+        self.arm(Call::Irq);
+        let r = self.with_regs(regs, |s| s.world.ip_emu_fw().call_irq(&mut s.store, id));
+        r.map_err(|e| self.map_err(Call::Irq, e))
     }
 
     fn flavor(&self) -> &'static str {
@@ -182,5 +254,13 @@ impl Firmware for WasmFirmware {
 
     fn hot_reloadable(&self) -> bool {
         true
+    }
+
+    fn meters_fuel(&self) -> bool {
+        self.measure_fuel
+    }
+
+    fn set_fuel_limits(&mut self, limits: FuelLimits) {
+        self.limits = limits;
     }
 }
