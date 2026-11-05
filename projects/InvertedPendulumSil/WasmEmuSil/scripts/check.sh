@@ -25,6 +25,24 @@ cargo test --workspace --exclude plant-cartpole --exclude motor-driver --exclude
 step "manifest validate"
 cargo run -q -p ipemu-engine -- validate dev/cartpole.manifest.json --no-signature-check
 
+step "ipc types (ts-rs) are up to date"
+./scripts/gen-ipc-types.sh --check
+
+if command -v pnpm >/dev/null 2>&1; then
+  step "pnpm install (frozen lockfile; Electron 本体は不要)"
+  ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install --frozen-lockfile --silent
+  step "pnpm lint (eslint + tsc)"
+  pnpm run --silent lint
+  step "pnpm test (vitest: ui-kit / shell)"
+  pnpm run --silent test
+  if [ $QUICK -eq 0 ]; then
+    step "pnpm build (UI バンドル + シェル)"
+    pnpm run --silent build
+  fi
+else
+  echo "pnpm が無いので TypeScript 側 (apps/) の検証を省きます"
+fi
+
 if command -v npx >/dev/null 2>&1 && [ $QUICK -eq 0 ]; then
   step "markdownlint"
   (cd ../../.. && npx --yes markdownlint-cli2 "projects/InvertedPendulumSil/WasmEmuSil/**/*.md") || true

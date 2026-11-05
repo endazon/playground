@@ -313,7 +313,7 @@ function Session({ endpoint, onDisconnect }: { endpoint: Endpoint; onDisconnect:
           <aside className="side">
             <ControlPanel
               desc={desc}
-              run={run}
+              run={latestFrame ? { ...run, tNs: latestFrame.tNs, tick: latestFrame.tick, epoch: latestFrame.epoch, state: latestFrame.state } : run}
               busy={busy}
               onStart={() => act(async () => setRun(await client.call("run.start", {})))}
               onStop={() => act(async () => setRun(await client.call("run.stop", {})))}

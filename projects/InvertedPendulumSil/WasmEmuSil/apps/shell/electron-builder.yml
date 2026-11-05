@@ -1,0 +1,23 @@
+# 配布 (M6: 6 プラットフォームの未署名 zip, D17)。M2 ではまだ検証していない雛形。
+# 署名は環境変数 (CSC_LINK 等) を与えれば有効になる構成にしておく。
+appId: dev.ipemu.shell
+productName: ipemu
+directories:
+  output: ../../build/dist
+files:
+  - dist/**
+  - package.json
+extraResources:
+  # エンジンは同梱する (scripts で target/release/ipemu-engine(.exe) を bin/ にコピーしてから builder を走らせる)
+  - from: ../../target/release/
+    to: bin/
+    filter: ["ipemu-engine", "ipemu-engine.exe"]
+protocols:
+  - name: ipemu
+    schemes: [ipemu]
+mac:
+  target: [zip]
+win:
+  target: [zip]
+linux:
+  target: [zip]
