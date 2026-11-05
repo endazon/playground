@@ -497,8 +497,11 @@ async fn scope_subscription_streams_chunks_and_realtime_paces() {
         .unwrap_err();
     assert_eq!(e.code, codes::NOT_FOUND);
 
-    let wall = std::time::Instant::now();
+    // 壁時計は「最初のフレーム受信 → 5 枚目の受信」で測る (購読からの計測だと、最初のフレームが
+    // 購読前に進んでいた区間を含み得て揺れる)。4 区間 = 仮想 200ms が、実時間なら 150ms〜1s に収まるはず
     let mut frames = 0;
+    let mut first_at: Option<std::time::Instant> = None;
+    let mut last_at: Option<std::time::Instant> = None;
     let mut last_state: Option<StateFrame> = None;
     let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
     while frames < 5 {
@@ -508,6 +511,9 @@ async fn scope_subscription_streams_chunks_and_realtime_paces() {
                 assert_eq!(f.channels.len(), 2);
                 assert_eq!(f.channels[0].len(), 50, "window 50ms @1kHz");
                 assert_eq!(f.period_ns, 1_000_000);
+                let now = std::time::Instant::now();
+                first_at.get_or_insert(now);
+                last_at = Some(now);
                 frames += 1;
             }
             Ok(Some(Incoming::State(s))) => last_state = Some(s),
@@ -515,11 +521,14 @@ async fn scope_subscription_streams_chunks_and_realtime_paces() {
             _ => panic!("scope フレームが届かない"),
         }
     }
-    // realtime: 5 フレーム = 仮想 250ms は、壁時計でもおおむね 250ms 以上かかる
+    let span = last_at.unwrap().duration_since(first_at.unwrap());
     assert!(
-        wall.elapsed() >= Duration::from_millis(200),
-        "realtime なのに速すぎる: {:?}",
-        wall.elapsed()
+        span >= Duration::from_millis(150),
+        "realtime なのに速すぎる (4 区間 = 仮想 200ms が {span:?})"
+    );
+    assert!(
+        span <= Duration::from_secs(1),
+        "realtime なのに遅すぎる (4 区間 = 仮想 200ms が {span:?})"
     );
     let s = last_state.expect("state");
     assert_eq!(s.pacing, PacingMode::Realtime);
