@@ -1,6 +1,6 @@
-# 11. 未決事項と残作業 (2026-11-05 時点)
+# 11. 未決事項と残作業 (2026-11-06 時点)
 
-設計 (M0) から M5 と監査までを終えた時点での引き継ぎ資料です。
+設計 (M0) から M6 と監査までを終えた時点での引き継ぎ資料です。
 次の作業者 (人でも Claude のセッションでも) がこの資料だけで再開できるように、
 **残っている作業**、**実機が要る確認**、**判断を保留しているもの**、**設計で対象外にしたもの**、**再開の手順と環境の制約**を分けて書きます。
 判断の経緯は [08-decisions.md](08-decisions.md)、監査の所見は [audit/2026-11-05-m1-m5-m3.md](audit/2026-11-05-m1-m5-m3.md) にあります。
@@ -14,16 +14,17 @@
 | M3 / M4 | 配信サーバ + ポータル / 管理画面、bootstrap とキャッシュ | `endazon/playground#8` |
 | M2 | Electron シェル + IPC | `endazon/playground#9` |
 | 監査 | 所見 A1〜A10 と M2-1 の修正 (D50〜D56) | `endazon/playground#10` |
+| M6 | fuel 計時、A7、NetworkedSil との遅延比較、6 プラットフォームの zip | 本資料と同じ PR |
 
-## 1. 進行中: M6 (拡張)
-| 項目 | 内容 | 決定番号 | 状態 |
+## 1. M6 (拡張) の結果
+M6 は完了しました。詳細は各資料にあります。
+
+| 項目 | 結果 | 決定番号 | 資料 |
 | --- | --- | --- | --- |
-| fuel 計時 | tick ごとの fuel 上限 (暴走した FW を決定的に FAULT にする)、実 FW での性質テスト、`nsPerFuel` の校正手順、native FW を fuel モデルで使ったときの警告 | D57〜D59 | 作業中 |
-| A7 | 許可ホストの名前解決を別スレッド + 期限 + キャッシュにし、DNS の遅延でスケジューラが止まらないようにする | D57〜D59 | 作業中 |
-| 遅延比較 | NetworkedSil の遅延余裕解析 (`DelayMarginAnalyzer.cs`) の Rust 移植、comm-link を制御ループに入れた manifest、境界の掃引、比較記録 (10-delay-comparison.md) | D60〜D63 | 作業中 |
-| 6 プラットフォームの zip | electron-builder の zip 構成、`scripts/package.sh`、この環境で作れる分のビルドと確認 | D64〜D66 | 作業中 |
-
-M6 の統合時に、この表を結果で更新します。
+| fuel 計時 | cpu-virtual の `maxFuelPerTick` / `maxFuelPerInit` で、暴走した FW を毎回同じ命令位置で trap させ FAULT にする。fuel / tick の実測 (倒立中の制御 tick: C 版 854、Rust 版 1101) と `nsPerFuel` の較正手順。native FW を fuel モデルで使うと警告 1 回 | D57, D59 | [05](05-firmware.md) |
+| A7 | 許可ホストの名前解決を別スレッド + 期限 2 s + キャッシュ 60 s にした。DNS が遅いときにスケジューラが止まる時間は最大 2 s に抑えられる (ゼロにはならない) | D58 | [07](07-client-app.md) |
+| 遅延比較 | 理論遅延余裕の Rust 移植は NetworkedSil の表を 15 マスすべて一致。comm-link を制御ループに入れた全エミュレーションの境目は RTT 88 ms 維持 / 90 ms 転倒 (理論 85 ms、NetworkedSil の実測 80 維持 / 90 転倒) | D60〜D63 | [10](10-delay-comparison.md) |
+| 6 プラットフォームの zip | electron-builder の zip 構成と `scripts/package.sh`。6 通りともこの環境でビルドできた。実行して確かめたのは linux-x64 だけで、他は成果物のアーキ (`file`) と配置を確認 | D64〜D66 | [07 の配布](07-client-app.md#配布-m6) |
 
 ## 2. 実機が要る確認
 この開発環境 (Linux x64 のコンテナ) では確かめられないものです。
@@ -31,8 +32,10 @@ M6 の統合時に、この表を結果で更新します。
 | 項目 | 確認すること | 反映先 |
 | --- | --- | --- |
 | Q13: Visual Studio の F5 (Windows) | `firmware/fw-balance-c/.vs/launch.vs.json` で native DLL をエンジンに読ませ、ブレークポイントで止まること。M2 では Linux で native `.so` のロードと `restartRequired` の経路まで確認済み | 05-firmware.md の手順 |
-| macOS / Windows の zip の起動 | 展開したアプリが起動し、同梱エンジンを見つけ、`ipemu://` を初回起動で登録すること。未署名なので macOS では Gatekeeper の回避手順も確認する | 07-client-app.md の対象プラットフォーム |
-| arm64 実機 | Apple Silicon と Windows on Arm で、wasm FW と native FW (同じアーキでビルド) が動くこと | 同上 |
+| macOS / Windows の zip の起動 | 展開したアプリが起動し、同梱エンジン (`resources/bin`) を見つけ、`ipemu://` を初回起動で登録すること。未署名なので macOS では Gatekeeper の回避手順も確認する。配布前に各 OS 上で `scripts/package.sh --target <os>-<arch>` で作り直す (Linux からのクロスビルドは macOS SDK なしでリンクしている) | 07-client-app.md の配布 (M6) |
+| windows-arm64 の MSVC ビルド | この環境では cargo-xwin が `ring` の arm64 ビルドで失敗したため、`aarch64-pc-windows-gnullvm` で代用した。Windows 上で MSVC (`aarch64-pc-windows-msvc`) で作り直して動作を確かめる | 同上 |
+| arm64 実機 | Apple Silicon と Windows on Arm、Linux arm64 で、wasm FW と native FW (同じアーキでビルド) が動くこと | 同上 |
+| Linux のデスクトップ | `chrome-sandbox` に setuid が付かないため `--no-sandbox` か権限の付与が要る。`ipemu://` の登録はコンテナ (デスクトップ・dbus なし) では確認できなかった | 同上 |
 
 ## 3. 小さな残作業
 | 項目 | 内容 | 規模 |
