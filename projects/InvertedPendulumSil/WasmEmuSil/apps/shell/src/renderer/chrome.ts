@@ -1,4 +1,3 @@
-/// <reference path="./shell-api.d.ts" />
 export {}; // 各ページは独立したモジュール (グローバルを共有しない)
 // タブ / アドレスバー。状態は main が持ち、ここは描いて操作を送るだけ
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;

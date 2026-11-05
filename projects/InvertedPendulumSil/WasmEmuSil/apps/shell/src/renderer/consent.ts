@@ -1,4 +1,3 @@
-/// <reference path="./shell-api.d.ts" />
 export {}; // 各ページは独立したモジュール (グローバルを共有しない)
 interface ConsentData {
   requestId: string;
