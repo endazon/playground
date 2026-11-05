@@ -58,11 +58,6 @@ fn component_exports(bytes: &[u8]) -> anyhow::Result<Vec<String>> {
     Ok(exports)
 }
 
-/// firmware 用: import に対応する wasi:* を deny-all 形で link する grant (part は `describe_component_sandboxed` が同じことをする)。
-fn deny_all_grant_for_imports(imports: &[ImportInfo]) -> WasiGrant {
-    WasiGrant::deny_all_for(&Capabilities::covering_imports(imports))
-}
-
 fn guess_world(exports: &[String]) -> String {
     if let Some(e) = exports.iter().find(|e| e.starts_with("ip:emu/part@")) {
         return e.replace("ip:emu/part@", "ip:emu/part-world@");
@@ -113,8 +108,13 @@ pub fn inspect(kind: &str, bytes: &[u8]) -> anyhow::Result<Inspection> {
                     world.starts_with("ip:emu/firmware@"),
                     "firmware は ip:emu/fw を export する必要があります (exports: {exports:?})"
                 );
-                WasmFirmware::load_with(&rt, bytes, deny_all_grant_for_imports(&imports))
-                    .context("ファームウェアの実体化に失敗")?;
+                // firmware には sandboxed API が無いので、part と同じ材料 (covering_imports → deny_all_for) で組む
+                WasmFirmware::load_with(
+                    &rt,
+                    bytes,
+                    WasiGrant::deny_all_for(&Capabilities::covering_imports(&imports)),
+                )
+                .context("ファームウェアの実体化に失敗")?;
                 None
             };
             Ok(Inspection {
