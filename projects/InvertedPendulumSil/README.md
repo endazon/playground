@@ -6,7 +6,7 @@
 | ディレクトリ | 形 | 制御ループの置き場所 | 状態 |
 | --- | --- | --- | --- |
 | [`NetworkedSil/`](NetworkedSil/README.md) | 通信路をまたぐ純 SIL | バックエンド (ASP.NET Core)。プラントはブラウザ (Blazor WASM)、間は SignalR | 実装済み。遅延余裕の結論あり |
-| [`WasmEmuSil/`](WasmEmuSil/README.md) | WASM 部品で組むクライアント側エミュレータ | クライアント内の仮想 MCU。制御プログラムは DLL / WASM で外部から注入 | **設計中** (草案) |
+| [`WasmEmuSil/`](WasmEmuSil/README.md) | WASM 部品で組むクライアント側エミュレータ | クライアント内の仮想 MCU。制御プログラムは DLL / WASM で外部から注入 | 実装済み (M1〜M6)。遅延比較の結論あり |
 
 ## 2 つの関係
 `NetworkedSil` の結論は「安定化ループをバックエンドに置く設計は LAN 内の長い振子でぎりぎり。
