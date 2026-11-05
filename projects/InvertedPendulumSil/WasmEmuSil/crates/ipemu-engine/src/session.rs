@@ -55,8 +55,11 @@ pub struct SessionOptions {
     pub data_dir: Option<PathBuf>,
     /// 同意の問い合わせ先。None なら何も答えない (未同意があれば起動不可)
     pub consent: Option<Arc<dyn ConsentProvider>>,
-    /// 同意ストアを使わない (テスト・validate 用)。false なら `<data dir>/ipemu/consent.json`
+    /// 同意ストアを使わない (テスト用)。false なら `<data dir>/ipemu/consent.json`
     pub no_consent_store: bool,
+    /// 検証のみ (`validate`): 同意を求めず、capability は deny-all 形で付与する (D34)。
+    /// 実体化・describe・init は走るが、接続・名前解決・ファイル操作はすべて拒否される
+    pub validate_only: bool,
 }
 
 impl std::fmt::Debug for SessionOptions {
@@ -69,6 +72,7 @@ impl std::fmt::Debug for SessionOptions {
             .field("data_dir", &self.data_dir)
             .field("consent", &self.consent.as_ref().map(|c| c.name()))
             .field("no_consent_store", &self.no_consent_store)
+            .field("validate_only", &self.validate_only)
             .finish()
     }
 }
@@ -275,9 +279,10 @@ impl Session {
             }
         }
 
-        // 同意: 記憶 → 問い合わせ。拒否が 1 件でもあれば起動不可
+        // 同意: 記憶 → 問い合わせ。拒否が 1 件でもあれば起動不可。
+        // validate_only では deny-all で付与するので同意は要らない (I/O が起きない)
         let requests = plan.requests(&manifest.id, manifest.revision);
-        if !requests.is_empty() {
+        if !requests.is_empty() && !opts.validate_only {
             let mut store = if opts.no_consent_store {
                 None
             } else {
@@ -312,7 +317,11 @@ impl Session {
                             cm
                         }
                     };
-                    let grant = plan.grant_for(&c.instance, &dirs)?;
+                    let grant = if opts.validate_only {
+                        plan.grant_for_validate(&c.instance)
+                    } else {
+                        plan.grant_for(&c.instance, &dirs)?
+                    };
                     let mut part =
                         WasmPart::instantiate_with(&runtime, &component, &c.instance, grant)?;
                     part.init(&c.params)
@@ -327,7 +336,11 @@ impl Session {
                     let mut cpu = CpuVirtual::new(p, cfg_json);
                     let fw: Box<dyn Firmware> = match fw {
                         FirmwareBytes::Wasm(w) => {
-                            let grant = plan.grant_for(&c.instance, &dirs)?;
+                            let grant = if opts.validate_only {
+                                plan.grant_for_validate(&c.instance)
+                            } else {
+                                plan.grant_for(&c.instance, &dirs)?
+                            };
                             Box::new(
                                 WasmFirmware::load_with(&runtime, &w.bytes, grant)
                                     .with_context(|| format!("ファームウェア {}", w.label))?,

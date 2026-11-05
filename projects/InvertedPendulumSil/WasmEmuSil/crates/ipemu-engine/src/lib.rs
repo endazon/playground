@@ -9,8 +9,6 @@ pub mod recorder;
 pub mod session;
 
 pub use capability::{CapabilityPlan, DataDirs};
-pub use consent::{
-    ConsentOutcome, ConsentProvider, ConsentStore, FileConsent, GrantAllOnce, NoConsent,
-};
+pub use consent::{ConsentOutcome, ConsentProvider, ConsentStore, FileConsent, NoConsent};
 pub use recorder::{Recorder, TraceHash};
 pub use session::{FirmwareSource, LaunchError, Session, SessionOptions};

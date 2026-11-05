@@ -53,6 +53,7 @@ cargo run -q -p ipemu-engine -- consent list --manifest dev/cartpole-tcp.manifes
 cargo run -q -p ipemu-engine -- run --manifest dev/cartpole-tcp.manifest.json --no-signature-check \
     --run-seconds 5 --consent-file consent.json --data-dir ./build/data
 #   同意ファイルなしなら終了コード 3 (未同意)、拒否があれば 4。ファイルは ./build/data/ipemu/data/logs/theta.csv にできる
+#   validate は同意なしで通るが、capability は deny-all で付与されるので I/O は一切起きない
 cargo run -q -p ipemu-engine -- inspect build/components/tcp-reporter.wasm   # import 一覧と必要な宣言の目安
 ```
 `dev/cartpole.manifest.json` は NetworkedSil の既定パラメータ (振子 0.6 m) で、0.5 s 後にスイングアップを自動開始し、

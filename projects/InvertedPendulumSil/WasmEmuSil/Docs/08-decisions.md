@@ -36,7 +36,7 @@
 | D31 | `capabilitiesHash` の正規形 (M5 で確定) | **`{instance: Capabilities}` を型経由で正規化 (既定値を省く) → RFC 8785 → sha256**。JCS は `ipemu_core::jcs` に自前実装 | 本文の生テキストをそのままハッシュ: `"clock": false` の有無で変わり、編集画面の整形で承認が無効になる。`serde_jcs` 等の外部 crate: 更新が止まっており依存を増やす価値がない |
 | D32 | 型だけの instance import (M5 で確定) | **V7 / V8 の対象外**とし、Linker にも定義しない (Wasmtime は型だけの instance を要求しない) | `wasi:clocks/wall-clock` を `clock` 宣言なしでも link: `now()` が漏れる。型だけでも宣言を要求: filesystem を使う全部品に `clock: true` が要り V10 の意味が薄れる |
 | D33 | `wasi:io/*` の扱い (M5 で確定) | **独立した capability にせず**、net / fs / clock のいずれかがあるときだけ土台として link | 独立宣言: 単独では何もできない (ストリームは sockets / filesystem からしか得られない) のに同意項目が増える |
-| D34 | `validate` と同意 (M5 で確定) | `validate` は実行しないので**同意を求めず付与** (ストアには書かない)。`run` は同意必須 | validate でも同意: サーバ側検証と同じ結果を出す開発者向けコマンドに同意ダイアログは不要。付与せず describe だけ: describe には実体化が要り、import 不足で検証自体ができない |
+| D34 | `validate` と同意 (M5 で確定) | **`validate` / `inspect` は deny-all 形で実体化する。同意は求めない。** 宣言と同じインターフェースを link するが許可リスト空・preopen なしで、describe / init は通り、接続・名前解決・ファイル操作はすべて拒否される (`WasiGrant::deny_all_for`、`CapabilityPlan::grant_for_validate`)。`run` は同意必須 | 同意なしで実グラントを付与: 「検証しただけ」のつもりで init 中の TCP 接続やファイル書き込みが起きる (却下)。validate でも同意: 開発者向けコマンドに同意ダイアログは不要。付与せず describe だけ: describe には実体化が要り、import 不足で検証自体ができない |
 | D35 | 拒否の扱い (M5 で確定) | **記憶された拒否は問い合わせずに起動不可**。`consent forget` で取り消す。1 件でも拒否 / 未同意があれば部分起動しない | 拒否のたびに再問い合わせ: 「拒否を記憶する」が成立しない |
 
 ### D8 の調査結果: クロスプラットフォームで Chromium を同梱する手段

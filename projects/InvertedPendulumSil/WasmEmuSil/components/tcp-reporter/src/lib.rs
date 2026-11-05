@@ -4,6 +4,7 @@
 //! (接続ごとに 1 行、送ったら閉じる)、`file` が指定されていれば同じ行をデータディレクトリ内のファイルに追記する。
 //! WASI は `abi/wit/capabilities.wit` の `wasi-capabilities` world から必要なものだけ import する。
 //! manifest には `net.tcpConnect: ["host:port"]` と (file を使うなら) `fs: [{path, mode: rw}]` の宣言が要る。
+//! params: `host`, `port`, `everyMs` (既定 100), `file` (`<preopen>/<path>`、任意), `connectOnInit` (init 中に 1 行送る、検証用)。
 //! 宣言がなければエンジンは import を link せず、この部品は実体化できない (= 設計どおり)。
 //!
 //! 他の部品と同じく `wasm32-unknown-unknown` + `wasm-tools component new` でビルドする (D25)。
@@ -91,7 +92,7 @@ impl PartImpl for TcpReporter {
                 Some((pre.to_owned(), rest.to_owned()))
             }
         };
-        Ok(Self {
+        let mut me = Self {
             host,
             port: port as u16,
             every_ns: (every_ms * 1e6) as i64,
@@ -103,7 +104,15 @@ impl PartImpl for TcpReporter {
             errors: 0,
             last_error: ERR_NONE,
             file_bytes: 0,
-        })
+        };
+        // connectOnInit: init の中で 1 行送る (validate が I/O を許さないことの検証用)。失敗しても init は成功させる
+        if v.get("connectOnInit").and_then(|b| b.as_bool()) == Some(true) {
+            match me.send_tcp(b"init\n") {
+                Ok(()) => me.sent += 1,
+                Err(code) => me.fail(code),
+            }
+        }
+        Ok(me)
     }
 
     fn reset(&mut self) {

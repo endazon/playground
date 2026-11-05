@@ -31,6 +31,10 @@ pub struct WasiGrant {
     pub clock: bool,
     pub random: bool,
     pub host_ext: Vec<String>,
+    /// deny-all 形: 宣言と同じインターフェース集合を link する (実体化と describe は通る) が、
+    /// 許可リストは空・preopen なしで、接続・名前解決・ファイル操作はすべて拒否される。
+    /// `validate` / `inspect` のように「実行しない」文脈で使う (D34)。
+    pub deny_all: bool,
 }
 
 /// preopen 1 件。
@@ -97,6 +101,33 @@ impl WasiGrant {
         Ok(g)
     }
 
+    /// 宣言に対応するインターフェースは link するが何も許可しない形 (D34)。
+    /// fs はディレクトリを作らず preopen もしないので、データディレクトリに触れない。
+    pub fn deny_all_for(caps: &Capabilities) -> Self {
+        let mut g = WasiGrant {
+            clock: caps.clock,
+            random: caps.random,
+            host_ext: caps.host_ext.clone(),
+            deny_all: true,
+            ..Default::default()
+        };
+        if let Some(n) = &caps.net {
+            g.tcp_connect = n.tcp_connect.clone();
+            g.tcp_listen = n.tcp_listen.clone();
+            g.udp = n.udp.clone();
+        }
+        g.fs = caps
+            .fs
+            .iter()
+            .map(|f| FsMount {
+                host_path: PathBuf::new(),
+                guest_path: f.path.clone(),
+                mode: f.mode,
+            })
+            .collect();
+        g
+    }
+
     pub fn uses_tcp(&self) -> bool {
         !self.tcp_connect.is_empty() || !self.tcp_listen.is_empty()
     }
@@ -136,10 +167,12 @@ pub struct NetAllow {
 
 impl NetAllow {
     fn new(g: &WasiGrant) -> Self {
+        // deny-all 形では許可リストを空にする (インターフェースは link されるが全宛先を拒否)
+        let pick = |v: &Vec<HostPort>| if g.deny_all { Vec::new() } else { v.clone() };
         Self {
-            tcp_connect: g.tcp_connect.clone(),
-            tcp_listen: g.tcp_listen.clone(),
-            udp: g.udp.clone(),
+            tcp_connect: pick(&g.tcp_connect),
+            tcp_listen: pick(&g.tcp_listen),
+            udp: pick(&g.udp),
             resolved: Mutex::new(Vec::new()),
             denied: Mutex::new(Vec::new()),
         }
@@ -261,7 +294,7 @@ impl WasiState {
                 Box::pin(async move { ok })
             });
         }
-        for m in &grant.fs {
+        for m in grant.fs.iter().filter(|_| !grant.deny_all) {
             let perms = match m.mode {
                 FsMode::Ro => FsPerms::ReadOnly,
                 FsMode::Rw => FsPerms::ReadWrite,
@@ -531,6 +564,24 @@ mod tests {
             a.resolve("a.example.invalid").err(),
             Some(ErrorCode::AccessDenied)
         );
+    }
+
+    #[test]
+    fn deny_all_links_same_set_but_permits_nothing() {
+        let caps: Capabilities = serde_json::from_value(serde_json::json!({
+            "net": { "tcpConnect": ["127.0.0.1:9000", "localhost:9000"] },
+            "fs": [{ "path": "logs", "mode": "rw" }]
+        }))
+        .unwrap();
+        let g = WasiGrant::deny_all_for(&caps);
+        assert!(g.uses_tcp() && g.uses_fs() && g.deny_all);
+        let a = NetAllow::new(&g);
+        assert!(!a.check("127.0.0.1:9000".parse().unwrap(), SocketAddrUse::TcpConnect));
+        assert!(!a.check("0.0.0.0:0".parse().unwrap(), SocketAddrUse::TcpBind));
+        assert_eq!(a.resolve("localhost").unwrap_err(), ErrorCode::AccessDenied);
+        // preopen は作られない (WasiState が組めることだけ確認)
+        let st = WasiState::new(g).unwrap();
+        assert!(st.grant.deny_all);
     }
 
     #[test]

@@ -169,9 +169,12 @@ consent store: <data dir>/ipemu/consent.json
 - エンジン側のインターフェースは `ipemu_engine::ConsentProvider` (`ask(&[ConsentRequest]) -> Vec<ConsentAnswer>`)。
   回答のない request は「未同意」のまま残る。M2 のシェルはこれを IPC で実装する。headless の実装:
   - `--consent-file <json>` (`FileConsent`): `{"version":1,"grants":["<sha256>:<cap>", "*:<cap>"],"denies":[…],"remember":false}`。
-    `*:` はアーティファクトを問わない開発用の指定。`remember: true` なら許可をストアにも書く。
+    `*:` はアーティファクトを問わない開発用の指定で、**ローカル開発モード (`--no-signature-check` = `allow_unhashed`) のときだけ受理**し、
+    それ以外はエラーにする (配布用の設定で使えないことを実装で担保)。`remember: true` なら許可をストアにも書く。
   - 指定なし (`NoConsent`): 未同意があれば終了コード **3**、拒否があれば **4** で非ゼロ終了 (`LaunchError`)。
-  - `validate` は実行しないので同意を求めず付与する (`GrantAllOnce`、ストアには書かない)。
+  - `validate` / `inspect` は実行しないので同意を求めず、**deny-all 形** (`WasiGrant::deny_all_for`) で実体化する:
+    宣言と同じインターフェースは link されるので describe / init は通るが、接続・名前解決・ファイル操作はすべて拒否され、
+    データディレクトリにも触れない (D34)。
 - データディレクトリは `--data-dir` > `IPEMU_DATA_DIR` > OS 既定 (Linux `$XDG_DATA_HOME`/`~/.local/share`、macOS `~/Library/Application Support`、Windows `%APPDATA%`)。
 - CLI: `ipemu-engine consent list --manifest … [--json]` (同意が要る鍵の列挙と `--consent-file` の雛形)、`consent show`、`consent forget <key>… | --all`。
   `ipemu-engine inspect <wasm>` は describe に加えて import 一覧と、それを動かすのに最低限要る宣言の目安を出す。

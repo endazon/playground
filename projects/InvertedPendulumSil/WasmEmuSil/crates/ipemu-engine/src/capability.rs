@@ -126,6 +126,15 @@ impl CapabilityPlan {
         self.entries.iter().find(|e| e.instance == instance)
     }
 
+    /// `validate` / `inspect` 用: 宣言と同じインターフェースを link するが何も許可しない deny-all 形 (D34)。
+    /// 同意を求めず、データディレクトリにも触れない。
+    pub fn grant_for_validate(&self, instance: &str) -> WasiGrant {
+        match self.entry(instance) {
+            Some(e) => WasiGrant::deny_all_for(&e.capabilities),
+            None => WasiGrant::default(),
+        }
+    }
+
     /// instance に付与する WasiGrant (宣言がなければ空 = サンドボックス)。
     pub fn grant_for(&self, instance: &str, dirs: &DataDirs) -> anyhow::Result<WasiGrant> {
         match self.entry(instance) {

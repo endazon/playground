@@ -4,9 +4,7 @@
 
 use ipemu_core::consent::{consent_key, ConsentAnswer, ConsentEntry, ConsentRequest};
 use ipemu_engine::consent::{ConsentFile, FileConsent};
-use ipemu_engine::{
-    ConsentProvider, ConsentStore, GrantAllOnce, LaunchError, Session, SessionOptions,
-};
+use ipemu_engine::{ConsentProvider, ConsentStore, LaunchError, Session, SessionOptions};
 use std::io::{BufRead, BufReader};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -175,12 +173,18 @@ fn launch_requires_consent_and_denial_blocks_everything() {
 
     // 2) 片方だけ同意 → 残りが未同意なので起動不可 (部分起動しない)
     let sha = sha_of(&root().join("build/components/tcp-reporter.wasm"));
-    let partial = Arc::new(FileConsent::from_file(ConsentFile {
-        version: 1,
-        grants: vec![format!("{sha}:fs:rw:logs")],
-        denies: vec![],
-        remember: false,
-    }));
+    let partial = Arc::new(
+        FileConsent::from_file(
+            ConsentFile {
+                version: 1,
+                grants: vec![format!("{sha}:fs:rw:logs")],
+                denies: vec![],
+                remember: false,
+            },
+            false,
+        )
+        .unwrap(),
+    );
     let opts = SessionOptions {
         consent: Some(partial),
         ..base.clone()
@@ -197,12 +201,17 @@ fn launch_requires_consent_and_denial_blocks_everything() {
     }
 
     // 3) 拒否 → 起動不可
-    let deny = Arc::new(FileConsent::from_file(ConsentFile {
+    let deny_file = ConsentFile {
         version: 1,
         grants: vec!["*:fs:rw:logs".into()],
         denies: vec![format!("*:net.tcpConnect:127.0.0.1:{port}")],
         remember: false,
-    }));
+    };
+    assert!(
+        FileConsent::from_file(deny_file.clone(), false).is_err(),
+        "ワイルドカードは開発モード限定"
+    );
+    let deny = Arc::new(FileConsent::from_file(deny_file, true).unwrap());
     let opts = SessionOptions {
         consent: Some(deny),
         ..base.clone()
@@ -285,7 +294,7 @@ fn v7_rejects_undeclared_imports_before_consent() {
     let opts = SessionOptions {
         allow_unhashed: true,
         data_dir: Some(dir.join("data")),
-        consent: Some(Arc::new(GrantAllOnce)),
+        validate_only: true,
         no_consent_store: true,
         ..Default::default()
     };
@@ -304,7 +313,7 @@ fn v8_warns_on_overdeclaration_and_v12_checks_hash() {
     let opts = SessionOptions {
         allow_unhashed: true,
         data_dir: Some(dir.join("data")),
-        consent: Some(Arc::new(GrantAllOnce)),
+        validate_only: true,
         no_consent_store: true,
         ..Default::default()
     };
@@ -327,6 +336,86 @@ fn v8_warns_on_overdeclaration_and_v12_checks_hash() {
     v["approval"]["capabilitiesHash"] = serde_json::json!(ipemu_core::capabilities_hash(&manifest));
     std::fs::write(&m, serde_json::to_vec(&v).unwrap()).unwrap();
     assert!(Session::load(&m, &opts).is_ok());
+}
+
+#[test]
+fn validate_only_instantiates_with_deny_all_and_no_io() {
+    if !ready() {
+        return;
+    }
+    let dir = temp("validate");
+    let (port, lines) = listener();
+    let m = write_manifest(&dir, port, serde_json::json!({}));
+    // init の中で TCP 接続を試みる設定にする
+    let text = std::fs::read_to_string(&m).unwrap();
+    let mut v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    v["components"][1]["params"]["connectOnInit"] = serde_json::json!(true);
+    std::fs::write(&m, serde_json::to_vec(&v).unwrap()).unwrap();
+
+    let opts = SessionOptions {
+        allow_unhashed: true,
+        data_dir: Some(dir.join("data")),
+        validate_only: true,
+        no_consent_store: true,
+        ..Default::default()
+    };
+    // 同意なしで通る (問い合わせ先もストアもない) が、I/O は一切起きない
+    let s = Session::load(&m, &opts).unwrap();
+    assert!(!s.diagnostics.has_errors());
+    let rep = s
+        .engine
+        .graph()
+        .instances
+        .iter()
+        .position(|i| i == "rep")
+        .unwrap();
+    let d = &s.engine.graph().descs[rep];
+    let errors = d.output_index("errors").unwrap();
+    let last = d.output_index("last-error").unwrap();
+    assert_eq!(
+        s.engine.output(rep, errors),
+        1.0,
+        "init 中の接続は拒否されて失敗として数えられる"
+    );
+    assert_eq!(s.engine.output(rep, last), 1.0, "access denied");
+    drop(s);
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    assert!(
+        lines.lock().unwrap().is_empty(),
+        "validate で外部へ届いてはいけない"
+    );
+    assert!(
+        !dir.join("data").exists(),
+        "validate はデータディレクトリに触れない"
+    );
+
+    // 同じ manifest を run 相当 (同意あり・実グラント) で読むと init 中の接続が届く
+    struct Yes;
+    impl ConsentProvider for Yes {
+        fn ask(&self, rs: &[ConsentRequest]) -> anyhow::Result<Vec<ConsentAnswer>> {
+            Ok(rs
+                .iter()
+                .map(|r| ConsentAnswer {
+                    request_id: r.request_id.clone(),
+                    grant: true,
+                    remember: false,
+                })
+                .collect())
+        }
+        fn name(&self) -> &'static str {
+            "yes"
+        }
+    }
+    let opts = SessionOptions {
+        validate_only: false,
+        consent: Some(Arc::new(Yes)),
+        ..opts
+    };
+    let s = Session::load(&m, &opts).unwrap();
+    assert_eq!(s.engine.output(rep, errors), 0.0);
+    drop(s);
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    assert_eq!(lines.lock().unwrap().len(), 1);
 }
 
 #[test]

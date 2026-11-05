@@ -6,8 +6,7 @@ use anyhow::Context;
 use clap::{Args, Parser, Subcommand};
 use ipemu_core::hal::LogLevel;
 use ipemu_engine::{
-    FileConsent, FirmwareSource, GrantAllOnce, LaunchError, Recorder, Session, SessionOptions,
-    TraceHash,
+    FileConsent, FirmwareSource, LaunchError, Recorder, Session, SessionOptions, TraceHash,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,7 +21,8 @@ struct CapabilityArgs {
     /// 省略時は IPEMU_DATA_DIR、なければ OS の既定
     #[arg(long)]
     data_dir: Option<PathBuf>,
-    /// 事前同意 (headless 用)。`{"version":1,"grants":["<sha256>:<capability>", "*:<capability>"]}`
+    /// 事前同意 (headless 用)。`{"version":1,"grants":["<sha256>:<capability>"]}`。
+    /// `*:<capability>` (アーティファクト不問) は --no-signature-check のときだけ使える
     #[arg(long)]
     consent_file: Option<PathBuf>,
     /// 同意ストアを読み書きしない (今回の回答だけで判断する)
@@ -35,7 +35,8 @@ impl CapabilityArgs {
         opts.data_dir = self.data_dir.clone();
         opts.no_consent_store = self.no_consent_store;
         if let Some(p) = &self.consent_file {
-            opts.consent = Some(Arc::new(FileConsent::load(p)?));
+            // ワイルドカードはローカル開発モード (allow_unhashed) でのみ
+            opts.consent = Some(Arc::new(FileConsent::load(p, opts.allow_unhashed)?));
         }
         Ok(())
     }
@@ -77,13 +78,11 @@ enum Cmd {
         #[command(flatten)]
         cap: CapabilityArgs,
     },
-    /// manifest を検証する (サーバと同じ規則)。実行はしないので capability は同意なしで付与する
+    /// manifest を検証する (サーバと同じ規則)。実行はしないので capability は deny-all で付与し、同意は求めない
     Validate {
         manifest: PathBuf,
         #[arg(long)]
         no_signature_check: bool,
-        #[arg(long)]
-        data_dir: Option<PathBuf>,
     },
     /// 同意 (consent) の確認・編集
     Consent {
@@ -302,13 +301,11 @@ fn real_main() -> anyhow::Result<()> {
         Cmd::Validate {
             manifest,
             no_signature_check,
-            data_dir,
         } => {
-            // 検証だけなので同意は求めない (ストアにも書かない)
+            // 検証だけ: deny-all で実体化し、同意は求めず、I/O も起きない (D34)
             let opts = SessionOptions {
                 allow_unhashed: no_signature_check,
-                data_dir,
-                consent: Some(Arc::new(GrantAllOnce)),
+                validate_only: true,
                 no_consent_store: true,
                 ..Default::default()
             };

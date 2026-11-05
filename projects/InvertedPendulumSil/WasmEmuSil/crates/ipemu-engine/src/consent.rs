@@ -113,26 +113,6 @@ impl ConsentProvider for NoConsent {
     }
 }
 
-/// すべて今回だけ許可する (`validate` のように実行しない文脈用。ストアには書かない)。
-#[derive(Debug, Default)]
-pub struct GrantAllOnce;
-
-impl ConsentProvider for GrantAllOnce {
-    fn ask(&self, requests: &[ConsentRequest]) -> anyhow::Result<Vec<ConsentAnswer>> {
-        Ok(requests
-            .iter()
-            .map(|r| ConsentAnswer {
-                request_id: r.request_id.clone(),
-                grant: true,
-                remember: false,
-            })
-            .collect())
-    }
-    fn name(&self) -> &'static str {
-        "grant-all-once"
-    }
-}
-
 /// `--consent-file` の形式。
 ///
 /// ```json
@@ -140,7 +120,8 @@ impl ConsentProvider for GrantAllOnce {
 ///   "grants": ["<sha256>:net.tcpConnect:127.0.0.1:9000", "*:fs:rw:logs"],
 ///   "denies": ["<sha256>:clock"] }
 /// ```
-/// `*:` はアーティファクトを問わない (開発時の再ビルド向け。配布用の設定には使わない)。
+/// `*:` はアーティファクトを問わない。開発時の再ビルド向けで、ローカル開発モード
+/// (`--no-signature-check` = `allow_unhashed`) のときだけ受理し、それ以外はエラーにする。
 /// `remember: true` なら許可を同意ストアにも書く (既定は今回だけ)。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -168,28 +149,31 @@ pub struct FileConsent {
 }
 
 impl FileConsent {
-    pub fn load(path: &Path) -> anyhow::Result<Self> {
+    /// `allow_wildcard` はローカル開発モード (`allow_unhashed`) のときだけ true にする。
+    pub fn load(path: &Path, allow_wildcard: bool) -> anyhow::Result<Self> {
         let text = std::fs::read_to_string(path)
             .with_context(|| format!("同意ファイル {} を読めません", path.display()))?;
         let f: ConsentFile = serde_json::from_str(&text)
             .with_context(|| format!("同意ファイル {} の形式が不正", path.display()))?;
-        anyhow::ensure!(
-            f.version == 1,
-            "同意ファイルの version {} は未対応",
-            f.version
-        );
-        for k in f.grants.iter().chain(&f.denies) {
-            if !k.starts_with("*:") && split_consent_key(k).is_none() {
-                anyhow::bail!(
-                    "同意ファイルの鍵 `{k}` は `<sha256>:<capability>` か `*:<capability>` の形式"
-                );
-            }
-        }
-        Ok(Self::from_file(f))
+        Self::from_file(f, allow_wildcard)
+            .with_context(|| format!("同意ファイル {}", path.display()))
     }
 
-    pub fn from_file(f: ConsentFile) -> Self {
-        Self {
+    pub fn from_file(f: ConsentFile, allow_wildcard: bool) -> anyhow::Result<Self> {
+        anyhow::ensure!(f.version == 1, "version {} は未対応", f.version);
+        for k in f.grants.iter().chain(&f.denies) {
+            if let Some(cap) = k.strip_prefix("*:") {
+                // アーティファクト不問の指定は配布用の設定で使えないよう、開発モードに限る
+                anyhow::ensure!(
+                    allow_wildcard,
+                    "鍵 `{k}` のワイルドカード (アーティファクト不問) はローカル開発モード (--no-signature-check) でのみ使えます"
+                );
+                anyhow::ensure!(!cap.is_empty(), "鍵 `{k}` の capability が空です");
+            } else if split_consent_key(k).is_none() {
+                anyhow::bail!("鍵 `{k}` は `<sha256>:<capability>` か `*:<capability>` の形式");
+            }
+        }
+        Ok(Self {
             grants: f
                 .grants
                 .into_iter()
@@ -201,7 +185,7 @@ impl FileConsent {
                 .map(|s| s.to_ascii_lowercase())
                 .collect(),
             remember: f.remember,
-        }
+        })
     }
 
     fn lookup(set: &HashSet<String>, r: &ConsentRequest) -> bool {
@@ -346,6 +330,25 @@ pub fn rfc3339_from_unix(secs: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wildcard_requires_local_dev_mode() {
+        let f = ConsentFile {
+            version: 1,
+            grants: vec!["*:clock".into()],
+            denies: vec![],
+            remember: false,
+        };
+        assert!(FileConsent::from_file(f.clone(), false).is_err());
+        assert!(FileConsent::from_file(f, true).is_ok());
+        let exact = ConsentFile {
+            version: 1,
+            grants: vec![format!("{}:clock", "ab".repeat(32))],
+            denies: vec![],
+            remember: false,
+        };
+        assert!(FileConsent::from_file(exact, false).is_ok());
+    }
 
     #[test]
     fn rfc3339_known_values() {
