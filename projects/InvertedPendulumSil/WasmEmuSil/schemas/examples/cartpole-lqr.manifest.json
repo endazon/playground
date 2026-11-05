@@ -1,0 +1,79 @@
+{
+  "manifestVersion": 1,
+  "id": "cartpole-lqr-default",
+  "revision": 3,
+  "name": "台車型倒立振子 / LQR 既定構成",
+  "description": "NetworkedSil の既定パラメータ (振子 1.0m) を WasmEmuSil の部品構成に写したもの。制御ループは仮想 MCU 内で閉じる。",
+  "scheduler": { "baseStepNs": 1000000, "pacing": "realtime", "maxSlipMs": 200, "snapshotDivider": 20 },
+  "artifacts": {
+    "plant-cartpole@1.2.0": { "kind": "part", "sha256": "0000000000000000000000000000000000000000000000000000000000000001", "url": "/api/v1/artifacts/plant-cartpole/1.2.0", "size": 184320 },
+    "motor-driver@1.0.3":   { "kind": "part", "sha256": "0000000000000000000000000000000000000000000000000000000000000002", "url": "/api/v1/artifacts/motor-driver/1.0.3", "size": 61440 },
+    "encoder@1.0.0":        { "kind": "part", "sha256": "0000000000000000000000000000000000000000000000000000000000000003", "url": "/api/v1/artifacts/encoder/1.0.0", "size": 40960 },
+    "fw-balance@0.4.1":     { "kind": "firmware", "sha256": "0000000000000000000000000000000000000000000000000000000000000004", "url": "/api/v1/artifacts/fw-balance/0.4.1", "size": 98304 },
+    "ui-cartpole@2.0.0":    { "kind": "ui", "sha256": "0000000000000000000000000000000000000000000000000000000000000005", "url": "/api/v1/artifacts/ui-cartpole/2.0.0", "size": 1310720 }
+  },
+  "components": [
+    {
+      "instance": "plant",
+      "artifact": "plant-cartpole@1.2.0",
+      "params": {
+        "cartMass": 1.0, "poleMass": 0.1, "pendulumLength": 1.0,
+        "cartFriction": 0.1, "pivotFriction": 0.001,
+        "motor": { "kt": 0.05, "ke": 0.05, "resistance": 1.0, "gearRatio": 10.0, "pulleyRadius": 0.02 },
+        "trackHalfLength": 0.5, "stopperStiffness": 5000.0,
+        "initial": { "theta": 3.14159265 }
+      }
+    },
+    {
+      "instance": "driver",
+      "artifact": "motor-driver@1.0.3",
+      "params": { "busVoltage": 24.0, "commandTimeoutMs": 500, "softLimitM": 0.45 }
+    },
+    { "instance": "enc-cart", "artifact": "encoder@1.0.0", "params": { "ppr": 2048, "mode": "linear", "metersPerRev": 0.1256637 } },
+    { "instance": "enc-pend", "artifact": "encoder@1.0.0", "params": { "ppr": 4096, "mode": "angular" } },
+    {
+      "instance": "mcu",
+      "kind": "builtin:cpu-virtual",
+      "params": {
+        "tickHz": 1000,
+        "timingModel": { "kind": "fuel", "nsPerFuel": 2.0 },
+        "peripherals": { "enc": 2, "pwm": 1, "gpioIn": 2, "gpioOut": 2, "uart": 1 }
+      },
+      "firmware": {
+        "slot": "balance",
+        "world": "ip:emu/firmware@0.1.0",
+        "default": "fw-balance@0.4.1",
+        "allowOverride": ["wasm"],
+        "params": { "feedbackHz": 1000, "lqr": { "q": [10, 1, 100, 1], "r": 0.1 }, "swingUp": { "energyGain": 3.0 } }
+      },
+      "capabilities": {
+        "net": { "tcpConnect": ["192.168.10.5:502"] }
+      }
+    },
+    {
+      "instance": "snap",
+      "kind": "builtin:snapshot",
+      "params": { "ports": ["plant.x", "plant.theta", "plant.x-dot", "plant.theta-dot", "driver.voltage", "driver.drive-enabled", "mcu.pwm0"] }
+    }
+  ],
+  "wires": [
+    { "from": "plant.x",        "to": "enc-cart.position" },
+    { "from": "plant.theta",    "to": "enc-pend.angle" },
+    { "from": "enc-cart.count", "to": "mcu.enc0", "latency": 0 },
+    { "from": "enc-pend.count", "to": "mcu.enc1", "latency": 0 },
+    { "from": "plant.hit-stopper", "to": "driver.estop-in" },
+    { "from": "mcu.pwm0",       "to": "driver.duty", "latency": 0 },
+    { "from": "mcu.gpio-out0",  "to": "driver.enable", "latency": 0 },
+    { "from": "driver.voltage", "to": "plant.voltage", "latency": 0 },
+    { "from": "driver.fault",   "to": "mcu.gpio-in0" },
+    { "from": "driver.drive-enabled", "to": "mcu.gpio-in1" }
+  ],
+  "ui": { "bundle": "ui-cartpole@2.0.0", "views": ["2d", "3d", "scope", "topology"] },
+  "approval": {
+    "approvedBy": "approver@example",
+    "approvedAt": "2026-11-05T09:00:00Z",
+    "reason": "Modbus/TCP で外部 PLC に状態を通知するため tcpConnect を許可",
+    "capabilitiesHash": "0000000000000000000000000000000000000000000000000000000000000099"
+  },
+  "signature": { "alg": "ed25519", "keyId": "srv-2026", "value": "QUJDREVGR0g=" }
+}

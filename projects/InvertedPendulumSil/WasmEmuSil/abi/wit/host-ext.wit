@@ -1,0 +1,14 @@
+package ip:emu@0.1.0;
+
+/// capability "hostExt" として個別に付与するホスト拡張。
+/// 1 インターフェース = 1 capability。未宣言のものはエンジンが link しない。
+
+/// 実機のシリアル機器を仮想 UART に橋渡しする。
+interface serial-port {
+    open: func(path: string, baud: u32) -> result<u32, string>;
+    write: func(handle: u32, data: list<u8>) -> result<u32, string>;
+    read: func(handle: u32, max: u32) -> result<list<u8>, string>;
+    close: func(handle: u32);
+}
+
+/// (将来) 共有メモリ・CAN・外部プロセス起動などを追加する場合もここに 1 つずつ足す。

@@ -1,87 +1,39 @@
-# 台車型倒立振子 SIL シミュレータ
+# 台車型倒立振子 SIL — 2 つの実現形
 
-制御ループ全体が通信路をまたぐ **純 SIL (Software In the Loop)** 構成の実験台です。
-プラント (台車・振子・モータ) はブラウザ上の Blazor WebAssembly で 1ms 固定ステップで動き、
-コントローラ (状態機械・LQR・スイングアップ・監視) は ASP.NET Core 側にあります。
-両者をつなぐのは SignalR だけで、遅延・ジッタ・再送スパイクを注入できます。
+同じ「台車型倒立振子を SIL (Software In the Loop) で回す」課題を、
+**制御ループをどこに置くか**が異なる 2 つの形で実現します。
 
-目的は「**バックエンドで安定化ループを回す設計が、どこまで成立するのか**」を数値で確かめることです。
+| ディレクトリ | 形 | 制御ループの置き場所 | 状態 |
+| --- | --- | --- | --- |
+| [`NetworkedSil/`](NetworkedSil/README.md) | 通信路をまたぐ純 SIL | バックエンド (ASP.NET Core)。プラントはブラウザ (Blazor WASM)、間は SignalR | 実装済み。遅延余裕の結論あり |
+| [`WasmEmuSil/`](WasmEmuSil/README.md) | WASM 部品で組むクライアント側エミュレータ | クライアント内の仮想 MCU。制御プログラムは DLL / WASM で外部から注入 | **設計中** (草案) |
+
+## 2 つの関係
+`NetworkedSil` の結論は「安定化ループをバックエンドに置く設計は LAN 内の長い振子でぎりぎり。
+実機では安定化をドライブ (組み込み側) に置き、バックは目標値とモード管理に専念する階層型にすべき」
+でした ([NetworkedSil/Docs/03-delay-margin.md](NetworkedSil/Docs/03-delay-margin.md))。
+
+`WasmEmuSil` はその階層型を前提にした次の段です。
+安定化ループは仮想 MCU の中で閉じ、バックエンド (サーバアプリ) は
+**構成情報と部品 (WASM) の配信・管理**に役割を変えます。
+制御ループの内側に通信路が入らないので、遅延の実験台ではなく
+**組み込みファームウェアの開発・デバッグ台**として使えるのが狙いです。
 
 ```text
-┌─ バックエンド (ASP.NET Core) ── コントローラ ───────────┐
-│  状態機械 IDLE → SWINGUP → BALANCE / FAULT               │
-│  状態推定: パルス → 位置 / 差分+LPF で速度               │
-│  離散LQR (帰還周期で再設計) / エネルギー法スイングアップ │
-│  予測器(任意) / 転倒・ソフトリミット監視 / ウォッチドッグ│
-│  接続ごとに 1 本の制御ループ (Channel で直列化)          │
-└────────────────┬─────────────────────────┘
-   VoltageCommand (下り) │ │ EncoderFeedback (上り)
-   帰還受信ごとに1回     │ │ 周期可変 1〜100ms + MotionEvent 即時
-┌────────────────┴─────────────────────────┐
-│  SignalR Hub (MessagePack) + 遅延線エミュレータ           │
-└────────────────┬─────────────────────────┘
-┌────────────────┴─────────────────────────┐
-│─ Blazor WASM ── プラント (仮想ハードウェア) ────────────│
-│  1ms 固定ステップ RK4 (Stopwatch 基準の追いつき方式)      │
-│     台車+振子の非線形モデル / DCモータ(逆起電力)         │
-│     エンコーダ量子化 / メカストッパ                       │
-│     ドライブ保護: 非常停止・リミット・指令タイムアウト    │
-│               ↓ 50Hz で状態を push                       │
-│  [JS モジュール] rAF → 描画のみ (2D / 3D / スコープ)      │
-└──────────────────────────────────────────┘
+NetworkedSil                           WasmEmuSil
+┌────────────┐                         ┌──────────────┐
+│ サーバ      │ ← 制御ループ (LQR)     │ サーバ        │ ← 構成情報 + 部品 WASM の配信 / 管理画面
+└─────┬──────┘                         └──────┬───────┘
+      │ SignalR (ループ内)                     │ HTTPS (起動時のみ)
+┌─────┴──────┐                         ┌──────┴───────┐
+│ ブラウザ    │ ← プラント             │ クライアント   │ ← エミュレータ全体 (仮想 MCU + プラント + 周辺)
+└────────────┘                         │  Chromium: UI │    制御プログラムは DLL / WASM を注入
+                                       │  Wasmtime: 実行│    Visual Studio でデバッグ可能
+                                       └──────────────┘
 ```
 
-## クイックスタート
-以下のコマンドはすべて**このディレクトリ (`projects/InvertedPendulumSil/`) を起点**に実行します。
-```bash
-cd projects/InvertedPendulumSil
-
-# .NET SDK で動かす (.NET 10 SDK が必要)
-dotnet run --project src/Ip.Server     # http://localhost:5210
-
-# Docker で動かす
-docker compose up --build              # http://localhost:5210
-
-# テスト
-dotnet test                            # 単体 + 仮想時間の結合 + 実時間の結合
-```
-`Ip.Server` が Blazor WASM クライアントをホストするので、起動するプロセスは 1 つだけです。
-
-動作の中身はログに出ます (サーバのコンソール、ブラウザの console、画面のイベントログ)。
-Development では 1 秒ごとの集計まで出るので、状態遷移・帰還の周期・指令・遅延を数値で追えます。
-帰還 1 本ごとの内容まで見たいときは `Logging__LogLevel__Ip.Controller=Trace` を付けて起動します。
-詳細は [Docs/07-logging.md](Docs/07-logging.md)。
-
-## ドキュメント
-詳細は [`Docs/`](Docs/README.md) にあります。
-
-| ドキュメント | 内容 |
-| --- | --- |
-| [Docs/01-architecture.md](Docs/01-architecture.md) | 全体構成、プロジェクトの分割方針、責務の置き場所 |
-| [Docs/02-protocol.md](Docs/02-protocol.md) | 通信プロトコル、時刻の扱い、監視の多重化 |
-| [Docs/03-delay-margin.md](Docs/03-delay-margin.md) | 遅延余裕の理論値と実測、純 SIL が成立する条件、実験手順 |
-| [Docs/04-build-and-test.md](Docs/04-build-and-test.md) | ビルド・実行・テストの全手順、Docker、CI の組み方 |
-| [Docs/05-design-notes.md](Docs/05-design-notes.md) | 実装上の判断とその理由、既知の制約、今後の課題 |
-| [Docs/06-design-mock.md](Docs/06-design-mock.md) | 実装の出発点になった設計モック (単一 HTML) と、実装との差分 |
-| [Docs/07-logging.md](Docs/07-logging.md) | ログと診断トレース: 出口 (サーバ / ブラウザ / 画面)、カテゴリと絞り込み、読み方 |
-| [Docs/08-dimension-extension.md](Docs/08-dimension-extension.md) | 次元拡張 (多軸化・多リンク化・遅延の状態拡張ほか) の検討と、全案却下の記録 |
-
-## プロジェクト構成
-
-| プロジェクト | 役割 |
-| --- | --- |
-| `src/Ip.Shared` | 物理モデル・線形化・離散LQR・遅延余裕計算・プロトコル・遅延線・プラント・コントローラ本体 |
-| `src/Ip.Server` | SignalR Hub と、接続ごとのコントローラ制御ループ |
-| `src/Ip.Client` | Blazor WASM のプラントホストと UI (描画は JS モジュール) |
-| `tests/Ip.Shared.Tests` | 数値計算・物理・保護動作の単体テストと、仮想時間の結合テスト |
-| `tests/Ip.Server.Tests` | 実際の SignalR + MessagePack を通した実時間の結合テスト |
-| `e2e` | Playwright によるブラウザ結合テスト |
-| `Dockerfile` / `compose.yaml` | コンテナでのビルド・実行・テスト |
-| `Docs` | 本プロジェクトのドキュメント (`Docs/reference/` に設計モックを凍結保存) |
-
-## 結論 (先に)
-帰還 100ms 固定の設計は、長い振子 (1.0m 前後) なら LAN 内でぎりぎり成立します。
-短い振子やインターネット越しでは余裕を超えます。
-実機へ移行する際は、安定化ループをドライブ (組み込み側) に置き、
-バックは目標値とモード管理に専念する階層型に切り替えるべきです。
-根拠は [Docs/03-delay-margin.md](Docs/03-delay-margin.md) にあります。
+## 共有するもの
+物理モデル・LQR・遅延余裕の計算 (`NetworkedSil/src/Ip.Shared`) は実時間にも UI にも依存しない純粋な C# です。
+`WasmEmuSil` では部品の**参照実装 (オラクル)** として使い、
+WASM 化した部品がこれと同じ軌道を出すことをテストで確かめます
+([WasmEmuSil/Docs/08-decisions.md](WasmEmuSil/Docs/08-decisions.md))。
