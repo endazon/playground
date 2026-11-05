@@ -223,6 +223,8 @@ M2 で実装した範囲と、設計からの具体化。サーバ配信 (bootst
 - バイナリフレームは先頭 1 バイト (0x01 = state, 0x02 = scope) + MessagePack (名前付きフィールド)。TS 側は `@msgpack/msgpack`。
 - `session.launch` の `source` は `{kind: "local", manifestPath}` (開発) と `{kind: "server", …, credential}` (M3) の 2 形。
   M2 のエンジンは `server` に `NOT_IMPLEMENTED (-32003)` を返す。
+- `consent.required` の本文は `ipemu_core::consent::ConsentRequest` と同形 (`instances[]`, `artifact`, `artifactSha256`, …)。
+  `consent.answer` は `ConsentAnswer` と同形。
 - エラーコード: 標準 4 つ + `-32000 ENGINE_ERROR` / `-32001 NO_SESSION` / `-32002 RESTART_REQUIRED` / `-32003 NOT_IMPLEMENTED` /
   `-32004 UNAUTHORIZED` / `-32005 NOT_FOUND` / `-32006 INVALID_STATE`。
 
@@ -240,7 +242,8 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
 | `pacing.rs` | realtime の追いつき (壁時計 × speed との差ぶんステップ)、`maxSlipMs` 超過で原点を取り直す**時間スリップ**、`--debug-friendly` (デバッガ検出でも) は追いつかない。`SchedulerStats` (倍率 / µs/step / スリップ / 予算超過) を state に同梱 |
 | `triple_buffer.rs` | スケジューラ → tokio のスナップショット受け渡し。書き手は待たない |
 | `ipc_server.rs` | `127.0.0.1:0` の WebSocket (tokio-tungstenite)。`?token=` か `Authorization: Bearer` を**ハンドシェイクで**照合 (不一致は 401)。state は `state_hz` でトリプルバッファを読んで全接続へ broadcast、通知 / scope は到着順。遅い受け手は古いフレームを落とす。`client` モジュールはテストと `attach` 用 |
-| `session.rs` | M1 の `Session` に `swap_firmware` / `set_param` / `step` / `reset` と `options` (上書きの元) を追加。`ipemu-core` の `Part` に `as_any_mut` (既定 `None`) を足して cpu-virtual へ降りる |
+| `session.rs` | M1 の `Session` に `swap_firmware` / `set_param` / `step` / `reset` と `options` (上書きの元) を追加。`ipemu-core` の `Part` に `as_any_mut` (既定 `None`) を足して cpu-virtual へ降りる。ホット差替は M5 の 2 パス構造に乗せ、宣言と import の整合 (V7) を確認し、その instance の capability grant を新しいファームウェアにも付与する (再同意の扱いは Q14) |
+| `consent_ipc.rs` | `ConsentBroker`: M5 の `ConsentProvider` を IPC で実装。`consent.required` を流し、`consent.answer` を Condvar で待つ |
 
 `debug-friendly` では wasm 呼び出しの予算 (`call_budget`) も無制限にする (ブレーク中に epoch で trap させない)。
 結合テスト (`crates/ipemu-engine/tests/ipc.rs`): 認証、describe、`run.start` → state 受信、**C 版 → Rust 版の wasm ホット差替で
@@ -261,7 +264,10 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
   OS への登録は packaged 時のみ。
 - エンジンは `serve --exit-on-stdin-close --catalog-dir …` で spawn し、stdout 1 行目を読んで接続。`restartRequired` (native FW) では
   直近の describe の `overrides` を launch に畳み込んで **同じ構成で spawn し直し**、`app://ui` のページに `endpoint-changed` を送る。
-- 同意ウィンドウ (`consent.html`) は `consent.required` 通知で開き、`consent.answer` を返す受け口まで (中身は M5)。
+- 同意ウィンドウ (`consent.html`) は `consent.required` 通知で開き、`consent.answer` を返す。エンジン側は `ConsentBroker`
+  (`crates/ipemu-engine/src/consent_ipc.rs`) が M5 の `ConsentProvider` を IPC で実装する: `Session::load` がスケジューラスレッド上で
+  `ask` を呼ぶと未同意分を通知し、回答が揃うまで待つ。`consent.answer` は制御器を経由せず IPC サーバから直接ブローカへ届く (D43)。
+  `--consent-file` を渡した `serve` はダイアログを出さずファイルで答える (headless)。
 
 ### UI `apps/ui-kit` / `apps/sim-ui`
 - `ui-kit`: `EngineClient` (JSON-RPC + msgpack、生成型で `call("run.step", {n})` が型付け)、`sim-view.js` の移植

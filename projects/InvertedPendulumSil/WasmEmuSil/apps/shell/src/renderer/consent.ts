@@ -1,7 +1,8 @@
 export {}; // 各ページは独立したモジュール (グローバルを共有しない)
 interface ConsentData {
   requestId: string;
-  instance: string;
+  instances: string[];
+  artifact: string;
   artifactSha256: string;
   capability: string;
   reason: string;
@@ -13,10 +14,10 @@ window.shell.onDialogData((d) => {
   const c = d as ConsentData;
   const rows: [string, string][] = [
     ["構成", `${c.manifestId} rev ${c.revision}`],
-    ["部品", c.instance],
+    ["部品", c.instances.join(", ")],
     ["capability", c.capability],
     ["理由", c.reason],
-    ["artifact", c.artifactSha256],
+    ["artifact", `${c.artifact} (sha256 ${c.artifactSha256.slice(0, 16)}…)`],
   ];
   $("kv").replaceChildren(
     ...rows.flatMap(([k, v]) => [Object.assign(document.createElement("b"), { textContent: k }), Object.assign(document.createElement("span"), { textContent: v })]),

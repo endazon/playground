@@ -157,7 +157,7 @@ function Session({ endpoint, onDisconnect }: { endpoint: Endpoint; onDisconnect:
         } else if (n.method === "bootstrap.progress") {
           setNotice(`${n.params.stage}: ${n.params.message}`);
         } else if (n.method === "consent.required") {
-          setNotice(`同意が必要: ${n.params.instance} ${n.params.capability} (シェルのダイアログで回答)`);
+          setNotice(`同意が必要: ${n.params.instances.join(", ")} ${n.params.capability} (シェルのダイアログで回答)`);
         }
       }),
     ];

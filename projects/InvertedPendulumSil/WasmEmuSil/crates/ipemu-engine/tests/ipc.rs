@@ -576,3 +576,170 @@ async fn serve_binary_prints_discovery_and_exits_on_stdin_close() {
         .unwrap();
     assert!(status.success() || status.code().is_some());
 }
+
+/// 同意の結合 (M2 ⇄ M5): 未同意の capability があると `consent.required` が流れ、`consent.answer` で起動が進む / 止まる。
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn consent_required_flows_over_ipc_and_answers_gate_launch() {
+    use ipemu_engine::consent_ipc::ConsentBroker;
+    let tcp_manifest = root().join("dev/cartpole-tcp.manifest.json");
+    if !artifacts_ready() || !root().join("build/components/tcp-reporter.wasm").exists() {
+        eprintln!("SKIP: tcp-reporter.wasm がありません");
+        return;
+    }
+    let data_dir = std::env::temp_dir().join(format!("ipemu-ipc-consent-{}", std::process::id()));
+    let (out_tx, out_rx) = tokio::sync::mpsc::unbounded_channel();
+    let broker = std::sync::Arc::new(ConsentBroker::new(out_tx.clone(), Duration::from_secs(30)));
+    let spawned = control::spawn_with_outbound(
+        ControllerConfig {
+            data_dir: Some(data_dir.clone()),
+            consent: Some(broker.clone()),
+            no_consent_store: true,
+            ..Default::default()
+        },
+        out_tx,
+    )
+    .unwrap();
+    let server = ipc_server::start(
+        ServerConfig {
+            port: 0,
+            token: "t".into(),
+            state_hz: 20.0,
+        },
+        spawned.handle.clone(),
+        spawned.state,
+        out_rx,
+        Some(broker.clone()),
+    )
+    .await
+    .unwrap();
+    // 2 本の接続: 1 本は launch を待ち、もう 1 本 (シェルの同意ウィンドウ相当) が回答する
+    let launcher = Client::connect(server.addr.port(), "t").await.unwrap();
+    let mut answerer = Client::connect(server.addr.port(), "t").await.unwrap();
+    let launch = LaunchParams {
+        source: LaunchSource::Local {
+            manifest_path: tcp_manifest.display().to_string(),
+            allow_unhashed: true,
+        },
+        firmware: BTreeMap::new(),
+        params: Vec::new(),
+        pacing: Some(PacingConfig {
+            mode: PacingMode::Step,
+            speed: 1.0,
+        }),
+        auto_start: false,
+    };
+
+    // 問い合わせ中でない id への回答は NOT_FOUND
+    let e = answerer
+        .call(RequestBody::ConsentAnswer(ConsentAnswerParams {
+            request_id: "nope".into(),
+            grant: true,
+            remember: false,
+        }))
+        .await
+        .unwrap_err();
+    assert_eq!(e.code, codes::NOT_FOUND);
+
+    async fn collect_requests(c: &mut Client, n_min: usize) -> Vec<ConsentRequest> {
+        let mut reqs = Vec::new();
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+        loop {
+            match tokio::time::timeout_at(deadline, c.incoming.recv()).await {
+                Ok(Some(Incoming::Notification(Notification {
+                    body: NotificationBody::ConsentRequired(r),
+                    ..
+                }))) => {
+                    reqs.push(r);
+                    // 全件そろったかは broker の pending 数で判断する代わりに、少し待って追加がなければ打ち切る
+                    if reqs.len() >= n_min {
+                        tokio::time::sleep(Duration::from_millis(300)).await;
+                        while let Ok(Some(m)) =
+                            tokio::time::timeout(Duration::from_millis(50), c.incoming.recv()).await
+                        {
+                            if let Incoming::Notification(Notification {
+                                body: NotificationBody::ConsentRequired(r),
+                                ..
+                            }) = m
+                            {
+                                reqs.push(r);
+                            }
+                        }
+                        return reqs;
+                    }
+                }
+                Ok(Some(_)) => {}
+                _ => panic!("consent.required が届かない (届いた {} 件)", reqs.len()),
+            }
+        }
+    }
+
+    // 1 回目: 1 件を拒否 → 起動しない
+    let l = launcher.call(RequestBody::SessionLaunch(launch.clone()));
+    let (reqs, res) = tokio::join!(
+        async {
+            let reqs = collect_requests(&mut answerer, 1).await;
+            assert!(!reqs.is_empty());
+            assert!(reqs
+                .iter()
+                .all(|r| !r.instances.is_empty() && r.artifact_sha256.len() == 64));
+            for (i, r) in reqs.iter().enumerate() {
+                answerer
+                    .call(RequestBody::ConsentAnswer(ConsentAnswerParams {
+                        request_id: r.request_id.clone(),
+                        grant: i != 0,
+                        remember: false,
+                    }))
+                    .await
+                    .unwrap();
+            }
+            reqs
+        },
+        l
+    );
+    let e = res.unwrap_err();
+    assert_eq!(e.code, codes::ENGINE_ERROR);
+    assert!(e.message.contains("拒否"), "{}", e.message);
+    let d: DescribeResult = launcher
+        .call_as(RequestBody::SessionDescribe(Empty {}))
+        .await
+        .unwrap();
+    assert!(d.session.is_none(), "拒否があれば部分起動しない");
+
+    // 2 回目: 全件許可 → 起動し、describe に granted として載る
+    let l = launcher.call(RequestBody::SessionLaunch(launch.clone()));
+    let (_, res) = tokio::join!(
+        async {
+            let again = collect_requests(&mut answerer, reqs.len()).await;
+            assert_eq!(
+                again.len(),
+                reqs.len(),
+                "記憶しない回答なので同じ件数を再度聞く"
+            );
+            for r in &again {
+                answerer
+                    .call(RequestBody::ConsentAnswer(ConsentAnswerParams {
+                        request_id: r.request_id.clone(),
+                        grant: true,
+                        remember: false,
+                    }))
+                    .await
+                    .unwrap();
+            }
+        },
+        l
+    );
+    let desc: SessionDescription = serde_json::from_value(res.unwrap()).unwrap();
+    assert!(!desc.capabilities.is_empty());
+    assert!(desc
+        .capabilities
+        .iter()
+        .all(|c| c.consent == ConsentState::Granted));
+    assert!(desc
+        .capabilities
+        .iter()
+        .any(|c| c.capability.starts_with("net.tcpConnect")));
+
+    server.abort();
+    spawned.handle.shutdown();
+    let _ = std::fs::remove_dir_all(&data_dir);
+}
