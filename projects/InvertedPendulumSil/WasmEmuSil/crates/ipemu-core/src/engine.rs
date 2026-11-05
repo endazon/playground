@@ -20,6 +20,11 @@ pub trait Part {
     fn drain_logs(&mut self) -> Vec<(crate::hal::LogLevel, String)> {
         Vec::new()
     }
+    /// 具象型へ降りるための入口 (任意)。エンジンが組み込み部品を直接操作するときに使う
+    /// (例: `builtin:cpu-virtual` のファームウェアをホット差替する)。wasm 部品は None のままでよい。
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        None
+    }
 }
 
 #[derive(Debug, Error)]

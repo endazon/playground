@@ -239,15 +239,11 @@ fn balance_from_hanging_trips_fall_detection_and_driver_disables() {
         .unwrap();
     mcu["firmware"]["params"]["autoStart"] = serde_json::json!("balance");
     let tmp = std::env::temp_dir().join(format!("ipemu-fault-{}.json", std::process::id()));
-    // path は manifest 相対なので、絶対パスに書き換える
+    // path は manifest 相対なので、絶対パスに書き換える (UI バンドルなど未ビルドのものはそのまま結合)
     for (_, a) in v["artifacts"].as_object_mut().unwrap() {
         let p = a["path"].as_str().unwrap().to_owned();
-        a["path"] = serde_json::json!(root()
-            .join("dev")
-            .join(p)
-            .canonicalize()
-            .unwrap()
-            .to_string_lossy());
+        let joined = root().join("dev").join(p);
+        a["path"] = serde_json::json!(joined.canonicalize().unwrap_or(joined).to_string_lossy());
     }
     std::fs::write(&tmp, serde_json::to_string_pretty(&v).unwrap()).unwrap();
     let mut s = Session::load(&tmp, &opts).expect("session");

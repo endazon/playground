@@ -76,17 +76,17 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
 | 主体 | 方式 | 権限 |
 | --- | --- | --- |
 | 利用者・管理者 | ローカルアカウント (argon2id) + セッション Cookie。OIDC は拡張点として残し v1 では作らない | ロール: `user` (ポータルと起動) / `viewer` (管理画面の閲覧) / `editor` (下書き) / `approver` (承認・公開・公開範囲) / `admin` (鍵・ユーザ) |
-| エンジン (利用者起動) | 利用者のセッショントークン (シェル経由)、または単回チケットから得た短命トークン | その利用者に公開された構成の取得と telemetry 送信。**チケット由来の短命トークン (`lt_`) は配信 API (catalog / manifests / artifacts / telemetry / hello / launches/mine) 限定**で、管理 API・チケット発行・パスワード変更には使えず、新鮮なログインとも見なさない (D42) |
+| エンジン (利用者起動) | 利用者のセッショントークン (シェル経由)、または単回チケットから得た短命トークン | その利用者に公開された構成の取得と telemetry 送信。**チケット由来の短命トークン (`lt_`) は配信 API (catalog / manifests / artifacts / telemetry / hello / launches/mine) 限定**で、管理 API・チケット発行・パスワード変更には使えず、新鮮なログインとも見なさない (D51) |
 | エンジン (headless / CI) | クライアント API キー | 発行時に指定した構成の取得と telemetry 送信 |
 
 **編集と承認は別ロール**にします。capability の承認は「クライアントで何が動くか」を決める操作なので、
-編集した本人が承認できる構成では承認の意味がなくなります。最終編集者と承認者は**ユーザ id** で照合します (D41)。
+編集した本人が承認できる構成では承認の意味がなくなります。最終編集者と承認者は**ユーザ id** で照合します (D50)。
 
 | 項目 | 規則 |
 | --- | --- |
-| チケット由来の短命トークン | 配信 API 限定。`UserAuth` / `AdminAuth` を取るハンドラは 403、`require_fresh_login` はログインセッションにだけ成立 (D42) |
-| 本文上限 | 部品アップロードだけ `max_artifact_bytes` (既定 32MB) + 1MiB。ファイルが `max_artifact_bytes` を超えれば 413。他の API は 2MB (axum 既定)。telemetry は `event` が 64 文字以内の `[a-z_]` (違反は 400)、`detail` が JSON で 16KB 以内 (超過は 413) (D43) |
-| ログイン抑止の鍵 | (ユーザ名, 送信元 IP) で 5 回 / 30 秒、ユーザ名単独で 50 回 / 30 秒。送信元は接続元、`IPEMU_TRUST_PROXY=1` のときだけ `X-Forwarded-For` の先頭 (D44) |
+| チケット由来の短命トークン | 配信 API 限定。`UserAuth` / `AdminAuth` を取るハンドラは 403、`require_fresh_login` はログインセッションにだけ成立 (D51) |
+| 本文上限 | 部品アップロードだけ `max_artifact_bytes` (既定 32MB) + 1MiB。ファイルが `max_artifact_bytes` を超えれば 413。他の API は 2MB (axum 既定)。telemetry は `event` が 64 文字以内の `[a-z_]` (違反は 400)、`detail` が JSON で 16KB 以内 (超過は 413) (D52) |
+| ログイン抑止の鍵 | (ユーザ名, 送信元 IP) で 5 回 / 30 秒、ユーザ名単独で 50 回 / 30 秒。送信元は接続元、`IPEMU_TRUST_PROXY=1` のときだけ `X-Forwarded-For` の先頭 (D53) |
 
 ## 署名
 - manifest 本文 (JSON を RFC 8785 で正規化) に Ed25519 で署名し、`signature` に付けます。
@@ -114,9 +114,9 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
 ### 設計からの差分と確定事項
 | 項目 | 実装 | 備考 |
 | --- | --- | --- |
-| 認証 | **Bearer のみ** (`sess_` ログインセッション / `lt_` チケット交換トークン / `ipk_` API キー)。Cookie は使わない | D36。設計案の Cookie + CSRF から変えた理由: ポータル → シェル → エンジンへ渡す資格情報が同じトークンで済み、CSRF が構造的に消える。代償として SPA が sessionStorage にトークンを持つため XSS 耐性は HttpOnly Cookie に劣る。**緩和策**: (1) ログインセッションの寿命は 12 時間 (`session_ttl_secs`、再ログインで更新)、(2) SPA と API に厳格な CSP (`default-src 'self'; script-src 'self'` で inline script 禁止。`style-src` の `'unsafe-inline'` は CodeMirror の動的スタイルのため)、(3) 破壊的な管理操作 (承認・公開・公開範囲・既定 revision・ユーザ・API キー) はロール検査に加えて**ログインから 1 時間以内のセッション** (`Principal::require_fresh_login`、`403 reauth_required`) を要求し、古いトークンでは再ログインを促す。(4) チケット交換トークン (`lt_`) は配信 API 限定で、新鮮なログインとは見なさない (D42) |
+| 認証 | **Bearer のみ** (`sess_` ログインセッション / `lt_` チケット交換トークン / `ipk_` API キー)。Cookie は使わない | D36。設計案の Cookie + CSRF から変えた理由: ポータル → シェル → エンジンへ渡す資格情報が同じトークンで済み、CSRF が構造的に消える。代償として SPA が sessionStorage にトークンを持つため XSS 耐性は HttpOnly Cookie に劣る。**緩和策**: (1) ログインセッションの寿命は 12 時間 (`session_ttl_secs`、再ログインで更新)、(2) SPA と API に厳格な CSP (`default-src 'self'; script-src 'self'` で inline script 禁止。`style-src` の `'unsafe-inline'` は CodeMirror の動的スタイルのため)、(3) 破壊的な管理操作 (承認・公開・公開範囲・既定 revision・ユーザ・API キー) はロール検査に加えて**ログインから 1 時間以内のセッション** (`Principal::require_fresh_login`、`403 reauth_required`) を要求し、古いトークンでは再ログインを促す。(4) チケット交換トークン (`lt_`) は配信 API 限定で、新鮮なログインとは見なさない (D51) |
 | `/api/auth` | `POST login` / `POST logout` / `GET me` / `POST password` | 初回ログインは `mustChangePassword` を返し、SPA が変更画面へ誘導 |
-| ログイン抑止 | (ユーザ名, 送信元 IP) ごとに連続失敗 5 回、ユーザ名単独で 50 回で 30 秒ロック (メモリ上)。ユーザ不在時もダミーのハッシュ検証で応答時間を揃える | D44。送信元は接続元 (`ConnectInfo`)、`IPEMU_TRUST_PROXY=1` のときだけ `X-Forwarded-For` の先頭 |
+| ログイン抑止 | (ユーザ名, 送信元 IP) ごとに連続失敗 5 回、ユーザ名単独で 50 回で 30 秒ロック (メモリ上)。ユーザ不在時もダミーのハッシュ検証で応答時間を揃える | D53。送信元は接続元 (`ConnectInfo`)、`IPEMU_TRUST_PROXY=1` のときだけ `X-Forwarded-For` の先頭 |
 | 配信 API | 表のとおり。追加: `GET /api/v1/keys` (公開鍵の参考表示)、`GET /api/v1/launches/mine` (自分の起動履歴) | `keys` は**信頼の根拠ではない** (信頼鍵はクライアント同梱 / 設定) |
 | manifest 取得 | `GET manifests/{id}?rev=n\|default` は `ETag` (= 本文 sha256)、`X-Ipemu-Launch-Id` (起動履歴の ID)、`X-Ipemu-Signed`、`X-Ipemu-Revision` を返す。取得のたびに `launches` 行を作る | editor 以上は未公開 revision を署名なしで取れる (`X-Ipemu-Signed: false`)。エンジンは `--no-signature-check` が必要 |
 | アーティファクト | `ETag: "<sha256>"`, `Cache-Control: private, max-age=31536000, immutable`, `Content-Digest: sha-256=:…:`、`If-None-Match` → 304。`application/wasm` / `application/gzip` (UI) | 認証必須なので `private`。CDN に載せるなら公開範囲の設計を足す |
@@ -124,11 +124,11 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
 | telemetry | `{launchId?, manifestId, revision, event, detail}`。`event` が `stopped/fault/error/aborted` なら起動履歴の終了を埋める。`event` は 64 文字以内の `[a-z_]` (違反は 400)、`detail` は JSON で 16KB 以内 (超過は 413) | 自分の起動だけ更新できる |
 | hello | `{clientId?, engineVersion, witVersions[], os, arch}` を `(clientId, 主体)` で upsert。応答に公開鍵一覧を添える | |
 | 管理 API | `/api/admin/{artifacts,manifests,validate,users,groups,api-keys,audit,launches,clients}` | ロール検査は extractor (`AdminAuth`) + ハンドラ内の `require` |
-| 部品登録 | multipart (`name`, `version`, `kind`, `file`)。本文上限はこのルートだけ `max_artifact_bytes` + 1MiB (D43)。import は `ipemu_core::imports::component_imports` (エンジンの V7 / V8 と同じ抽出。型だけの instance import は区別して保存)、export 名は `wasmparser` で読んで world を推定。実体化は **import に対応する wasi:* を deny-all 形 (`WasiGrant::deny_all_for`、D34) で link** して行い、part は describe()、firmware は world の適合を確認する。describe / init 中に接続・名前解決・ファイル操作はすべて拒否される | 同名同版は 409。UI は tar.gz の magic だけ検査 |
+| 部品登録 | multipart (`name`, `version`, `kind`, `file`)。本文上限はこのルートだけ `max_artifact_bytes` + 1MiB (D52)。import は `ipemu_core::imports::component_imports` (エンジンの V7 / V8 と同じ抽出。型だけの instance import は区別して保存)、export 名は `wasmparser` で読んで world を推定。実体化は **import に対応する wasi:* を deny-all 形 (`WasiGrant::deny_all_for`、D34) で link** して行い、part は describe()、firmware は world の適合を確認する。describe / init 中に接続・名前解決・ファイル操作はすべて拒否される | 同名同版は 409。UI は tar.gz の magic だけ検査 |
 | 下書き保存 | 本文の `id` / `revision` をパスに揃え、`approval` / `signature` を落とし、`artifacts` を登録済みアーティファクトで補完 (`sha256` / `size` / `kind` / `url`、`path` は除去)。保存のたびに検証して `validation` に残す | 本文が別の sha256 を主張していれば 422 |
 | 検証 | V1 (スキーマ) → `ipemu_core::validate` (V2〜V12)。V7 / V8 は `DescResolver::imports` に登録時の import 一覧を渡して core 側の規則で照合する (サーバ独自の規則は持たない) | 検証結果に部品の記述 (`descs`) を含め、トポロジ図の描画に使う |
 | 状態遷移 | `draft` → (承認) `approved` → (公開) `published`。承認済み / 公開済みは編集不可で、新しい revision を作る。公開済みは削除不可 (巻き戻しは既定 revision の変更) | |
-| 承認 | approver 以上、かつ**最終編集者と別人** (admin でも例外なし)。照合は `updated_by_id` (ユーザ id)、id の無い古い行だけユーザ名 (D41)。承認時に再検証し、`capabilitiesHash` を記録 | |
+| 承認 | approver 以上、かつ**最終編集者と別人** (admin でも例外なし)。照合は `updated_by_id` (ユーザ id)、id の無い古い行だけユーザ名 (D50)。承認時に再検証し、`capabilitiesHash` を記録 | |
 | 公開 | `approval` (`capabilitiesHash` は `ipemu_core::capabilities_hash`) を本文に付け、`ipemu_core::jcs` で正規化して Ed25519 署名。`signed_body` と `keyId` を保存し、既定 revision が未設定なら既定にする | 署名後の全文もスキーマで再検証 |
 | 公開範囲 | `all` / `groups` (ユーザの `groups` と照合)。API キーは `allowedManifests` (`*` で全部) | 範囲外は 404 |
 | ユーザ | ロールは集合 (`user/viewer/editor/approver/admin`)。自分の admin を外す / 自分を無効化する操作は拒否。無効化とパスワード再設定でセッションを全部消す | |

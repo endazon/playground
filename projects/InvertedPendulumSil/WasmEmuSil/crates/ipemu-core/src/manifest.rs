@@ -170,7 +170,7 @@ pub fn split_port_ref(s: &str) -> Option<(&str, &str)> {
 /// manifest id がスキーマの `^[a-z0-9][a-z0-9-]{2,63}$` に適合するか。
 ///
 /// id はキャッシュのパス (`manifests/<server>/<id>/`) や URL に入るため、スキーマ検証を経ない経路
-/// (CLI の `--launch`、`ipemu://` の `manifest` パラメータ) でも使う前に必ずこれで確かめる (D46)。
+/// (CLI の `--launch`、`ipemu://` の `manifest` パラメータ) でも使う前に必ずこれで確かめる (D55)。
 pub fn is_valid_manifest_id(id: &str) -> bool {
     let b = id.as_bytes();
     let lower_digit = |c: &u8| c.is_ascii_lowercase() || c.is_ascii_digit();

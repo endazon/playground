@@ -1,2 +1,7 @@
 packages:
-  - "apps/*"
+  - apps/*
+  - crates/ipemu-ipc/bindings
+# pnpm 10 は依存の postinstall スクリプトを既定で止める。Electron 本体の取得にだけ許可する
+onlyBuiltDependencies:
+  - electron
+  - esbuild

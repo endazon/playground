@@ -1,0 +1,58 @@
+/* NetworkedSil の配色をそのまま (sim-view は CSS 変数から色を読む) */
+:root {
+  --bg: #eef0f4; --panel: #ffffff; --panel2: #f3f5f8; --line: #c3c9d4; --grid: #e3e7ed;
+  --text: #141821; --sub: #5d6674; --accent: #12a094; --on-accent: #ffffff;
+  --amber: #d98415; --violet: #6a58e0; --pink: #d64a78;
+  --ok: #1f9d5a; --warn: #b8770f; --danger: #d33c3c;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1f232c; --line: #39404d; --grid: #242933;
+    --text: #e8eaed; --sub: #98a0ac; --accent: #4fd1c5; --on-accent: #04211e;
+    --amber: #ffb347; --violet: #a597ff; --pink: #f07b9c;
+    --ok: #5fd38d; --warn: #e8a33d; --danger: #ef5b5b;
+  }
+}
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
+* { box-sizing: border-box; }
+button { font: inherit; }
+
+.ipk-view { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-width: 0; }
+.ipk-vhead { font-size: 12px; color: var(--sub); margin: 0 0 8px 2px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ipk-canvas { display: block; width: 100%; height: 100%; }
+.ipk-legend i { display: inline-block; width: 14px; height: 0; border-top: 3px solid var(--amber); vertical-align: middle; margin-right: 4px; }
+.ipk-legend i.ghost { border-top: 2px dashed var(--sub); }
+.ipk-fallback { font-size: 12px; color: var(--sub); padding: 40px 12px; text-align: center; }
+
+.ipk-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.ipk-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ipk-mode { font-size: 13px; font-weight: 700; padding: 3px 11px; border-radius: 99px; background: var(--panel2);
+  border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.ipk-mode[data-m="running"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.ipk-mode[data-m="fault"] { background: var(--danger); color: #fff; border-color: transparent; }
+.ipk-badge { font-size: 11px; color: var(--sub); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; font-variant-numeric: tabular-nums; }
+.ipk-badge.warn { color: var(--warn); border-color: var(--warn); }
+.ipk-badge.danger { color: var(--danger); border-color: var(--danger); }
+.ipk-btn { border: 1px solid transparent; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  background: var(--accent); color: var(--on-accent); }
+.ipk-btn.ghost { background: var(--panel2); color: var(--text); border-color: var(--line); }
+.ipk-btn.danger { background: var(--danger); color: #fff; }
+.ipk-btn:disabled { opacity: 0.5; cursor: default; }
+.ipk-field { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; font-size: 12.5px; }
+.ipk-field input, .ipk-field select { font: inherit; font-size: 12.5px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel2); color: var(--text); width: 9em; }
+.ipk-h { font-size: 12px; color: var(--sub); margin: 10px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.ipk-log { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; max-height: 180px; overflow: auto;
+  background: var(--panel2); border-radius: 8px; padding: 6px 8px; white-space: pre-wrap; }
+.ipk-log .warn { color: var(--warn); } .ipk-log .error { color: var(--danger); } .ipk-log .sub { color: var(--sub); }
+.ipk-topo { width: 100%; height: auto; display: block; }
+.ipk-topo text { font: 11px system-ui, sans-serif; fill: var(--text); }
+.ipk-topo .port { font-size: 9.5px; fill: var(--sub); }
+.ipk-topo .box { fill: var(--panel2); stroke: var(--line); }
+.ipk-topo .box.builtin { stroke: var(--violet); }
+.ipk-topo .box.selected { stroke: var(--accent); stroke-width: 2; }
+.ipk-topo .wire { fill: none; stroke: var(--sub); stroke-width: 1.3; }
+.ipk-topo .wire.l0 { stroke: var(--accent); }
+.ipk-topo .val { font-size: 9.5px; fill: var(--amber); font-variant-numeric: tabular-nums; }

@@ -57,7 +57,7 @@ V3 / V7 / V8 は wasm バイナリの WIT を読む必要があるため、サ�
 メタデータに保存し、manifest 検証ではそれを参照します。クライアントはコンパイル時に実物と再照合します。
 import の抽出は `ipemu_core::imports::component_imports(&[u8])` (M5。下の「実装 (M5)」参照)。
 
-**静的検査 (部品の記述を要しないもの) は、同意と実体化の前に行います** (D45)。
+**静的検査 (部品の記述を要しないもの) は、同意と実体化の前に行います** (D54)。
 `ipemu_core::validate::validate_static(&Manifest, ValidateOptions)` が V2 (アーティファクト参照と sha256)、
 V3 の組み込み名と `firmware` の付け先、capability 宣言の自己整合 (fs.path の閉じ込め等。V7 として報告)、V10、V11、
 V12 (`capabilitiesHash` の照合) を受け持ち、`validate` は最初にこれを呼んでから記述を要する検査 (V3 の記述取得、V7 / V8、

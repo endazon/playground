@@ -30,7 +30,7 @@ async fn login(
     Json(req): Json<LoginReq>,
 ) -> ApiResult<Json<Value>> {
     let username = req.username.trim().to_owned();
-    // 抑止の鍵は (ユーザ名, 送信元 IP)。ユーザ名単独は緩い閾値 (D44)
+    // 抑止の鍵は (ユーザ名, 送信元 IP)。ユーザ名単独は緩い閾値 (D53)
     st.throttle.check(&username, ip)?;
     let row: Option<(String, String, i64)> =
         sqlx::query_as("SELECT id, password_hash, disabled FROM users WHERE username = ?")

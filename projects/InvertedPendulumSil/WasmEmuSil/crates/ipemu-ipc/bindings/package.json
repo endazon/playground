@@ -1,0 +1,12 @@
+{
+  "name": "@ipemu/ipc-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ipemu-ipc (Rust) から ts-rs で生成した IPC 契約の TypeScript 型。手で編集しない (scripts/gen-ipc-types.sh)",
+  "type": "module",
+  "types": "./index.ts",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  }
+}

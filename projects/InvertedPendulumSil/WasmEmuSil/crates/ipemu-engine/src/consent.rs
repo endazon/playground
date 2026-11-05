@@ -185,7 +185,7 @@ impl FileConsent {
     }
 }
 
-/// 鍵の正規化: 小文字化するのは `<sha256>` 部分 (先頭 64 文字) だけ (D47)。
+/// 鍵の正規化: 小文字化するのは `<sha256>` 部分 (先頭 64 文字) だけ (D56)。
 /// capability 文字列は `fs:rw:<path>` のように大文字小文字を区別するパスを含むので、そのまま比較する
 /// (ホスト名は宣言の時点で小文字化済み)。`*:<capability>` も capability 部分はそのまま。
 fn normalize_key(key: &str) -> String {

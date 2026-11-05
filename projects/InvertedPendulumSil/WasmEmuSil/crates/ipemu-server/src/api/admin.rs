@@ -19,7 +19,7 @@ const UPLOAD_OVERHEAD: usize = 1024 * 1024;
 
 pub fn router(max_upload: usize) -> Router<AppState> {
     Router::new()
-        // 本文上限は部品アップロードの POST にだけ広げる (D43)。他は axum 既定 (2MB) のまま
+        // 本文上限は部品アップロードの POST にだけ広げる (D52)。他は axum 既定 (2MB) のまま
         .route(
             "/artifacts",
             get(list_artifacts).post(upload_artifact.layer(DefaultBodyLimit::max(
@@ -356,7 +356,7 @@ async fn insert_revision(
     .bind(rev)
     .bind(&text)
     .bind(util::sha256_hex(text.as_bytes()))
-    // 名前は表示用、id は editor ≠ approver の判定用 (D41)
+    // 名前は表示用、id は editor ≠ approver の判定用 (D50)
     .bind(&p.name)
     .bind(&p.name)
     .bind(&p.id)

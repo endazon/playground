@@ -132,7 +132,7 @@ fn requests_are_listed_without_instantiation() {
     let dir = temp("list");
     let m = write_manifest(&dir, 9, serde_json::json!({}));
     // write_manifest は sha256 を書かないので、ローカル開発モード (allow_unhashed) で列挙する。
-    // そうでなければ静的検査 (V2) で止まる (D45)
+    // そうでなければ静的検査 (V2) で止まる (D54)
     let local = SessionOptions {
         allow_unhashed: true,
         ..Default::default()

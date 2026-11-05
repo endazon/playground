@@ -117,7 +117,7 @@ pub fn validate_schema(json: &serde_json::Value, diags: &mut Diagnostics) {
     }
 }
 
-/// 部品の記述を要しない静的検査 (D45)。manifest だけで判定できる規則を集めたもの:
+/// 部品の記述を要しない静的検査 (D54)。manifest だけで判定できる規則を集めたもの:
 /// V2 (アーティファクト参照と sha256)、V3 の組み込み名と firmware の付け先、capability 宣言の
 /// 自己整合 (fs.path の閉じ込め等、V7 として報告)、V10、V11、V12 (capabilitiesHash の照合)。
 ///

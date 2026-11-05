@@ -1,5 +1,5 @@
 //! 配信 API `/api/v1`。すべて読み取り専用 (telemetry / hello / チケット発行を除く)。
-//! チケット交換トークン (`lt_`) が使えるのはここの `Auth` を取るハンドラだけ (D42)。
+//! チケット交換トークン (`lt_`) が使えるのはここの `Auth` を取るハンドラだけ (D51)。
 
 use crate::auth::{Auth, UserAuth};
 use crate::error::{ApiError, ApiResult};
@@ -95,7 +95,7 @@ struct TicketReq {
 }
 
 /// 外部ブラウザからの `ipemu://` 起動用チケット (60 秒・単回)。
-/// `UserAuth` なので、チケット交換トークンからチケットを発行し直すことはできない (D42)。
+/// `UserAuth` なので、チケット交換トークンからチケットを発行し直すことはできない (D51)。
 async fn create_ticket(
     State(st): State<AppState>,
     UserAuth(p): UserAuth,

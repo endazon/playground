@@ -1,5 +1,5 @@
-//! ipemu-engine CLI (headless)。ローカル manifest (`--manifest`) か、サーバの構成 (`--server --launch`) を動かす。
-//! M5: capability / 同意。
+//! ipemu-engine CLI。headless (run / validate / inspect / consent / catalog / lqr) と IPC サーバ (serve / attach、M2)。
+//! run はローカル manifest (`--manifest`) か、サーバの構成 (`--server --launch`、M3) を動かす。M5: capability / 同意。
 //!
 //! 終了コード: 0 成功、1 一般エラー、3 未同意の capability あり、4 拒否された capability あり。
 
@@ -45,7 +45,10 @@ impl CapabilityArgs {
 }
 
 #[derive(Parser)]
-#[command(name = "ipemu-engine", about = "WasmEmuSil エンジン (headless)")]
+#[command(
+    name = "ipemu-engine",
+    about = "WasmEmuSil エンジン (headless CLI + IPC サーバ)"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -154,6 +157,87 @@ enum Cmd {
         print_every: f64,
         #[command(flatten)]
         cap: CapabilityArgs,
+    },
+    /// IPC サーバを立てる (シェルが spawn する形)。stdout の 1 行目に {"port","token",...} を出す
+    Serve {
+        /// 起動直後に組み立てる manifest (省略時はシェルからの session.launch を待つ)
+        #[arg(long)]
+        manifest: Option<PathBuf>,
+        /// slot=wasm:<path> | slot=native:<path>
+        #[arg(long = "firmware")]
+        firmware: Vec<String>,
+        /// instance.key=value (JSON 値)
+        #[arg(long = "param")]
+        params: Vec<String>,
+        #[arg(long)]
+        no_signature_check: bool,
+        /// realtime | fast | step (省略時は manifest の scheduler.pacing)
+        #[arg(long)]
+        pacing: Option<String>,
+        #[arg(long, default_value_t = 1.0)]
+        speed: f64,
+        /// 組み立て後すぐ開始する
+        #[arg(long)]
+        auto_start: bool,
+        /// 待ち受けポート (0 = ephemeral)
+        #[arg(long, default_value_t = 0)]
+        port: u16,
+        /// 接続トークン (省略時は IPEMU_IPC_TOKEN、それも無ければ乱数)
+        #[arg(long)]
+        token: Option<String>,
+        /// state フレームの送信レート [Hz]
+        #[arg(long, default_value_t = 50.0)]
+        state_hz: f64,
+        /// slot=wasm:<path>: ビルド成果物の更新を監視して自動差替 (firmware.watch)
+        #[arg(long = "watch")]
+        watch: Vec<String>,
+        /// 実時間の追いつきを止め、wasm 呼び出しの予算を無制限にする (デバッガ用)
+        #[arg(long)]
+        debug_friendly: bool,
+        /// catalog.local が走査するディレクトリ (*.manifest.json)
+        #[arg(long = "catalog-dir")]
+        catalog_dirs: Vec<PathBuf>,
+        /// stdin が閉じたら終了する (シェルが spawn したときの親死活監視)
+        #[arg(long)]
+        exit_on_stdin_close: bool,
+        /// 同意ダイアログの回答を待つ上限 [s]
+        #[arg(long, default_value_t = 600)]
+        consent_timeout: u64,
+        /// bootstrap のキャッシュディレクトリ (既定: IPEMU_CACHE_DIR か OS のキャッシュ領域の ipemu/)
+        #[arg(long)]
+        cache_dir: Option<PathBuf>,
+        /// 信頼する公開鍵 keyId=hex (複数可。同梱鍵と IPEMU_TRUSTED_KEYS に追加)
+        #[arg(long = "trusted-key")]
+        trusted_keys: Vec<String>,
+        /// サーバに問い合わせずキャッシュから起動する
+        #[arg(long)]
+        offline: bool,
+        /// hello / telemetry を送らない
+        #[arg(long)]
+        no_telemetry: bool,
+        /// `Origin` ヘッダ付き (ブラウザ) の接続で許す origin を追加する (既定 app://ui)。
+        /// Vite の dev server から UI を開くときは `--allow-origin http://localhost:5173`
+        #[arg(long = "allow-origin")]
+        allow_origins: Vec<String>,
+        #[command(flatten)]
+        cap: CapabilityArgs,
+    },
+    /// 動作中のエンジンに接続して describe と state を端末に流す (デバッグ用)
+    Attach {
+        #[arg(long)]
+        port: u16,
+        /// 省略時は IPEMU_IPC_TOKEN
+        #[arg(long)]
+        token: Option<String>,
+        /// state を表示する間隔 [s] (0 で表示しない)
+        #[arg(long, default_value_t = 0.5)]
+        every: f64,
+        /// 接続後に送る要求 (JSON-RPC の method)。例: run.start
+        #[arg(long = "send")]
+        send: Vec<String>,
+        /// この秒数で切断する (0 で Ctrl-C まで)
+        #[arg(long, default_value_t = 0.0)]
+        seconds: f64,
     },
     /// manifest を検証する (サーバと同じ規則)。実行はしないので capability は deny-all で付与し、同意は求めない
     Validate {
@@ -452,6 +536,58 @@ fn real_main() -> anyhow::Result<()> {
             }
             Ok(())
         }
+        Cmd::Serve {
+            manifest,
+            firmware,
+            params,
+            no_signature_check,
+            pacing,
+            speed,
+            auto_start,
+            port,
+            token,
+            state_hz,
+            watch,
+            debug_friendly,
+            catalog_dirs,
+            exit_on_stdin_close,
+            consent_timeout,
+            allow_origins,
+            cache_dir,
+            trusted_keys,
+            offline,
+            no_telemetry,
+            cap,
+        } => serve(ServeArgs {
+            manifest,
+            firmware,
+            params,
+            no_signature_check,
+            pacing,
+            speed,
+            auto_start,
+            port,
+            token,
+            state_hz,
+            watch,
+            debug_friendly,
+            catalog_dirs,
+            exit_on_stdin_close,
+            consent_timeout,
+            allow_origins,
+            cache_dir,
+            trusted_keys,
+            offline,
+            no_telemetry,
+            cap,
+        }),
+        Cmd::Attach {
+            port,
+            token,
+            every,
+            send,
+            seconds,
+        } => attach(port, token, every, send, seconds),
         Cmd::Validate {
             manifest,
             no_signature_check,
@@ -658,4 +794,322 @@ fn consent_cmd(cmd: ConsentCmd) -> anyhow::Result<()> {
             Ok(())
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// serve / attach (M2)
+// ---------------------------------------------------------------------------
+
+struct ServeArgs {
+    manifest: Option<PathBuf>,
+    firmware: Vec<String>,
+    params: Vec<String>,
+    no_signature_check: bool,
+    pacing: Option<String>,
+    speed: f64,
+    auto_start: bool,
+    port: u16,
+    token: Option<String>,
+    state_hz: f64,
+    watch: Vec<String>,
+    debug_friendly: bool,
+    catalog_dirs: Vec<PathBuf>,
+    exit_on_stdin_close: bool,
+    consent_timeout: u64,
+    allow_origins: Vec<String>,
+    cache_dir: Option<PathBuf>,
+    trusted_keys: Vec<String>,
+    offline: bool,
+    no_telemetry: bool,
+    cap: CapabilityArgs,
+}
+
+fn parse_kv_list(items: &[String], what: &str) -> anyhow::Result<Vec<(String, String)>> {
+    items
+        .iter()
+        .map(|f| {
+            f.split_once('=')
+                .map(|(a, b)| (a.to_owned(), b.to_owned()))
+                .with_context(|| format!("{what} は slot=wasm:<path> の形式"))
+        })
+        .collect()
+}
+
+fn serve(a: ServeArgs) -> anyhow::Result<()> {
+    use ipemu_engine::control::{self, ControllerConfig};
+    use ipemu_engine::ipc_server::{self, ServerConfig};
+    use ipemu_ipc::*;
+
+    let token = a
+        .token
+        .or_else(|| {
+            std::env::var("IPEMU_IPC_TOKEN")
+                .ok()
+                .filter(|t| !t.is_empty())
+        })
+        .unwrap_or_else(ipc_server::random_token);
+    let debug_friendly = a.debug_friendly || debugger_present();
+
+    // launch パラメータ (CLI → IPC と同じ形にして、シェルからの launch と同じ経路を通す)
+    let launch = match &a.manifest {
+        Some(m) => {
+            let mut fw = std::collections::BTreeMap::new();
+            for (slot, src) in parse_kv_list(&a.firmware, "--firmware")? {
+                FirmwareSource::parse(&src)?;
+                fw.insert(slot, src);
+            }
+            let mut params = Vec::new();
+            for (lhs, rhs) in parse_kv_list(&a.params, "--param")? {
+                let (inst, key) = lhs
+                    .split_once('.')
+                    .context("--param は instance.key=value の形式")?;
+                let val: serde_json::Value =
+                    serde_json::from_str(&rhs).unwrap_or(serde_json::Value::String(rhs.clone()));
+                params.push(ParamOverride {
+                    instance: inst.to_owned(),
+                    key: key.to_owned(),
+                    value: val,
+                });
+            }
+            let pacing = match a.pacing.as_deref() {
+                None => None,
+                Some("realtime") => Some(PacingMode::Realtime),
+                Some("fast") => Some(PacingMode::Fast),
+                Some("step") => Some(PacingMode::Step),
+                Some(other) => anyhow::bail!("--pacing `{other}` は realtime | fast | step"),
+            }
+            .map(|mode| PacingConfig {
+                mode,
+                speed: a.speed,
+            });
+            let abs = m.canonicalize().unwrap_or(m.clone());
+            Some(LaunchParams {
+                source: LaunchSource::Local {
+                    manifest_path: abs.display().to_string(),
+                    allow_unhashed: a.no_signature_check,
+                },
+                firmware: fw,
+                params,
+                pacing,
+                auto_start: a.auto_start,
+            })
+        }
+        None => None,
+    };
+    let watches = parse_kv_list(&a.watch, "--watch")?;
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()?;
+    // 同意: --consent-file があればそれ (headless)、なければ IPC の同意ダイアログ (シェル)
+    let mut cap_opts = SessionOptions {
+        allow_unhashed: a.no_signature_check,
+        ..Default::default()
+    };
+    a.cap.apply(&mut cap_opts)?;
+
+    // 署名検証の公開鍵: 同梱 + 追加 (M3 の ServerArgs と同じ規則)
+    let mut trusted_keys = ipemu_engine::bootstrap::default_trusted_keys()?;
+    for k in &a.trusted_keys {
+        for e in ipemu_sign::TrustedKeys::parse_list(k)?.to_entries() {
+            trusted_keys.insert_hex(&e.key_id, &e.public_key)?;
+        }
+    }
+
+    rt.block_on(async move {
+        // 制御器 → I/O の送信キューを先に作り、同意ブローカにも持たせる
+        let (out_tx, out_rx) = tokio::sync::mpsc::unbounded_channel();
+        let broker = Arc::new(ipemu_engine::consent_ipc::ConsentBroker::new(
+            out_tx.clone(),
+            std::time::Duration::from_secs(a.consent_timeout),
+        ));
+        let consent: Arc<dyn ipemu_engine::ConsentProvider> = match cap_opts.consent.clone() {
+            Some(file) => file,
+            None => broker.clone(),
+        };
+        let control::Spawned {
+            handle: ctrl,
+            state: state_r,
+            outbound: _unused,
+            join,
+        } = control::spawn_with_outbound(
+            ControllerConfig {
+                debug_friendly,
+                catalog_dirs: a.catalog_dirs,
+                data_dir: cap_opts.data_dir.clone(),
+                consent: Some(consent),
+                no_consent_store: cap_opts.no_consent_store,
+                cache_dir: a.cache_dir.clone(),
+                trusted_keys,
+                allow_unsigned: a.no_signature_check,
+                offline: a.offline,
+                telemetry: !a.no_telemetry,
+                ..Default::default()
+            },
+            out_tx,
+        )?;
+        let server = ipc_server::start(
+            ServerConfig {
+                port: a.port,
+                token,
+                state_hz: a.state_hz,
+                allowed_origins: ipc_server::DEFAULT_ALLOWED_ORIGINS
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(a.allow_origins.iter().cloned())
+                    .collect(),
+            },
+            ctrl.clone(),
+            state_r,
+            out_rx,
+            Some(broker),
+        )
+        .await?;
+        // 1 行目: 接続情報 (シェルはこれを読んで接続する)。以降 stdout には何も出さない
+        {
+            use std::io::Write;
+            let mut so = std::io::stdout().lock();
+            writeln!(so, "{}", serde_json::to_string(&server.discovery)?)?;
+            so.flush()?;
+        }
+        eprintln!(
+            "ipemu-engine serve: ws://127.0.0.1:{} (pid {}){}",
+            server.addr.port(),
+            std::process::id(),
+            if debug_friendly {
+                " [debug-friendly]"
+            } else {
+                ""
+            }
+        );
+
+        if let Some(l) = launch {
+            match ctrl.call(RequestBody::SessionLaunch(l)).await {
+                Ok(v) => eprintln!(
+                    "launched `{}` rev {}",
+                    v["manifest"]["id"].as_str().unwrap_or("?"),
+                    v["manifest"]["revision"]
+                ),
+                Err(e) => eprintln!("launch failed: {} ({})", e.message, e.code),
+            }
+            for (slot, src) in watches {
+                if let Err(e) = ctrl
+                    .call(RequestBody::FirmwareWatch(FirmwareWatchParams {
+                        slot: slot.clone(),
+                        source: Some(src.clone()),
+                    }))
+                    .await
+                {
+                    eprintln!("watch {slot}={src}: {}", e.message);
+                } else {
+                    eprintln!("watching {slot} = {src}");
+                }
+            }
+        }
+
+        // 終了条件: Ctrl-C、stdin の EOF (親が死んだ)、制御器スレッドの終了
+        let stdin_closed = async {
+            if a.exit_on_stdin_close {
+                use tokio::io::AsyncReadExt;
+                let mut stdin = tokio::io::stdin();
+                let mut buf = [0u8; 256];
+                loop {
+                    match stdin.read(&mut buf).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) => {}
+                    }
+                }
+            } else {
+                std::future::pending::<()>().await;
+            }
+        };
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => eprintln!("ipemu-engine: ctrl-c"),
+            _ = stdin_closed => eprintln!("ipemu-engine: stdin closed, exiting"),
+        }
+        server.abort();
+        ctrl.shutdown();
+        let _ = tokio::task::spawn_blocking(move || join.join()).await;
+        Ok::<(), anyhow::Error>(())
+    })
+}
+
+/// デバッガの接続を検出する (Linux: TracerPid、他 OS は未実装で false)。
+fn debugger_present() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
+            return s
+                .lines()
+                .find_map(|l| l.strip_prefix("TracerPid:"))
+                .map(|v| v.trim() != "0")
+                .unwrap_or(false);
+        }
+    }
+    false
+}
+
+fn attach(
+    port: u16,
+    token: Option<String>,
+    every: f64,
+    send: Vec<String>,
+    seconds: f64,
+) -> anyhow::Result<()> {
+    use ipemu_engine::ipc_server::client::{Client, Incoming};
+    use ipemu_ipc::*;
+    let token = token
+        .or_else(|| std::env::var("IPEMU_IPC_TOKEN").ok())
+        .context("--token か IPEMU_IPC_TOKEN が必要です")?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    rt.block_on(async move {
+        let mut c = Client::connect(port, &token).await?;
+        let d: DescribeResult = c.call_as(RequestBody::SessionDescribe(Empty {})).await?;
+        println!("{}", serde_json::to_string_pretty(&d)?);
+        let ports = d.session.as_ref().map(|s| s.snapshot_ports.clone()).unwrap_or_default();
+        for m in send {
+            let r = c
+                .call(serde_json::from_value(serde_json::json!({"method": m, "params": {}}))
+                    .with_context(|| format!("--send {m}"))?)
+                .await;
+            println!("{m}: {}", match r { Ok(v) => v.to_string(), Err(e) => format!("error {}: {}", e.code, e.message) });
+        }
+        let started = std::time::Instant::now();
+        let mut last_print = std::time::Instant::now() - std::time::Duration::from_secs(10);
+        let deadline = async {
+            if seconds > 0.0 {
+                tokio::time::sleep(std::time::Duration::from_secs_f64(seconds)).await
+            } else {
+                std::future::pending::<()>().await
+            }
+        };
+        tokio::pin!(deadline);
+        loop {
+            tokio::select! {
+                _ = &mut deadline => break,
+                _ = tokio::signal::ctrl_c() => break,
+                m = c.incoming.recv() => match m {
+                    None => break,
+                    Some(Incoming::State(f)) => {
+                        if every > 0.0 && last_print.elapsed().as_secs_f64() >= every {
+                            last_print = std::time::Instant::now();
+                            let cols: Vec<String> = ports.iter().zip(&f.values).take(6)
+                                .map(|(c, v)| format!("{c}={v:.4}")).collect();
+                            println!("[{:>9.3}s] {:?} x{:.2} {} (ratio {:.2}, slip {:.0}ms)",
+                                f.t_ns as f64 * 1e-9, f.state, f.speed, cols.join(" "),
+                                f.stats.realtime_ratio, f.stats.slip_ms_total);
+                        }
+                    }
+                    Some(Incoming::Scope(f)) => println!("scope #{} t0={} n={}", f.subscription_id, f.t0_ns, f.channels.first().map(|c| c.len()).unwrap_or(0)),
+                    Some(Incoming::Notification(n)) => println!("{}", serde_json::to_string(&n)?),
+                    Some(Incoming::Other(t)) => println!("? {t}"),
+                }
+            }
+        }
+        let _ = started;
+        Ok::<(), anyhow::Error>(())
+    })
 }

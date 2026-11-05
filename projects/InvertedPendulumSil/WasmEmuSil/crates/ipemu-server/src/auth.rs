@@ -7,7 +7,7 @@
 //!   クライアント API キー (`ipk_`)。DB にはハッシュだけを置く。
 //! - チケット由来の `lt_` は `ipemu://` の URL を経由して外部ブラウザ・OS・ログを通るため、
 //!   **配信 API 限定** (catalog / manifests / artifacts / telemetry / hello / launches/mine) とし、
-//!   `UserAuth` / `AdminAuth` では拒否し、「新鮮なログイン」とも見なさない (D42)。
+//!   `UserAuth` / `AdminAuth` では拒否し、「新鮮なログイン」とも見なさない (D51)。
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -118,7 +118,7 @@ impl Principal {
     pub fn is_admin(&self) -> bool {
         self.has_role("admin")
     }
-    /// チケット交換で得た短命トークン (`lt_`) の主体か。配信 API にしか使えない (D42)
+    /// チケット交換で得た短命トークン (`lt_`) の主体か。配信 API にしか使えない (D51)
     pub fn is_delivery_only(&self) -> bool {
         self.credential == CredentialKind::Ticket
     }
@@ -132,7 +132,7 @@ impl Principal {
     /// ログインから `FRESH_LOGIN_MAX_SECS` 以内か。Bearer を sessionStorage に置く構成の緩和策で、
     /// 盗まれた古いトークンで承認・公開・鍵・ユーザ操作ができないようにする (D36)。
     /// 成立するのはログインセッション (`sess_`) だけ。チケット交換トークンの `issued_at` は交換時刻で
-    /// ログイン時刻ではないので、新しくても「新鮮なログイン」とは見なさない (D42)
+    /// ログイン時刻ではないので、新しくても「新鮮なログイン」とは見なさない (D51)
     pub fn require_fresh_login(&self) -> Result<(), ApiError> {
         let fresh = self.credential == CredentialKind::Session
             && self
@@ -303,7 +303,7 @@ impl FromRequestParts<AppState> for Auth {
     }
 }
 
-/// 利用者 (ユーザ) のログインセッション必須。API キーとチケット交換トークンは拒否する (D42)。
+/// 利用者 (ユーザ) のログインセッション必須。API キーとチケット交換トークンは拒否する (D51)。
 pub struct UserAuth(pub Principal);
 
 impl FromRequestParts<AppState> for UserAuth {
@@ -324,7 +324,7 @@ impl FromRequestParts<AppState> for UserAuth {
     }
 }
 
-/// 管理画面 (閲覧以上) 必須。`UserAuth` を経由するのでチケット交換トークンは入れない (D42)。
+/// 管理画面 (閲覧以上) 必須。`UserAuth` を経由するのでチケット交換トークンは入れない (D51)。
 pub struct AdminAuth(pub Principal);
 
 impl FromRequestParts<AppState> for AdminAuth {
@@ -379,11 +379,11 @@ impl FromRequestParts<AppState> for ClientIp {
 /// (ユーザ名, 送信元 IP) ごとの連続失敗の上限。超えると `THROTTLE_WINDOW` の間ロックする
 pub const THROTTLE_PER_PAIR: u32 = 5;
 /// ユーザ名単独 (送信元を問わない) の連続失敗の上限。分散した総当たりへの備えで、
-/// 第三者が正規ユーザを簡単にロックできないよう緩くしてある (D44)
+/// 第三者が正規ユーザを簡単にロックできないよう緩くしてある (D53)
 pub const THROTTLE_PER_USER: u32 = 50;
 pub const THROTTLE_WINDOW: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// ログイン失敗の抑止 (D44)。鍵は (ユーザ名, 送信元 IP) で 5 回 / 30 秒、ユーザ名単独で 50 回 / 30 秒。
+/// ログイン失敗の抑止 (D53)。鍵は (ユーザ名, 送信元 IP) で 5 回 / 30 秒、ユーザ名単独で 50 回 / 30 秒。
 /// 最後の失敗から 30 秒経つと数え直す。メモリ上なのでプロセス再起動で消える。
 #[derive(Default)]
 pub struct LoginThrottle {

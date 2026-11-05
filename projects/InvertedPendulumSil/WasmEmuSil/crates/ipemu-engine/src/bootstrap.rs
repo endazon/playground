@@ -87,7 +87,7 @@ pub struct BootstrapOptions {
 }
 
 impl BootstrapOptions {
-    /// `manifest_id` は CLI (`--launch`) や `ipemu://` から来る未検証の値なので、ここで検査する (D46)。
+    /// `manifest_id` は CLI (`--launch`) や `ipemu://` から来る未検証の値なので、ここで検査する (D55)。
     pub fn new(server: &str, manifest_id: &str, cache: Cache) -> anyhow::Result<Self> {
         check_manifest_id(manifest_id)?;
         Ok(Self {

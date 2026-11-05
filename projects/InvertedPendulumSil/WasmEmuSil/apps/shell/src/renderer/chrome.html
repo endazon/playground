@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>ipemu</title>
+    <link rel="stylesheet" href="./shell.css" />
+  </head>
+  <body>
+    <div class="chrome">
+      <div class="tabs" id="tabs"></div>
+      <div class="bar">
+        <button class="nav" id="back" title="戻る">←</button>
+        <button class="nav" id="fwd" title="進む">→</button>
+        <button class="nav" id="reload" title="再読込">⟳</button>
+        <input id="addr" placeholder="URL を入力 (https://… / app://shell/home.html)" spellcheck="false" />
+        <button class="nav" id="home" title="ホーム">⌂</button>
+        <button class="nav" id="sim" title="シミュレータ">▶</button>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script type="module" src="./chrome.ts"></script>
+  </body>
+</html>

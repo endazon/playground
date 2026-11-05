@@ -63,7 +63,7 @@ pub fn server_key(server: &str) -> String {
     }
 }
 
-/// manifest id をパスに使う前の検査 (D46)。`../x` などでキャッシュの外を指させない。
+/// manifest id をパスに使う前の検査 (D55)。`../x` などでキャッシュの外を指させない。
 pub fn check_manifest_id(manifest_id: &str) -> anyhow::Result<()> {
     anyhow::ensure!(
         is_valid_manifest_id(manifest_id),

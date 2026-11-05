@@ -160,6 +160,12 @@ fn cartpole_body(id: &str) -> Value {
     .unwrap();
     v["id"] = json!(id);
     v["scheduler"]["pacing"] = json!("fast");
+    // UI バンドル (M2 が dev manifest に足したもの) は登録しないので外す
+    v.as_object_mut().unwrap().remove("ui");
+    v["artifacts"]
+        .as_object_mut()
+        .unwrap()
+        .remove("ui-cartpole@0.1.0");
     for (_, a) in v["artifacts"].as_object_mut().unwrap().iter_mut() {
         a.as_object_mut().unwrap().remove("path");
         a["url"] = json!("placeholder");
@@ -950,7 +956,7 @@ async fn publish_cartpole(cx: &Ctx, admin: &str, ap: &str, id: &str) {
     assert_eq!(s, StatusCode::OK, "{b}");
 }
 
-/// 監査 A1 (D41): editor と approver を兼ねるユーザが自分で編集した下書きは、id で照合して承認を拒否する。
+/// 監査 A1 (D50): editor と approver を兼ねるユーザが自分で編集した下書きは、id で照合して承認を拒否する。
 /// 別のユーザなら承認できる。id 列の無い古い行はユーザ名で照合する。
 #[tokio::test]
 async fn editor_cannot_approve_own_revision_even_with_both_roles() {
@@ -1061,7 +1067,7 @@ async fn editor_cannot_approve_own_revision_even_with_both_roles() {
     cx.app.stop().await;
 }
 
-/// 監査 A2 (D42): チケット交換トークン (`lt_`) は配信 API 限定。
+/// 監査 A2 (D51): チケット交換トークン (`lt_`) は配信 API 限定。
 /// admin のトークンでも管理 API・チケット発行・パスワード変更には使えず、新鮮なログインとも見なさない。
 #[tokio::test]
 async fn launch_token_is_limited_to_delivery_api() {
@@ -1218,7 +1224,7 @@ async fn launch_token_is_limited_to_delivery_api() {
     cx.app.stop().await;
 }
 
-/// 監査 A5 (D43): 部品アップロードは axum 既定の 2MB ではなく `max_artifact_bytes` + 余裕まで受ける。
+/// 監査 A5 (D52): 部品アップロードは axum 既定の 2MB ではなく `max_artifact_bytes` + 余裕まで受ける。
 /// 上限を超えると 413。成果物のビルドは不要 (中身の検査で落ちてよい)。
 #[tokio::test]
 async fn artifact_upload_accepts_bodies_beyond_axum_default() {

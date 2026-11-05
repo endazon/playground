@@ -179,6 +179,12 @@ fn publish_cartpole(base: &str) -> String {
     )
     .unwrap();
     body["id"] = json!("cartpole");
+    // UI バンドル (M2 が dev manifest に足したもの) は pnpm build が要るので、このテストでは外す
+    body.as_object_mut().unwrap().remove("ui");
+    body["artifacts"]
+        .as_object_mut()
+        .unwrap()
+        .remove("ui-cartpole@0.1.0");
     for (_, art) in body["artifacts"].as_object_mut().unwrap().iter_mut() {
         art.as_object_mut().unwrap().remove("path");
         art["url"] = json!("placeholder");
