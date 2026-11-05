@@ -38,7 +38,7 @@ libm = "0.2"
 wit-bindgen = { version = "0.63", default-features = false, features = ["macros", "realloc"] }
 wasmtime = { version = "50", default-features = false, features = ["anyhow", "runtime", "cranelift", "component-model", "std", "cache", "parallel-compilation", "wat"] }
 libloading = "0.9"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 sha2 = "0.11"
 hex = "0.4"
 proptest = "1"

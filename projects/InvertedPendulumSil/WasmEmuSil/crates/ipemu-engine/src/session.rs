@@ -3,12 +3,13 @@
 use anyhow::{anyhow, bail, Context};
 use ipemu_core::builtins::{CpuVirtual, CpuVirtualParams};
 use ipemu_core::hal::{Firmware, LogLevel};
-use ipemu_core::manifest::{ComponentSpec, Manifest};
+use ipemu_core::manifest::{ArtifactRef, ComponentSpec, Manifest};
 use ipemu_core::validate::{validate, validate_schema, Diagnostics, ValidateOptions};
 use ipemu_core::{Engine, Part, PartDesc};
 use ipemu_wasm::{NativeFirmware, Runtime, WasmFirmware, WasmPart};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 /// ファームウェアの指定。
 #[derive(Debug, Clone)]
@@ -34,6 +35,20 @@ impl FirmwareSource {
     }
 }
 
+/// アーティファクト名 (`name@version`) と参照からローカルパスを引くフック。
+/// bootstrap がキャッシュ (`sha256/ab/cd/<hex>`) を指すために使う。None を返すと既定の解決 (path / file:) に戻る。
+pub type ArtifactResolverFn =
+    dyn Fn(&str, &ArtifactRef) -> anyhow::Result<Option<PathBuf>> + Send + Sync;
+
+#[derive(Clone)]
+pub struct ArtifactResolver(pub Arc<ArtifactResolverFn>);
+
+impl std::fmt::Debug for ArtifactResolver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ArtifactResolver(..)")
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SessionOptions {
     /// slot 名 → ファームウェアの上書き
@@ -43,6 +58,8 @@ pub struct SessionOptions {
     pub runtime: Option<ipemu_wasm::runtime::RuntimeOptions>,
     /// `instance.key=value` 形式のパラメータ上書き
     pub param_overrides: Vec<(String, String, serde_json::Value)>,
+    /// アーティファクトの解決フック (配信 manifest をキャッシュから組み立てるとき)
+    pub artifact_resolver: Option<ArtifactResolver>,
 }
 
 /// 実行中のセッション。
@@ -60,11 +77,17 @@ fn resolve_artifact_path(
     manifest_dir: &Path,
     manifest: &Manifest,
     name: &str,
+    opts: &SessionOptions,
 ) -> anyhow::Result<PathBuf> {
     let a = manifest
         .artifacts
         .get(name)
         .ok_or_else(|| anyhow!("アーティファクト `{name}` が manifest にありません"))?;
+    if let Some(r) = &opts.artifact_resolver {
+        if let Some(p) = (r.0)(name, a)? {
+            return Ok(p);
+        }
+    }
     if let Some(p) = &a.path {
         return Ok(manifest_dir.join(p));
     }
@@ -72,7 +95,7 @@ fn resolve_artifact_path(
         if let Some(p) = u.strip_prefix("file:") {
             return Ok(manifest_dir.join(p));
         }
-        bail!("アーティファクト `{name}` は url ({u}) でしか指定されていません。M1 のエンジンはローカル path のみ対応です")
+        bail!("アーティファクト `{name}` は url ({u}) でしか指定されていません。サーバから取得するには --server で起動してください")
     }
     bail!("アーティファクト `{name}` に path も url もありません")
 }
@@ -129,7 +152,7 @@ impl Session {
         for (i, c) in manifest.components.iter().enumerate() {
             match (&c.artifact, c.kind.as_deref()) {
                 (Some(a), None) => {
-                    let path = resolve_artifact_path(manifest_dir, &manifest, a)?;
+                    let path = resolve_artifact_path(manifest_dir, &manifest, a, opts)?;
                     let component = match compiled.get(a) {
                         Some(cm) => cm.clone(),
                         None => {
@@ -331,7 +354,7 @@ fn load_firmware(
                     slot.slot
                 )
             })?;
-            let path = resolve_artifact_path(manifest_dir, manifest, name)?;
+            let path = resolve_artifact_path(manifest_dir, manifest, name, opts)?;
             let bytes = verify_sha256(&path, manifest.artifacts[name].sha256.as_deref())?;
             Ok(Box::new(
                 WasmFirmware::load(rt, &bytes).with_context(|| format!("ファームウェア {name}"))?,
