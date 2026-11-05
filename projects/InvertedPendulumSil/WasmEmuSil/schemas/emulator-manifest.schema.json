@@ -32,10 +32,11 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["sha256", "url"],
+        "anyOf": [ { "required": ["url"] }, { "required": ["path"] } ],
         "properties": {
-          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "内容ハッシュ。配信用 manifest では必須 (検証 V2)。ローカル開発用 manifest でのみ省略可" },
           "url": { "type": "string", "description": "サーバ相対または絶対 URL" },
+          "path": { "type": "string", "description": "manifest ファイルからの相対パス (ローカル開発用。配信用 manifest では使わない)" },
           "size": { "type": "integer", "minimum": 0 },
           "kind": { "enum": ["part", "firmware", "ui"], "default": "part" }
         }
@@ -152,7 +153,7 @@
             "additionalProperties": false,
             "required": ["path", "mode"],
             "properties": {
-              "path": { "type": "string", "pattern": "^(?![/\\\\])(?!.*\\.\\.)[^\\0]+$", "description": "クライアントのデータディレクトリ配下の相対パス。絶対パスと .. は不可" },
+              "path": { "type": "string", "minLength": 1, "allOf": [ { "pattern": "^[^/\\\\]" }, { "not": { "pattern": "(^|[/\\\\])\\.\\.([/\\\\]|$)" } } ], "description": "クライアントのデータディレクトリ配下の相対パス。絶対パスと .. は不可" },
               "mode": { "enum": ["ro", "rw"] }
             }
           }

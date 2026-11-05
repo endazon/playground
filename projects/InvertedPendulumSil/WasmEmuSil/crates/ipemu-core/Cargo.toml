@@ -1,0 +1,19 @@
+[package]
+name = "ipemu-core"
+description = "manifest の解釈と検証、配線グラフ、スケジューラ、組み込み部品 (サーバとクライアントで共有)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["schema"]
+# JSON Schema による V1 検証。サーバ / エンジンでは有効、極小ビルドでは外せる
+schema = ["dep:jsonschema"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+jsonschema = { version = "0.60", optional = true, default-features = false }

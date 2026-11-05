@@ -1,0 +1,12 @@
+[package]
+name = "ip-part-sdk"
+description = "部品 (wasm コンポーネント) を Rust で書くための薄い SDK: WIT バインディングと入口マクロ"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+wit-bindgen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

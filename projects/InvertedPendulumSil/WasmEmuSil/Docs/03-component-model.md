@@ -25,6 +25,13 @@ WIT パッケージ `ip:emu` の `part` ワールドを実装します。定義�
 | `step(dt-ns)` | 仮想時間を `dt` だけ進める。失敗は `Err` → エンジンは FAULT 停止 |
 | `snapshot() -> list<u8>` / `restore(list<u8>)` | 状態の保存・復元 (巻き戻し、テストの途中開始用)。任意 |
 
+### 実装 (M1)
+- 部品は Rust で書き、`crates/ip-part-sdk` の `PartImpl` トレイトと `part_entry!` マクロで WIT 境界を生やす。
+- ビルドは `wasm32-unknown-unknown` → `wasm-tools component new`。WASI を一切 import しないので adapter が要らない。
+  `cargo component` や `wasm32-wasip2` を使わないのは、std 経由で `wasi:cli` 等の import が混ざるのを避けるため (決定性と V7 の前提)。
+- bytes ポートの配線は v1 では未対応 (`GraphError::BytesPortUnsupported`)。UART は仮想 MCU の内部で扱う。
+- `encoder` の入力ポートは `input` (単位なし)。mode (angular / linear) で意味が変わるため単位検査の対象外にしている。
+
 ### なぜ Component Model (WIT) か
 - 型付きのインターフェースを**バイナリから読める** (`wasm-tools component wit`)。
   サーバは部品をアップロードされた時点で import / export を検査でき、manifest の capability 宣言と突き合わせられます。
@@ -77,9 +84,9 @@ WASM ではなくエンジン本体が実装する部品です。manifest では
 | 部品 | 入力 | 出力 | 中身 |
 | --- | --- | --- | --- |
 | `plant-cartpole` | `voltage` [V], `estop` | `x`, `theta`, `x-dot`, `theta-dot`, `force`, `hit-stopper` | 台車+振子の非線形モデル、DC モータ (逆起電力)、メカストッパ。1ms RK4。`ip-model` クレート |
-| `motor-driver` | `duty` [-1..1], `enable`, `estop-in` | `voltage` [V], `fault`, `drive-enabled` | PWM → 電圧、保護 (E-STOP・リミット・指令タイムアウト 500ms・無効中の指令拒否) |
-| `encoder` | `angle` [rad] または `position` [m] | `count` (累積), `index` | 量子化 (PPR)、A/B 相の方向付き計数 |
-| `comm-link` | `in` (bytes), `in-scalar` | `out`, `out-scalar` | 遅延・ジッタ・再送スパイク。NetworkedSil の `DelayLine` を部品化。制御ループの**外側**に置く用途 (遠隔監視・目標値) |
+| `motor-driver` | `duty` [-1..1], `enable`, `heartbeat`, `estop-in`, `position` [m] | `voltage` [V], `fault`, `drive-enabled`, `rejected` | PWM → 電圧、保護 (E-STOP・メカリミット・ハートビート断 = 指令タイムアウト・無効中の指令拒否)。復帰は `enable` の立ち上がり |
+| `encoder` | `input` (角度 [rad] か位置 [m]、mode で決まる) | `count` (累積, 32bit ラップ), `delta` | 量子化 (PPR)。NetworkedSil の `ReadEncoders` と同じ丸め |
+| `comm-link` | `in` (scalar) | `out`, `in-flight`, `spikes`, `hol-blocked` | 遅延・ジッタ・再送スパイク・追い越し禁止。シード付き PRNG で決定的。NetworkedSil の `DelayLine` を部品化。制御ループの**外側**に置く用途 (遠隔監視・目標値) |
 
 NetworkedSil の `VirtualPlant` は「プラント + エンコーダ + ドライブ保護」を 1 つの型に持っていました。
 ここでは 3 部品に分けます。manifest で差し替えや挿入 (例: モータ特性だけ変える) ができるようにするためです。

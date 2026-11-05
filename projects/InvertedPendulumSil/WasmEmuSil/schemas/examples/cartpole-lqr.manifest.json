@@ -57,8 +57,8 @@
     }
   ],
   "wires": [
-    { "from": "plant.x",        "to": "enc-cart.position" },
-    { "from": "plant.theta",    "to": "enc-pend.angle" },
+    { "from": "plant.x",        "to": "enc-cart.input" },
+    { "from": "plant.theta",    "to": "enc-pend.input" },
     { "from": "enc-cart.count", "to": "mcu.enc0", "latency": 0 },
     { "from": "enc-pend.count", "to": "mcu.enc1", "latency": 0 },
     { "from": "plant.hit-stopper", "to": "driver.estop-in" },
