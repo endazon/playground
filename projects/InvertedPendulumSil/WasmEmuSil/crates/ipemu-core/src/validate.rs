@@ -1,6 +1,7 @@
-//! manifest の検証 (04-manifest.md の V1〜V11)。サーバとクライアントで同じコードを使う。
+//! manifest の検証 (04-manifest.md の V1〜V12)。サーバとクライアントで同じコードを使う。
 
 use crate::builtins;
+use crate::capability::{capabilities_hash, ImportInfo};
 use crate::desc::PartDesc;
 use crate::graph::{Graph, GraphError};
 use crate::manifest::{split_port_ref, ComponentSpec, Manifest};
@@ -39,6 +40,10 @@ impl Diagnostics {
             message: message.into(),
         });
     }
+    /// 呼び出し側 (エンジン) が同じ規則番号で診断を追加するための公開版。
+    pub fn error_pub(&mut self, rule: &'static str, message: impl Into<String>) {
+        self.error(rule, message)
+    }
     pub fn has_errors(&self) -> bool {
         self.items.iter().any(|d| d.severity == Severity::Error)
     }
@@ -75,6 +80,13 @@ pub struct ValidateOptions {
 /// 部品の記述を引く手段。wasm 部品はバイナリの `describe()` から、組み込みは `builtins` から。
 pub trait DescResolver {
     fn describe(&mut self, spec: &ComponentSpec) -> anyhow::Result<PartDesc>;
+
+    /// その instance が実行する wasm (部品、または cpu-virtual のファームウェア) の import 一覧。
+    /// `Ok(None)` は「この文脈では import を読めない」の意味で、V7 / V8 を省略する。
+    /// 既定は `None` (閉包だけの簡易 resolver 用)。
+    fn imports(&mut self, _spec: &ComponentSpec) -> anyhow::Result<Option<Vec<ImportInfo>>> {
+        Ok(None)
+    }
 }
 
 impl<F> DescResolver for F
@@ -213,12 +225,13 @@ pub fn validate(
         }
     }
 
-    // V10: 決定性外の capability
+    // capability 宣言そのものの整合性 (fs.path の閉じ込め、未知の hostExt)、V10: 決定性外の capability
     for c in &manifest.components {
         if let Some(cap) = &c.capabilities {
-            if cap.get("clock").and_then(|v| v.as_bool()) == Some(true)
-                || cap.get("random").and_then(|v| v.as_bool()) == Some(true)
-            {
+            for e in cap.self_check() {
+                diags.error("V7", format!("部品 `{}`: {e}", c.instance));
+            }
+            if cap.clock || cap.random {
                 diags.warn(
                     "V10",
                     format!(
@@ -227,6 +240,20 @@ pub fn validate(
                     ),
                 );
             }
+        }
+    }
+
+    // V12 (ハッシュ部分): approval.capabilitiesHash が宣言と一致する。署名の検証は呼び出し側 (クライアント) の責務
+    if let Some(ap) = &manifest.approval {
+        let actual = capabilities_hash(manifest);
+        if !ap.capabilities_hash.eq_ignore_ascii_case(&actual) {
+            diags.error(
+                "V12",
+                format!(
+                    "approval.capabilitiesHash が capability 宣言と一致しません (approval {}, 宣言 {actual})。承認後に宣言が変更されています",
+                    ap.capabilities_hash
+                ),
+            );
         }
     }
 
@@ -245,6 +272,31 @@ pub fn validate(
                     format!("部品 `{}` の記述を取得できません: {e:#}", c.instance),
                 );
             }
+        }
+    }
+    if diags.has_errors() {
+        return (diags, None);
+    }
+
+    // V7 / V8: import と capability 宣言の突き合わせ (import を読める文脈のみ)
+    for c in &manifest.components {
+        let imports = match resolver.imports(c) {
+            Ok(Some(i)) => i,
+            Ok(None) => continue,
+            Err(e) => {
+                diags.error(
+                    "V7",
+                    format!("部品 `{}` の import を取得できません: {e:#}", c.instance),
+                );
+                continue;
+            }
+        };
+        let (errors, warnings) = c.capabilities().check_imports(&imports);
+        for e in errors {
+            diags.error("V7", format!("部品 `{}`: {e}", c.instance));
+        }
+        for w in warnings {
+            diags.warn("V8", format!("部品 `{}`: {w}", c.instance));
         }
     }
     if diags.has_errors() {
