@@ -3,6 +3,7 @@
 | ファイル | 内容 |
 | --- | --- |
 | `cartpole.manifest.json` | ローカルビルドの部品 / FW を `path` で参照する manifest (署名なし。`--no-signature-check` で起動) |
+| `cartpole-netdelay.manifest.json` | M6: MCU と駆動系の間の信号をすべて `comm-link` に通した構成 (片道 40 ms = 往復 80 ms、倒立付近から balance、2 s ごとの外乱)。NetworkedSil の遅延実験との比較用 ([Docs/10](../Docs/10-delay-comparison.md)) |
 | `keys/` (git 管理外) | `ipemu-server keygen` が作る署名鍵。**秘密鍵はコミットしない** |
 
 ## 署名鍵の作り方 (M3)

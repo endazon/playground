@@ -7,6 +7,7 @@
 #![deny(unsafe_code)]
 
 pub mod control;
+pub mod delay_margin;
 pub mod dynamics;
 pub mod estimator;
 pub mod lqr;
