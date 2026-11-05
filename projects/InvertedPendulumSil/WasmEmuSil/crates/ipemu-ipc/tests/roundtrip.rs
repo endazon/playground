@@ -158,7 +158,8 @@ fn response_and_error_shape() {
 fn notification_roundtrip() {
     let n = Notification::new(NotificationBody::ConsentRequired(ConsentRequest {
         request_id: "r1".into(),
-        instance: "modbus".into(),
+        instances: vec!["modbus".into()],
+        artifact: "modbus-client@1.0.0".into(),
         artifact_sha256: "ab".repeat(32),
         capability: "net.tcpConnect:192.168.10.5:502".into(),
         reason: "PLC".into(),

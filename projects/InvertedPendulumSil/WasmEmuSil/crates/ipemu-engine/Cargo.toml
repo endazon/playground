@@ -1,6 +1,6 @@
 [package]
 name = "ipemu-engine"
-description = "クライアントのエミュレータエンジン。M1 では headless CLI (run / validate / inspect / lqr)"
+description = "クライアントのエミュレータエンジン。headless CLI (run / validate / inspect / lqr) と IPC サーバ (serve / attach)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -21,6 +21,11 @@ serde_json = { workspace = true }
 clap = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
+ipemu-ipc = { workspace = true }
+tokio = { workspace = true, features = ["process"] }
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
 sha2 = { workspace = true }

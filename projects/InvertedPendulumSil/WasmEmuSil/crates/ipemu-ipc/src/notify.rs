@@ -56,14 +56,21 @@ pub struct EventNotice {
     pub data: Option<serde_json::Value>,
 }
 
-/// 未同意の capability (M5)。シェルは専用ウィンドウで表示し、`consent.answer` で返す。
+/// 未同意の capability 1 件 (`ipemu_core::consent::ConsentRequest` と同形。M5)。
+/// シェルは専用ウィンドウで表示し、`consent.answer {requestId, grant, remember}` で返す。
+/// 同じ (artifact, capability) を複数の instance が使う場合は 1 件にまとまり `instances` に併記される。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct ConsentRequest {
+    /// 回答で参照する id。同意ストアの鍵 (`<sha256>:<capability>`) と同じ文字列
     pub request_id: String,
-    pub instance: String,
+    /// この capability を要求する instance (先頭が代表)
+    pub instances: Vec<String>,
+    /// アーティファクト名 (`name@version`、ローカル上書きならパス)
+    pub artifact: String,
     pub artifact_sha256: String,
+    /// 例 `net.tcpConnect:192.168.10.5:502`
     pub capability: String,
     pub reason: String,
     pub manifest_id: String,

@@ -101,9 +101,33 @@ pub struct Session {
     pub snapshot_ports: Vec<String>,
     /// 付与した capability (instance ごと)。同意状態の表示 (`session.describe`) に使う
     pub capability_plan: CapabilityPlan,
+    /// manifest ファイルのあるディレクトリ (path 参照の基準)
+    pub manifest_dir: PathBuf,
+    /// 組み立てに使った選択肢。ホット差替・再起動時の上書きの元
+    pub options: SessionOptions,
     snapshot_refs: Vec<(usize, usize)>,
     cpu_indices: Vec<usize>,
-    _runtime: Runtime,
+    /// slot 名 → cpu-virtual の部品 index
+    slots: HashMap<String, usize>,
+    runtime: Runtime,
+}
+
+/// `firmware.load` の結果 (IPC の FirmwareLoadResult に写す)。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FirmwareSwap {
+    /// wasm をホットで差し替えた。プラントの状態はそのまま
+    Hot { flavor: &'static str },
+    /// native 形。プロセス内でのアンロードは信頼できないので、エンジンの再起動が必要 (D23)
+    RestartRequired,
+}
+
+/// `param.set` の結果。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParamChange {
+    /// 部品を `init` し直した (内部状態は初期化)
+    Reinitialized,
+    /// 組み込み部品 (cpu-virtual 等) は再 launch が要る
+    RestartRequired,
 }
 
 /// 実体化前に読み込んだ wasm (sha256 と import は capability の判定に使う)。
@@ -410,6 +434,12 @@ impl Session {
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         let base = manifest.scheduler.base_step_ns;
+        let slots: HashMap<String, usize> = manifest
+            .components
+            .iter()
+            .enumerate()
+            .filter_map(|(i, c)| c.firmware.as_ref().map(|f| (f.slot.clone(), i)))
+            .collect();
         let engine = Engine::new(graph, parts, base)?;
         Ok(Self {
             manifest,
@@ -417,10 +447,165 @@ impl Session {
             diagnostics: diags,
             snapshot_ports,
             capability_plan: plan,
+            manifest_dir: manifest_dir.to_path_buf(),
+            options: opts.clone(),
             snapshot_refs,
             cpu_indices,
-            _runtime: runtime,
+            slots,
+            runtime,
         })
+    }
+
+    /// slot 名の一覧 (manifest 順)。
+    pub fn slots(&self) -> impl Iterator<Item = (&str, usize)> {
+        self.manifest
+            .components
+            .iter()
+            .enumerate()
+            .filter_map(|(i, c)| c.firmware.as_ref().map(|f| (f.slot.as_str(), i)))
+    }
+
+    /// slot に装着中のファームウェアの形 (`wasm` / `native`)。
+    pub fn firmware_flavor(&mut self, slot: &str) -> Option<&'static str> {
+        let i = *self.slots.get(slot)?;
+        self.engine
+            .part_mut(i)
+            .as_any_mut()?
+            .downcast_mut::<CpuVirtual>()?
+            .firmware_flavor()
+    }
+
+    /// ファームウェアの差し替え (05-firmware.md「リビルド後の反映」)。
+    /// wasm: 新しいファームウェアを `init` して slot だけ入れ替える。`init` に失敗したら古い slot を残して Err。
+    /// native: 上書き指定を記録して `RestartRequired` を返す (プロセス再起動は呼び出し側 = シェルの責務)。
+    ///
+    /// capability は、その instance に宣言されたものを新しいファームウェアにもそのまま付与する
+    /// (`CapabilityPlan::grant_for`)。差し替え先の sha256 は元と違うので、厳密には同意の鍵も変わる。
+    /// ホット差替時の再同意をどう扱うかは M5 側と要整合 (08-decisions.md Q14)。それまでは
+    /// 「宣言に同意済みの capability を同じ instance の別ビルドに引き継ぐ」挙動にしている。
+    pub fn swap_firmware(
+        &mut self,
+        slot: &str,
+        source: FirmwareSource,
+    ) -> anyhow::Result<FirmwareSwap> {
+        let i = *self
+            .slots
+            .get(slot)
+            .ok_or_else(|| anyhow!("slot `{slot}` がありません"))?;
+        if let FirmwareSource::Native(_) = &source {
+            self.options
+                .firmware_overrides
+                .insert(slot.to_owned(), source);
+            return Ok(FirmwareSwap::RestartRequired);
+        }
+        let mut opts = self.options.clone();
+        opts.firmware_overrides
+            .insert(slot.to_owned(), source.clone());
+        let spec = &self.manifest.components[i];
+        let w = match locate_firmware(&self.manifest_dir, &self.manifest, spec, &opts)? {
+            FirmwareBytes::Wasm(w) => w,
+            FirmwareBytes::Native(_) => unreachable!("native は上で返している"),
+        };
+        // 宣言と import の整合 (V7) をここでも確認する (launch 時と同じ規則)
+        let (errors, _) = spec.capabilities().check_imports(&w.imports);
+        if !errors.is_empty() {
+            bail!(
+                "slot `{slot}` のファームウェアは宣言にない import を持ちます: {}",
+                errors.join("; ")
+            );
+        }
+        let grant = if opts.validate_only {
+            self.capability_plan.grant_for_validate(&spec.instance)
+        } else {
+            let dirs = DataDirs::resolve(opts.data_dir.as_deref());
+            self.capability_plan.grant_for(&spec.instance, &dirs)?
+        };
+        let fw: Box<dyn Firmware> = Box::new(
+            WasmFirmware::load_with(&self.runtime, &w.bytes, grant)
+                .with_context(|| format!("ファームウェア {}", w.label))?,
+        );
+        let flavor = fw.flavor();
+        let instance = spec.instance.clone();
+        let caps = spec.capabilities();
+        let cpu = self
+            .engine
+            .part_mut(i)
+            .as_any_mut()
+            .and_then(|a| a.downcast_mut::<CpuVirtual>())
+            .ok_or_else(|| anyhow!("slot `{slot}` の部品は cpu-virtual ではありません"))?;
+        cpu.attach_firmware(fw).with_context(|| {
+            format!("slot `{slot}` のホット差替 (古いファームウェアを残しました)")
+        })?;
+        // describe の表示用に計画の entry も新しい実体に差し替える
+        self.capability_plan
+            .entries
+            .retain(|e| e.instance != instance);
+        self.capability_plan.push(PlanEntry {
+            instance,
+            artifact: w.label,
+            artifact_sha256: w.sha256,
+            capabilities: caps,
+        });
+        self.options = opts;
+        Ok(FirmwareSwap::Hot { flavor })
+    }
+
+    /// 部品パラメータの変更。wasm 部品は manifest の params を更新して `init` し直す。
+    pub fn set_param(
+        &mut self,
+        instance: &str,
+        key: &str,
+        value: serde_json::Value,
+    ) -> anyhow::Result<(ParamChange, serde_json::Value)> {
+        let i = self
+            .engine
+            .graph()
+            .instance_index(instance)
+            .ok_or_else(|| anyhow!("部品 `{instance}` がありません"))?;
+        let spec = &mut self.manifest.components[i];
+        let obj = spec
+            .params
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("部品 `{instance}` の params がオブジェクトではありません"))?;
+        let previous = obj.insert(key.to_owned(), value.clone());
+        if spec.is_builtin() {
+            // 組み込み部品はコンストラクタで解釈するので、再 launch で反映する
+            self.options
+                .param_overrides
+                .push((instance.to_owned(), key.to_owned(), value));
+            return Ok((ParamChange::RestartRequired, spec.params.clone()));
+        }
+        let params = spec.params.clone();
+        if let Err(e) = self.engine.part_mut(i).init(&params) {
+            // 失敗したら元の値に戻す (部品側の状態は部品の init の実装に依る)
+            let obj = self.manifest.components[i].params.as_object_mut().unwrap();
+            match previous {
+                Some(p) => {
+                    obj.insert(key.to_owned(), p);
+                }
+                None => {
+                    obj.remove(key);
+                }
+            }
+            return Err(e.context(format!("部品 `{instance}` の init ({key})")));
+        }
+        self.options
+            .param_overrides
+            .retain(|(inst, k, _)| !(inst == instance && k == key));
+        self.options
+            .param_overrides
+            .push((instance.to_owned(), key.to_owned(), value));
+        Ok((ParamChange::Reinitialized, params))
+    }
+
+    /// 1 ステップ進める。
+    pub fn step(&mut self) -> anyhow::Result<()> {
+        self.engine.step().map_err(|e| anyhow!("{e}"))
+    }
+
+    /// 全部品を reset して時刻 0 へ (Epoch を進める)。
+    pub fn reset(&mut self) -> anyhow::Result<()> {
+        self.engine.reset()
     }
 
     pub fn snapshot_values(&self, out: &mut Vec<f64>) {

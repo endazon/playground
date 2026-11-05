@@ -33,6 +33,10 @@
     "fw-balance-rs@0.1.0": {
       "kind": "firmware",
       "path": "../build/firmware/fw-balance-rs.wasm"
+    },
+    "ui-cartpole@0.1.0": {
+      "kind": "ui",
+      "path": "../build/ui/ui-cartpole.tar.gz"
     }
   },
   "components": [
@@ -228,5 +232,14 @@
       "from": "plant.theta",
       "to": "link-mon.in"
     }
-  ]
+  ],
+  "ui": {
+    "bundle": "ui-cartpole@0.1.0",
+    "views": [
+      "2d",
+      "3d",
+      "scope",
+      "topology"
+    ]
+  }
 }
