@@ -113,7 +113,7 @@ pub fn inspect(kind: &str, bytes: &[u8]) -> anyhow::Result<Inspection> {
                     world.starts_with("ip:emu/firmware@"),
                     "firmware は ip:emu/fw を export する必要があります (exports: {exports:?})"
                 );
-                WasmFirmware::load_with(&rt, bytes, grant)
+                WasmFirmware::load_with(&rt, bytes, deny_all_grant_for_imports(&imports))
                     .context("ファームウェアの実体化に失敗")?;
                 None
             };
