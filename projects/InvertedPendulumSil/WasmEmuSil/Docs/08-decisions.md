@@ -104,10 +104,10 @@ Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに�
 | --- | --- | --- | --- |
 | Q13 | VS の F5 手順の実機確認 (Windows) | M2 では Linux で native .so のロードと restartRequired の経路まで確認。Windows 実機は未確認 | 手順書の修正があれば 05 に反映 |
 
-## マイルストーン (承認後)
+## マイルストーン
 | M | 内容 | 完了条件 |
 | --- | --- | --- |
-| M0 | 設計 (本 PR) | 設計資料の承認 |
+| M0 ✅ | 設計 | 設計資料 01〜09。**完了** |
 | M1 ✅ | エンジン核 | ローカル manifest から plant / driver / encoder / comm-link (Rust 部品) + `fw-balance` (C 版と Rust 版、各 wasm と native) を組み立て、headless で倒立維持。決定性・性質・FW 同等性テストが `scripts/check.sh` で通る。**完了** (ip-model 12 / ipemu-core 8 / 結合 7 テスト) |
 | M2 ✅ | シェル | Electron の汎用ブラウザ UI + 信頼 origin ブリッジ + `ipemu://` ハンドラ + シミュレータ UI (sim-view 移植)。IPC 契約の TS 型生成。wasm ホット差替 / native 再起動。**完了** (ipemu-ipc 9 / エンジン結合 6 + 単体 8 / vitest 28 テスト、[07 の実装節](07-client-app.md#実装-m2))。VS の F5 手順は Windows 環境での確認が未了 (M3 以降の手元検証に持ち越し) |
 | M3 ✅ | サーバ配信 + ポータル | ログイン、カタログ、起動 (ブリッジ / `ipemu://` チケット)、manifests / artifacts API、署名、エンジンの bootstrap とキャッシュ、ローカルカタログでのオフライン起動、telemetry。**完了** (`crates/ipemu-server`, `crates/ipemu-sign`, `crates/ipemu-engine/src/{bootstrap,cache}.rs`, `apps/web` のポータル。結合テスト: サーバ API 4 / bootstrap 2 (サーバから取得して倒立維持 → オフラインで同じ軌道)) |

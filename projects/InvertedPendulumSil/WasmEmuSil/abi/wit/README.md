@@ -1,4 +1,4 @@
-# WIT 定義 (草案)
+# WIT 定義
 
 パッケージ `ip:emu@0.1.0`。部品・ファームウェア・ホスト拡張の境界をここで定義します。
 `wit-bindgen` で Rust / C のバインディングを生成し、エンジン側は `wasmtime::component::bindgen!` で読みます。

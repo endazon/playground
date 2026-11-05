@@ -1,6 +1,6 @@
-# WasmEmuSil — WASM 部品で組む倒立振子エミュレータ (設計草案)
+# WasmEmuSil — WASM 部品で組む倒立振子エミュレータ
 
-> **状態: M1 (エンジン核)、M2 (Electron シェル + IPC)、M3/M4 (サーバ配信 + ポータル + 管理画面)、M5 (capability、エンジン側) 実装済み。**
+> **状態: M1 (エンジン核)、M2 (Electron シェル + IPC)、M3/M4 (サーバ配信 + ポータル + 管理画面)、M5 (capability)、M6 (fuel ウォッチドッグ、遅延比較、配布ビルド) 実装済み。**
 > エンジンはローカル manifest または**配信サーバ**から Rust 製の部品 (wasm) と C 版 / Rust 版のファームウェアを取り寄せて組み立て、
 > スイングアップ → 倒立維持まで動きます。Electron シェルからエンジンを起動し、配信される UI バンドル (sim-view 移植) で
 > 2D / 3D / スコープ / トポロジを見ながら開始・停止・ペーシング・パラメータ・ファームウェアのホット差替ができます。
@@ -138,7 +138,7 @@ docker compose up --build                                  # コンテナで動�
 | [Docs/09-verification.md](Docs/09-verification.md) | 検証方針: 性質テスト、ゴールデントレース、決定性、適合性テスト |
 | [Docs/10-delay-comparison.md](Docs/10-delay-comparison.md) | NetworkedSil の遅延実験との比較 (M6): 理論遅延余裕と、comm-link を制御ループに入れた全エミュレーションの境目 |
 | [schemas/emulator-manifest.schema.json](schemas/emulator-manifest.schema.json) | 構成情報の JSON Schema と [サンプル](schemas/examples/cartpole-lqr.manifest.json) |
-| [abi/wit/](abi/wit/) / [abi/ip_hal.h](abi/ip_hal.h) | 部品・ファームウェアの WIT 定義と、ネイティブ形用の C ヘッダ草案 |
+| [abi/wit/](abi/wit/) / [abi/ip_hal.h](abi/ip_hal.h) | 部品・ファームウェアの WIT 定義と、ネイティブ形用の C ヘッダ |
 
 ## ディレクトリ構成 (✅ = M1 で実装済み)
 ```text

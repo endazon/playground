@@ -1,5 +1,5 @@
 /*
- * ip_hal.h — ファームウェアから見た HAL (草案)
+ * ip_hal.h — ファームウェアから見た HAL
  *
  * 同じファームウェアソースを 2 形にビルドするための境界。
  *   IP_HAL_TARGET_WASM   : wasm32-wasip2。関数は wit-bindgen が生成した ip:emu/hal の import へ委譲
