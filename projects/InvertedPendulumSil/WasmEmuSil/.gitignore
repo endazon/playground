@@ -14,3 +14,5 @@ apps/shell/dist/
 dev/keys/
 dev/store/
 store/
+# クライアント配布 zip (scripts/package.sh)
+/dist/

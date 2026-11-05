@@ -10,15 +10,15 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "start": "pnpm run build && electron . --no-sandbox-if-root",
-    "start:dev": "node scripts/build.mjs && vite build && electron ."
-  },
-  "dependencies": {
-    "@ipemu/ipc-types": "workspace:*",
-    "@ipemu/ui-kit": "workspace:*"
+    "start:dev": "node scripts/build.mjs && vite build && electron .",
+    "package": "node scripts/build.mjs && vite build && electron-builder"
   },
   "devDependencies": {
+    "@ipemu/ipc-types": "workspace:*",
+    "@ipemu/ui-kit": "workspace:*",
     "@types/node": "^22.19.0",
     "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
     "esbuild": "^0.25.10",
     "typescript": "~5.9.3",
     "vite": "^7.1.9",

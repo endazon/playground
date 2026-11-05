@@ -83,10 +83,10 @@ WASM ではなくエンジン本体が実装する部品です。manifest では
 ## 標準部品 (v1 で用意するもの)
 | 部品 | 入力 | 出力 | 中身 |
 | --- | --- | --- | --- |
-| `plant-cartpole` | `voltage` [V], `estop` | `x`, `theta`, `x-dot`, `theta-dot`, `force`, `hit-stopper` | 台車+振子の非線形モデル、DC モータ (逆起電力)、メカストッパ。1ms RK4。`ip-model` クレート |
+| `plant-cartpole` | `voltage` [V], `estop` | `x`, `theta`, `x-dot`, `theta-dot`, `force`, `hit-stopper` | 台車+振子の非線形モデル、DC モータ (逆起電力)、メカストッパ。1ms RK4。`ip-model` クレート。任意の `pushes` で周期外乱 (振子軸トルクのパルス、NetworkedSil の `Push` 相当、D62) |
 | `motor-driver` | `duty` [-1..1], `enable`, `heartbeat`, `estop-in`, `position` [m] | `voltage` [V], `fault`, `drive-enabled`, `rejected` | PWM → 電圧、保護 (E-STOP・メカリミット・ハートビート断 = 指令タイムアウト・無効中の指令拒否)。復帰は `enable` の立ち上がり |
 | `encoder` | `input` (角度 [rad] か位置 [m]、mode で決まる) | `count` (累積, 32bit ラップ), `delta` | 量子化 (PPR)。NetworkedSil の `ReadEncoders` と同じ丸め |
-| `comm-link` | `in` (scalar) | `out`, `in-flight`, `spikes`, `hol-blocked` | 遅延・ジッタ・再送スパイク・追い越し禁止。シード付き PRNG で決定的。NetworkedSil の `DelayLine` を部品化。制御ループの**外側**に置く用途 (遠隔監視・目標値) |
+| `comm-link` | `in` (scalar) | `out`, `in-flight`, `spikes`, `hol-blocked` | 遅延・ジッタ・再送スパイク・追い越し禁止。シード付き PRNG で決定的。NetworkedSil の `DelayLine` を部品化。制御ループの外側 (遠隔監視・目標値) にも、M6 では**制御ループの中** (MCU ↔ 駆動系、`dev/cartpole-netdelay.manifest.json`、D60 / D61) にも置く |
 
 NetworkedSil の `VirtualPlant` は「プラント + エンコーダ + ドライブ保護」を 1 つの型に持っていました。
 ここでは 3 部品に分けます。manifest で差し替えや挿入 (例: モータ特性だけ変える) ができるようにするためです。
@@ -112,6 +112,7 @@ loop:
 - **epoch interruption** を全部品に設定し、`step` が仮想 1 ステップぶんの予算 (例: 壁時計 50ms) を超えたら trap させます。
   無限ループした部品で UI まで固まるのを防ぎます。
 - **fuel** はファームウェア slot だけに使い、消費量から仮想実行時間を見積もります ([05-firmware.md](05-firmware.md))。
+  `maxFuelPerTick` を指定すると、fuel の上限が壁時計によらない決定的なウォッチドッグにもなります (D57)。
 
 ## 決定性
 同じ manifest・同じファームウェア・同じ操作列なら、OS や CPU が違っても同じ軌道を出すことを目標にします。

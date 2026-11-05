@@ -14,6 +14,8 @@
 | 07 | [client-app.md](07-client-app.md) | Electron シェル、Rust エンジン、IPC 契約、capability の実施、キャッシュ | クライアントを実装したい |
 | 08 | [decisions.md](08-decisions.md) | 技術選定の比較、未決事項、マイルストーン | なぜこの選択か知りたい / 判断待ちの項目を確認したい |
 | 09 | [verification.md](09-verification.md) | 性質テスト、ゴールデントレース、決定性、適合性 | 正しさをどう示すか知りたい |
+| 10 | [delay-comparison.md](10-delay-comparison.md) | NetworkedSil の遅延実験との比較 (M6): 理論遅延余裕の Rust 移植と、comm-link を制御ループに入れた全エミュレーションの境目 | 通信遅延でどこまで倒立を維持できるか知りたい |
+| 11 | [open-items.md](11-open-items.md) | 未決事項と残作業、実機が要る確認、再開の手順と環境の制約 | 続きから作業を再開したい |
 
 ## 用語
 | 用語 | 意味 |

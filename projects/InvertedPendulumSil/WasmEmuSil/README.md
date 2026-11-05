@@ -59,6 +59,15 @@ cargo run -q -p ipemu-engine -- run --manifest dev/cartpole-tcp.manifest.json --
 cargo run -q -p ipemu-engine -- inspect build/components/tcp-reporter.wasm   # import 一覧と必要な宣言の目安
 ```
 
+### 通信遅延の実験 (M6)
+`dev/cartpole-netdelay.manifest.json` は MCU と駆動系の間の信号をすべて `comm-link` に通した構成で、
+NetworkedSil の遅延実験 (振子 0.6 m・周期 5 ms・外乱あり) を再現します。結果と比較は [Docs/10](Docs/10-delay-comparison.md)。
+```bash
+cargo run -q -p ipemu-engine -- run --manifest dev/cartpole-netdelay.manifest.json --no-signature-check --run-seconds 12
+cargo test -p ip-model --test delay_margin -- --nocapture print_table              # 理論遅延余裕の表 (Rust 移植)
+cargo test --release -p ipemu-engine --test net_delay -- --ignored --nocapture print_delay_report   # 全エミュレーションの境目
+```
+
 ## クイックスタート (M2: シェル + UI)
 前提: 上に加えて Node 22+ と pnpm 10 (`corepack enable`)。
 ```bash
@@ -77,6 +86,12 @@ cargo run -p ipemu-engine -- attach --port <port> --token <token>   # 端末で 
 ![シェル](Docs/images/m2-shell.png)
 `dev/cartpole.manifest.json` は NetworkedSil の既定パラメータ (振子 0.6 m) で、0.5 s 後にスイングアップを自動開始し、
 約 6 s で倒立領域に入って LQR に切り替わります。`--record` で 10 ms ごとのスナップショットを CSV に出せます。
+
+### 配布 zip (M6)
+```bash
+scripts/package.sh --target linux-x64          # → dist/ipemu-client-<version>-linux-x64.zip (未署名。--all で 6 通り、--cross でクロスビルド)
+```
+中身・署名の足し方・検証済みの範囲は [`Docs/07-client-app.md`](Docs/07-client-app.md) の「配布 (M6)」。
 
 ## クイックスタート (M3/M4: サーバ配信)
 ```bash
@@ -121,6 +136,7 @@ docker compose up --build                                  # コンテナで動�
 | [Docs/07-client-app.md](Docs/07-client-app.md) | Electron シェル、Rust エンジン、IPC 契約、capability の実施、キャッシュとオフライン |
 | [Docs/08-decisions.md](Docs/08-decisions.md) | 技術選定の比較 (トレードオフ)、未決事項、マイルストーン |
 | [Docs/09-verification.md](Docs/09-verification.md) | 検証方針: 性質テスト、ゴールデントレース、決定性、適合性テスト |
+| [Docs/10-delay-comparison.md](Docs/10-delay-comparison.md) | NetworkedSil の遅延実験との比較 (M6): 理論遅延余裕と、comm-link を制御ループに入れた全エミュレーションの境目 |
 | [schemas/emulator-manifest.schema.json](schemas/emulator-manifest.schema.json) | 構成情報の JSON Schema と [サンプル](schemas/examples/cartpole-lqr.manifest.json) |
 | [abi/wit/](abi/wit/) / [abi/ip_hal.h](abi/ip_hal.h) | 部品・ファームウェアの WIT 定義と、ネイティブ形用の C ヘッダ草案 |
 
@@ -132,6 +148,7 @@ WasmEmuSil/
   abi/ip_hal.h               ✅ ファームウェア HAL の C ヘッダ (wasm / native 共通)
   schemas/                   ✅ manifest の JSON Schema とサンプル
   dev/cartpole.manifest.json ✅ ローカル開発用 manifest (path 参照・署名なし)。dev/README.md に署名鍵とサーバの手順
+  dev/cartpole-netdelay.manifest.json ✅ (M6) comm-link を制御ループに入れた遅延実験用 manifest (Docs/10)
   Dockerfile / compose.yaml  ✅ ipemu-server のコンテナ (ループバック公開、cap_drop、リソース上限)
   crates/
     ip-model/                ✅ 物理モデル・線形化・離散 LQR・スイングアップ・速度推定 (no_std, libm)

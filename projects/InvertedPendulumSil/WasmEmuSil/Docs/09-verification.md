@@ -27,6 +27,20 @@ CI は置かず (裁定済み)、`scripts/check.sh` / `scripts/check.ps1` が `c
 | L5 | C wasm / Rust wasm / C native / Rust native の 4 形態でスイングアップ → 倒立維持。吊り下げから LQR を始めると転倒検知 → FAULT → ドライブ無効 | 同上 |
 | L8 | C 版と Rust 版の軌道一致 (現状ビット一致) | 同上 |
 
+## M6 で追加したテスト
+| 層 | テスト | 場所 |
+| --- | --- | --- |
+| L4 | fuel モデルで同じ manifest を 2 回走らせ、tick ごとの `mcu.exec-ns` の列が一致 (C 版 / Rust 版) | `crates/ipemu-engine/tests/fuel_timing.rs` |
+| 性質 | `exec-ns = round(fuel × nsPerFuel)` (端数の出る係数を含む)。fuel は実行時間モデルによらない | 同上 |
+| 性質 | exec-ns が tick 周期を超える係数でオーバーラン数 = 周期超えの tick 数、PWM の変化が記録した fuel から計算した時刻に遅れて出る | 同上 |
+| L5 | 無限ループする wasm (WAT) が `maxFuelPerTick` で毎回同じ tick に trap → FAULT、init の暴走は `maxFuelPerInit` で装着失敗。実物の FW も予算不足なら同じ位置で `step` が失敗 | 同上 |
+| L5 | native 形を fuel モデルで装着すると警告 1 回、exec-ns は 0 | 同上、`crates/ipemu-core/tests/core.rs` |
+| 単体 | 名前解決: 止まる解決器でも期限内に `temporary-resolver-failure`、同じ名前の再試行でスレッドを増やさず後で回収、キャッシュの再利用 | `crates/ipemu-wasm/src/wasi.rs` |
+| L1 | 理論遅延余裕: NetworkedSil の表を ±2 ms で再現 (実測は 15 マスすべて一致)、不安定極、単調性、境目が 1 つ | `crates/ip-model/tests/delay_margin.rs` |
+| L5 | comm-link を制御ループに入れた全エミュレーション: RTT 60 / 80 ms で維持・100 / 120 ms で転倒、境目 (RTT 2 ms 分解能) が理論 85 ms ± 15 ms。Rust 版 FW も 80 ms 維持 / 100 ms 転倒。表全体とジッタ・スパイクの観察は `#[ignore]` の `print_delay_report` | `crates/ipemu-engine/tests/net_delay.rs` |
+
+fuel の絶対値はコンパイラの版で変わるため、テストは値を固定せず関係だけを確かめます (較正表は [05](05-firmware.md#nsperfuel-の較正))。
+
 ## L1 性質テストの中身
 | 性質 | 確認すること |
 | --- | --- |
@@ -37,7 +51,7 @@ CI は置かず (裁定済み)、`scripts/check.sh` / `scripts/check.ps1` が `c
 | 線形化の整合 | 倒立点近傍の微小振幅で、非線形モデルと線形化モデル (A, B) の応答差が振幅の 2 乗オーダー |
 | 離散化 | ZOH 離散化 (行列指数) が、微小 Δt で `I + AΔt` に一致し、Δt を 2 分割した積と一致する |
 | LQR | 解いた P が離散 Riccati 方程式を満たす (残差ノルム < 1e-9)、閉ループ `A − BK` の固有値が単位円内 |
-| 遅延余裕 | NetworkedSil の `DelayMarginAnalyzer` と同じ理論 (遅延を状態拡張して二分探索) を Rust に移植し、同じパラメータで同じ余裕 [ms] を出す (移植時 1 回の手動突合せで一致を確認し、以後はゴールデン化) |
+| 遅延余裕 | NetworkedSil の `DelayMarginAnalyzer` (実装と同じ構造の数値シミュレーション + 二分探索) を `ip_model::delay_margin` に移植し、NetworkedSil の設計メモの表 (0.3 / 0.6 / 1.0 m × 周期 1 / 5 / 20 / 50 / 100 ms) を ±2 ms で再現する。表の値は C# 実装の出力をテストに書き写したもの (C# は実行しない)。単調性 (短い振子・長い周期ほど余裕が減る) と、境目が 1 つであること (二分探索の前提) も確かめる。M6 で実装 ([10](10-delay-comparison.md)) |
 | 保護 | motor-driver: 指令タイムアウト 500ms で電圧 0、無効中の指令拒否、E-STOP 後は再初期化まで有効化不可 |
 | エンコーダ | 量子化誤差が ±1 パルス以内、方向反転時に計数が飛ばない |
 

@@ -8,12 +8,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 PROFILE="${1:-release}"
 OUT=build/components
+# CARGO_TARGET_DIR を共有するとき (worktree での並行作業など) も成果物を見つけられるように
+TARGET_DIR="${CARGO_TARGET_DIR:-target}"
 mkdir -p "$OUT"
 FLAG=""; [ "$PROFILE" = "release" ] && FLAG="--release"
 cargo build $FLAG --target wasm32-unknown-unknown \
   -p plant-cartpole -p motor-driver -p encoder -p comm-link -p tcp-reporter
 for c in plant-cartpole motor-driver encoder comm-link tcp-reporter; do
-  core="target/wasm32-unknown-unknown/$PROFILE/${c//-/_}.wasm"
+  core="$TARGET_DIR/wasm32-unknown-unknown/$PROFILE/${c//-/_}.wasm"
   wasm-tools component new "$core" -o "$OUT/$c.wasm"
   wasm-tools validate "$OUT/$c.wasm"
   printf '%-16s %8d bytes\n' "$c" "$(stat -c %s "$OUT/$c.wasm")"

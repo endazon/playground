@@ -91,14 +91,15 @@ ipemu-engine
 Windows / macOS / Linux × x64 / arm64 の 6 通りをビルドします。Wasmtime (Cranelift) と Electron はいずれも対応済みで、
 ファームウェアの native 形はホストと同じアーキでビルドします (Apple Silicon では arm64 の `.dylib`)。
 wasm 形はアーキに依存しないため、配信物は 1 種類です。
+配布 zip の作り方と検証済みの範囲は末尾の「配布 (M6)」。
 
 ### Wasmtime の設定
 | 設定 | 値 | 理由 |
 | --- | --- | --- |
 | `wasm_component_model` | on | WIT 境界 |
 | `cranelift_nan_canonicalization` | on | 決定性 |
-| `epoch_interruption` | on (全部品) | 暴走した `step` を trap させる |
-| `consume_fuel` | ファームウェア slot のみ | 実行時間モデル |
+| `epoch_interruption` | on (全部品) | 暴走した `step` を trap させる (壁時計。後ろ盾) |
+| `consume_fuel` | ファームウェア slot のみ | 実行時間モデルと、決定的なウォッチドッグ `maxFuelPerTick` / `maxFuelPerInit` ([05](05-firmware.md#ウォッチドッグ-fuel-上限と-epoch)、D57) |
 | `debug_info` | `--wasm-debug-info` のときのみ | LLDB からのソースデバッグ。性能が落ちるので既定 off |
 | `cache` | on (キャッシュ dir 配下) | コンパイル結果の再利用で起動を速く |
 | `wasm_threads` / `shared_memory` | off | 決定性と単純さ |
@@ -115,9 +116,10 @@ wasm 形はアーキに依存しないため、配信物は 1 種類です。
 **宣言のないものは import 自体を link しない**ので、実体化の時点で `unresolved import` として失敗し、
 「承認なしに呼ばれる」経路がありません。これが WASI preview 2 を選んだ理由です。
 
-既知の制約: 許可ホストの名前解決 (`NetAllow::resolve`) は `to_socket_addrs` を同期で呼ぶため、DNS の遅延がそのままスケジューラスレッドを止め、
-仮想時間の進行も止まります (epoch interruption はホスト関数の中では効かない)。単一スレッド前提の設計上は許容とし、
-M6 でタイムアウト付きの解決 (別スレッド + 期限) を検討します (監査 A7)。
+許可ホストの名前解決 (`NetAllow::resolve`) は別スレッドで行い、期限 (既定 2 s) を過ぎたら `temporary-resolver-failure` を返します
+(M6、監査 A7、D58)。epoch interruption はホスト関数の中では効かないため、遅い DNS がスケジューラスレッドを止める時間をこの期限で抑えます。
+期限切れの解決は走らせたままにして結果を次の呼び出しで回収し、同じ名前の同時解決は 1 本にまとめます (同時 4 本まで)。
+成功した結果は instance ごとに 60 s キャッシュします。許可リストの判定は解決の前に行うので、宣言外の名前は解決器に届きません。
 
 ### 同意 (consent)
 ```text
@@ -275,7 +277,7 @@ ipemu-engine attach --port … [--token …] [--send run.start] [--every 0.5] [-
   `app://shell/` は `'self'` のみ。UI バンドルは **単一ファイルの tar.gz** (manifest の `ui.bundle`、`kind: "ui"`) を
   `<userData>/ui-cache/<sha256>/` に展開して配信する (`untar.ts`: 絶対パス / `..` / リンクを拒否。manifest に sha256 があれば照合)。
 - `ipemu://launch?…` は `parseLaunchUrl` で厳格に解析し、**必ず確認ウィンドウ** (`confirm.html`、OS の dialog ではない) を出す。
-  信頼していないサーバは理由を表示して「起動する」を無効にする。開発用に `manifestPath=` (`allowLocalLaunch`) も受ける。`window.ipemu.launch` の `manifestPath` も同じ設定で縛る (既定は拒否。監査 M2-1)。
+  信頼していないサーバは理由を表示して「起動する」を無効にする。開発用に `manifestPath=` (`allowLocalLaunch`、既定は拒否) も受ける。`window.ipemu.launch` の `manifestPath` も同じ設定で縛る (既定は拒否。監査 M2-1)。
   OS への登録は packaged 時のみ。
 - エンジンは `serve --exit-on-stdin-close --catalog-dir …` で spawn し、stdout 1 行目を読んで接続。`restartRequired` (native FW) では
   直近の describe の `overrides` を launch に畳み込んで **同じ構成で spawn し直し**、`app://ui` のページに `endpoint-changed` を送る。
@@ -304,3 +306,51 @@ pnpm dev:ui     # http://localhost:5173/?port=<port>&token=<token>
 ```
 ![シェル](images/m2-shell.png)
 ![シミュレータ UI (ブラウザ)](images/m2-sim-ui.png)
+
+## 配布 (M6)
+クライアント (Electron シェル + 同梱の `ipemu-engine`) を **未署名 zip** で配る (D17)。作り方は D64 〜 D66。
+
+```bash
+scripts/package.sh --target linux-x64                      # → dist/ipemu-client-0.1.0-linux-x64.zip (ホストと同じ target は cargo build)
+scripts/package.sh --target linux-arm64 --cross zigbuild   # pip install ziglang && cargo install --locked cargo-zigbuild
+scripts/package.sh --target windows-x64 --cross xwin       # cargo install --locked cargo-xwin (Microsoft の CRT / SDK を取得する)
+scripts/package.sh --all --cross zigbuild                  # 6 通り。macOS / Windows MSVC は下の注意を読む
+```
+遮断環境では `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` が要る (`ELECTRON_BUILDER_BINARIES_MIRROR` も同様に
+`https://npmmirror.com/mirrors/electron-builder-binaries/`。zip だけなら 7zip の取得にだけ使う)。
+`--skip-engine` は `target/<triple>/release/` のビルド済みエンジンを使う。
+
+### zip の中身
+```text
+ipemu(.exe) / ipemu.app   Electron 本体 (Linux の実行名は ipemu、`linux.executableName`)
+resources/app.asar        dist/ (main / preload / renderer)。実行時の依存は無い
+resources/bin/ipemu-engine(.exe)   エンジン (macOS は ipemu.app/Contents/Resources/bin/)
+```
+- エンジンの探索順 (`apps/shell/src/main/engine.ts`): `settings.enginePath` → `IPEMU_ENGINE` → `process.resourcesPath/bin/` (packaged のみ) →
+  開発ツリーの `target/{release,debug}` (開発時のみ。packaged では `devRoot` を渡さない)。
+- `ipemu://` の OS への登録は packaged の初回起動で `app.setAsDefaultProtocolClient` (`registerProtocol` が true のとき)。
+- 部品 / FW / UI バンドルは zip に入れない。サーバのカタログから署名検証つきで取得してキャッシュする (M3)。
+- Linux は `chrome-sandbox` に setuid が付かないので、初回は `sudo chown root chrome-sandbox && sudo chmod 4755 chrome-sandbox` か
+  `sysctl kernel.unprivileged_userns_clone=1` が要る (コンテナ / root では `--no-sandbox`)。macOS は未署名のため、ダウンロードした zip は
+  `xattr -dr com.apple.quarantine ipemu.app` が要る。Windows は SmartScreen の警告が出る。
+
+### 署名の足し方 (D65)
+`apps/shell/electron-builder.yml` の冒頭に手順がある。macOS は `mac.identity: null` を消して `CSC_LINK` / `CSC_KEY_PASSWORD`
+(公証は `notarize: true` と `APPLE_API_KEY` 系)、Windows は `win.signAndEditExecutable: false` を消して `CSC_LINK` / `CSC_KEY_PASSWORD`
+(Azure Trusted Signing は `win.azureSignOptions`)。コードとスクリプトは変えない。
+
+### 検証済みの範囲 (Linux x64 のコンテナで 2026-11 に実施)
+| 配布 zip | エンジンのビルド | zip 作成 (electron-builder) | 確認した内容 |
+| --- | --- | --- | --- |
+| linux-x64 | ○ `cargo build --release` (ホスト) | ○ | **実行確認**: zip を展開し `resources/bin/ipemu-engine --help` / `validate` / `run dev/cartpole.manifest.json` 20 s (θ は 2π = 倒立に収束)。Xvfb で `./ipemu --no-sandbox` を起動し、`resources/bin/` のエンジンを `serve` で spawn することを確認 |
+| linux-arm64 | ○ zigbuild | ○ | `file`: ELF aarch64 (エンジンも Electron 本体も)。実行は未確認 |
+| windows-x64 | ○ cargo-xwin (MSVC) | ○ | `file`: PE32+ x86-64 (`ipemu.exe` / `resources/bin/ipemu-engine.exe`)。実行は未確認 (wine 無し) |
+| windows-arm64 | △ zigbuild の **gnullvm** (xwin は ring の C ビルドで失敗) | ○ | `file`: PE32+ Aarch64。実行は未確認。MSVC 版は Windows 実機で作り直す |
+| macos-x64 | △ zigbuild (SDK 無しでリンク) | ○ | `file`: Mach-O x86_64。`ipemu.app/Contents/Resources/bin/ipemu-engine` の位置まで確認。実行は未確認 |
+| macos-arm64 | △ zigbuild (SDK 無しでリンク) | ○ | `file`: Mach-O arm64。同上 |
+
+実機で作るときのコマンドは、その OS 上で `scripts/package.sh --target <os>-<arch>` (ホストと同じアーキなら `--cross` 不要。
+別アーキは `rustup target add` 済みなら `--cross cargo`。Windows は Visual Studio Build Tools、macOS は Xcode CLT が要る。
+Git Bash / WSL ではなく bash が使える環境で実行する)。
+zip の大きさは 125〜161 MB (linux-x64 129.6 MB / linux-arm64 128.7 MB / windows-x64 161.1 MB / windows-arm64 約 151 MB /
+macos-x64 130.3 MB / macos-arm64 125.1 MB)。ほぼ Electron 本体で、エンジンは 16〜28 MB。

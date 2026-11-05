@@ -2,7 +2,7 @@
 
 use crate::desc::{PartDesc, PortDesc};
 use crate::engine::Part;
-use crate::hal::{Firmware, HalRegs, LogLevel, Peripherals};
+use crate::hal::{Firmware, FuelLimits, HalRegs, LogLevel, Peripherals};
 use serde::Deserialize;
 use std::collections::VecDeque;
 
@@ -66,6 +66,12 @@ pub struct CpuVirtualParams {
     pub tick_hz: f64,
     #[serde(default)]
     pub timing_model: TimingModel,
+    /// tick / irq 1 回に許す fuel の上限 (決定的なウォッチドッグ)。超えたら trap して FAULT。省略で無制限
+    #[serde(default)]
+    pub max_fuel_per_tick: Option<u64>,
+    /// abi-version / init 1 回に許す fuel の上限。省略で無制限
+    #[serde(default)]
+    pub max_fuel_per_init: Option<u64>,
     #[serde(default)]
     peripherals: PeripheralsJson,
 }
@@ -87,7 +93,23 @@ impl CpuVirtualParams {
                 && p.peripherals.gpio_out <= 32,
             "周辺の個数が多すぎます"
         );
+        anyhow::ensure!(
+            p.max_fuel_per_tick != Some(0) && p.max_fuel_per_init != Some(0),
+            "maxFuelPerTick / maxFuelPerInit は 1 以上 (無制限にするなら省略)"
+        );
+        if let TimingModel::Fuel { ns_per_fuel } = p.timing_model {
+            anyhow::ensure!(
+                ns_per_fuel >= 0.0 && ns_per_fuel.is_finite(),
+                "nsPerFuel は 0 以上の有限値"
+            );
+        }
         Ok(p)
+    }
+    pub fn fuel_limits(&self) -> FuelLimits {
+        FuelLimits {
+            per_tick: self.max_fuel_per_tick,
+            per_init: self.max_fuel_per_init,
+        }
     }
     pub fn peripherals(&self) -> Peripherals {
         Peripherals {
@@ -220,11 +242,35 @@ impl CpuVirtual {
 
     /// ファームウェアを装着して init する。実行中の差し替え (ホット) にも使う。
     pub fn attach_firmware(&mut self, mut fw: Box<dyn Firmware>) -> anyhow::Result<()> {
+        let limits = self.params.fuel_limits();
+        fw.set_fuel_limits(limits);
         let abi = fw.abi_version()?;
         anyhow::ensure!(abi == 1, "ファームウェア ABI {abi} は未対応 (対応: 1)");
         self.regs.micros = (self.t_ns / 1000) as u64;
         fw.init(&mut self.regs, &self.fw_cfg_json)?;
         self.collect_logs();
+        // fuel を数えない形 (native、または計測無効の wasm) では fuel モデルも上限も効かない。装着ごとに 1 回だけ知らせる
+        if !fw.meters_fuel() {
+            let flavor = fw.flavor();
+            if matches!(self.params.timing_model, TimingModel::Fuel { .. }) {
+                self.logs.push((
+                    LogLevel::Warn,
+                    format!(
+                        "timingModel=fuel ですが {flavor} 形のファームウェアは fuel を計測しません。\
+                         exec-ns は常に 0 (実行時間 0、出力の遅れなし) になります。\
+                         実行時間を模擬するなら timingModel=fixed を使ってください"
+                    ),
+                ));
+            }
+            if !limits.is_unlimited() {
+                self.logs.push((
+                    LogLevel::Warn,
+                    format!(
+                        "maxFuelPerTick / maxFuelPerInit は {flavor} 形のファームウェアには効きません (fuel を計測しないため)"
+                    ),
+                ));
+            }
+        }
         self.firmware = Some(fw);
         self.fault = false;
         Ok(())
