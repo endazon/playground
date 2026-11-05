@@ -42,6 +42,8 @@ M6 は完了しました。詳細は各資料にあります。
 | --- | --- | --- |
 | Electron の E2E の再実行 | 完了。`apps/shell/e2e/smoke.mjs` (Xvfb + Playwright `_electron`、一時 userData、`xvfb-run -a node apps/shell/e2e/smoke.mjs`) に 6 シナリオを常設して全て合格した: ローカルカタログ起動と sim UI の状態受信 / 信頼 origin だけのブリッジ注入 (http は loopback かつ `allowLocalhost` のときだけ) / web タブの `app://` 遷移拒否 / `app://ui` の外部 fetch の CSP 拒否 / `ipemu://` 確認ウィンドウ / M2-1 (`allowLocalLaunch`)。実行中に M2-1 の既定値が `true` のままだったのを検出し修正した。skip したシナリオはない。Electron 本体が要るので `scripts/check.sh` には入れていない | 完了 |
 | 拒否した宛先の通知 | capability で拒否した接続先は `WasmPart::take_denied_destinations()` で取り出せるが、IPC の `event` 通知には載せていない (07-client-app.md) | 小 |
+| 単一インスタンスのロックの鍵 | `requestSingleInstanceLock()` がモジュール読み込み時に走り、`IPEMU_SHELL_USER_DATA` の適用より前に取られる。ロックは既定の userData に紐づくので、別の userData を指定した 2 つのシェル (E2E の同時実行など) が衝突する | 小 |
+| ホーム画面から開く `app://ui` のタブ | シェル自身のホーム画面は `shell:new-tab` で `app://ui` を web 種別のタブに開けてしまい、そのタブには sim 用ではなくブリッジ用の preload が付く。Web ページからは到達できないので不具合ではないが、タブ種別と URL の対応を main で固定するとよい | 小 |
 
 ## 4. 判断を保留しているもの
 | 項目 | 現状 | 再開の条件 |
