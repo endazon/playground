@@ -36,3 +36,28 @@ cargo run -q -p ipemu-engine -- catalog --server http://127.0.0.1:8080 --api-key
 cargo run -q -p ipemu-engine -- run --server http://127.0.0.1:8080 --api-key ipk_... --launch cartpole --trusted-key dev-2026=$PUB --run-seconds 20
 cargo run -q -p ipemu-engine -- catalog --local        # キャッシュ済み構成 (サーバを止めても --offline で起動できる)
 ```
+
+## 配布クライアント (zip) をローカルのサーバに繋ぐ
+同梱の信頼鍵 `crates/ipemu-engine/keys/trusted-keys.json` は**空**なので、配布クライアントは
+既定でどの署名も信頼しません。ローカルのサーバ (`keygen` で作った `dev-2026` などで署名) に
+繋ぐときは、**アプリを起動する環境**に信頼鍵を渡します。シェルは `spawn` に `env` を渡さないので、
+エンジンはアプリの環境変数をそのまま引き継ぎます。
+
+```powershell
+# 鍵ファイルを指す (鍵を作り直しても追随するのでこちらが楽)
+setx IPEMU_TRUSTED_KEYS_FILE C:\...\WasmEmuSil\dev\keys\public.json
+# または keyId=hex を直接
+setx IPEMU_TRUSTED_KEYS dev-2026=$(node -p "require('./dev/keys/public.json').keys[0].publicKey")
+```
+
+`setx` は新しいプロセスにしか効きません。確実にやるなら端末から渡して起動します:
+
+```powershell
+$env:IPEMU_TRUSTED_KEYS_FILE = "C:\...\WasmEmuSil\dev\keys\public.json"
+& "C:\...\dist\ipemu-client-0.1.0-windows-x64\ipemu.exe"
+```
+
+渡し忘れると、起動時に
+`信頼済み公開鍵が 1 つもありません (keyId \`dev-2026\`)` で失敗します。
+配布物に焼き込む場合は、ビルド前に `crates/ipemu-engine/keys/trusted-keys.json` へ
+`dev/keys/public.json` の内容を入れます (本番の手順はこちら)。
