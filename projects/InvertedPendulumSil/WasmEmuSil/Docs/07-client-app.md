@@ -357,7 +357,12 @@ resources/bin/ipemu-engine(.exe)   エンジン (macOS は ipemu.app/Contents/Re
 | macos-x64 | 125 MB | — | Mach-O x86_64 (`ipemu.app/Contents/Resources/bin/ipemu-engine`) |
 | macos-arm64 | 120 MB | — | Mach-O arm64 (同上) |
 
-**実行は確認していない** (Linux x64 以外は下の表のとおり)。macOS / Windows の正式な配布物は実機で作り直して確認する。
+linux-x64 は**コンテナで作った zip をそのまま実行して確認した**: 展開した
+`resources/bin/ipemu-engine` で `validate` (7 部品 / 12 配線)、`inspect`、
+`run --manifest dev/cartpole.manifest.json --run-seconds 20` を通し、6.22 s で
+`SwingUp -> Balance` に入って θ が 2π (6.2832) 付近の 6.2903 rad に収束、
+`driver.fault = 0` / `mcu.overruns = 0`。他の 5 通りは**実行していない** (下の表のとおり)。
+macOS / Windows の正式な配布物は実機で作り直して確認する。
 
 ### 検証済みの範囲 (Linux x64 のコンテナで 2026-11 に実施)
 | 配布 zip | エンジンのビルド | zip 作成 (electron-builder) | 確認した内容 |
