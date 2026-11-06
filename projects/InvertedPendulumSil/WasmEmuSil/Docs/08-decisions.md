@@ -104,7 +104,7 @@ Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに�
 
 | # | 項目 | 選択肢 | 影響 |
 | --- | --- | --- | --- |
-| Q13 | VS の F5 手順の実機確認 (Windows) | **2026-11-06 に確認済み** (Windows 11 + VS Community 2026): CMake + MSVC で `fw-balance-c.dll` + PDB が建ち、配布 zip のエンジンが装着して倒立維持まで通る。手順書の誤り (存在しない `--shell auto`、`run` の `--debug-friendly`、`run` サブコマンドの欠落、DLL 名、ファイル名) を直し、`launch.vs.json` のテンプレートを同梱した。**ブレークポイントで止める操作だけ未確認** | [05 の「実機で確認したこと」](05-firmware.md) |
+| Q13 | VS の F5 手順の実機確認 (Windows) | **2026-11-06 に確認済み** (Windows 11 + VS Community 2026): CMake + MSVC で `fw-balance-c.dll` + PDB が建ち、配布 zip のエンジンが装着して倒立維持まで通る。同梱の `.vs/launch.vs.json` は元から正しかったが、**05 本文のスニペットが実際には動かない内容**だった (存在しない `--shell auto`、`run` の `--debug-friendly`、`run` サブコマンドの欠落、`controller.c` / `fw_balance.dll` という実在しない名前、未定義の `${env.IPEMU_HOME}`) ので本文を直した。DLL の出力先は `<buildRoot>/bin` に固定した (Ninja と VS ジェネレータで場所が変わるため)。**ブレークポイントで止める操作だけ未確認** | [05 の「実機で確認したこと」](05-firmware.md) |
 
 ## マイルストーン
 | M | 内容 | 完了条件 |

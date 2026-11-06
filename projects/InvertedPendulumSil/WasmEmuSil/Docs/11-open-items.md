@@ -31,7 +31,7 @@ M6 は完了しました。詳細は各資料にあります。
 
 | 項目 | 確認すること | 反映先 |
 | --- | --- | --- |
-| Q13: Visual Studio の F5 (Windows) | `firmware/fw-balance-c/.vs/launch.vs.json` で native DLL をエンジンに読ませ、ブレークポイントで止まること。M2 では Linux で native `.so` のロードと `restartRequired` の経路まで確認済み | 05-firmware.md の手順 |
+| Q13: Visual Studio の F5 (Windows) | `firmware/fw-balance-c/.vs/launch.vs.json` で native DLL をエンジンに読ませ、ブレークポイントで止まること。**2026-11-06 に DLL のビルド → エンジンへの装着 → 倒立維持までは Windows 実機で確認済み** ([05 の「実機で確認したこと」](05-firmware.md))。残るのは**ブレークポイントで止める対話操作だけ** | 05-firmware.md の手順 |
 | macOS / Windows の zip の起動 | 展開したアプリが起動し、同梱エンジン (`resources/bin`) を見つけ、`ipemu://` を初回起動で登録すること。未署名なので macOS では Gatekeeper の回避手順も確認する。配布前に各 OS 上で `scripts/package.sh --target <os>-<arch>` で作り直す (Linux からのクロスビルドは macOS SDK なしでリンクしている) | 07-client-app.md の配布 (M6) |
 | windows-arm64 の MSVC ビルド | この環境では cargo-xwin が `ring` の arm64 ビルドで失敗したため、`aarch64-pc-windows-gnullvm` で代用した。Windows 上で MSVC (`aarch64-pc-windows-msvc`) で作り直して動作を確かめる | 同上 |
 | arm64 実機 | Apple Silicon と Windows on Arm、Linux arm64 で、wasm FW と native FW (同じアーキでビルド) が動くこと | 同上 |

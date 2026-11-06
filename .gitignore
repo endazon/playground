@@ -21,6 +21,8 @@ $RECYCLE.BIN/
 # ---- エディタ / IDE --------------------------------------------------------
 # Visual Studio
 .vs/
+# ただし VS のデバッグ構成のテンプレートはコミットする (M1 から追跡済み)
+!**/.vs/launch.vs.json
 *.user
 *.suo
 *.userosscache

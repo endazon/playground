@@ -163,22 +163,20 @@ TCP・ファイルなど HAL 外の資源は、wasm 形では **WASI preview 2 �
 Rust のビルド環境は不要です (エンジン自体をデバッグする場合だけ Rust が要ります)。
 
 ### 方法 A: F5 で起動 (推奨)
-1. 配布 zip を `dist/ipemu-client-<version>-windows-x64/` に展開する。テンプレートの `exe` は
-   そこの `resources/bin/ipemu-engine.exe` を指しているので、これだけで動きます。
-   別の場所に置くなら `exe` を実パスに書き換えてください。
-   環境変数で指したい場合は `"exe": "${env.IPEMU_ENGINE_EXE}"` にして、**VS を起動する前に**
-   設定しておきます (`${env.*}` は VS 自身の環境を見るので、同じファイルの `env` ブロックでは
-   効きません。`env` はデバッグ対象プロセスに渡すものです):
+1. エンジンの場所を `IPEMU_ENGINE` に入れる。配布 zip を展開した中の `resources/bin/ipemu-engine.exe` です。
+   `${env.*}` は **VS 自身の環境**を見るので、設定してから VS を起動し直してください
+   (`launch.vs.json` の `env` ブロックはデバッグ対象プロセスに渡すものなので、`exe` の展開には効きません):
    ```cmd
-   setx IPEMU_ENGINE_EXE C:\path\to\ipemu-client\resources\bin\ipemu-engine.exe
+   setx IPEMU_ENGINE C:\path\to\ipemu-client\resources\bin\ipemu-engine.exe
    ```
 2. Visual Studio の「フォルダーを開く」で `firmware/fw-balance-c` を開く (CMake プロジェクトとして認識される)。
-   同梱の [`firmware/fw-balance-c/launch.vs.json`](../firmware/fw-balance-c/launch.vs.json) を
-   **`.vs/launch.vs.json` にコピー**する (`.vs/` は無視対象なのでコミットされない)。
-   構成は 2 つ入っています:
-   - `ipemu run (native firmware, 仮想時間)` — 仮想時間で回す。ブレークで止めても仮想時間ごと止まるので、
-     再開してもウォッチドッグや保護は鳴りません。`run` に `--debug-friendly` はありません (要りません)
-   - `ipemu serve (native firmware, 実時間 + シェル)` — UI シェルから繋いで動かす。実時間ペーシングなので
+   デバッグ構成は [`firmware/fw-balance-c/.vs/launch.vs.json`](../firmware/fw-balance-c/.vs/launch.vs.json)
+   に同梱済みなので、そのまま構成を選べます (`.vs/` は無視対象ですが、このファイルだけは
+   リポジトリ直下の `.gitignore` で明示的に追跡しています)。構成は 2 つ:
+   - `ipemu-engine (native firmware, headless)` — `run` で仮想時間を 30 秒ぶん回す。ブレークで止めても
+     仮想時間ごと止まるので、再開してもウォッチドッグや保護は鳴りません。`run` に `--debug-friendly` は
+     ありません (要りません)
+   - `ipemu-engine (native firmware, serve + 実時間)` — UI シェルから繋いで動かす。実時間ペーシングなので
      `--debug-friendly` を付けます (ブレーク中に溜まった壁時計を捨て、epoch interruption の予算を無制限にする)
 3. `src/fw_balance.c` (状態機械と LQR。設定の読み出しは `src/cfg.c`、HAL は `src/ip_hal_native.c`) に
    ブレークポイントを置いて F5。`fw_balance_step` で止めると 1 tick ずつ追えます。
@@ -202,7 +200,7 @@ PDB が DLL の隣にあればブレークポイントが効きます。UI か�
 ### 実機で確認したこと (Windows 11 + Visual Studio Community 2026、2026-11-06。Q13)
 | 段階 | 結果 |
 | --- | --- |
-| ネイティブ DLL のビルド | ○ VS 同梱の CMake (4.3.1) + MSVC 14.51 / ジェネレータ `Visual Studio 18 2026`。`fw-balance-c.dll` と PDB が出る |
+| ネイティブ DLL のビルド | ○ VS 同梱の CMake (4.3.1) + MSVC 14.51。Ninja (VS の「フォルダーを開く」の既定) と `Visual Studio 18 2026` の両方で `<buildRoot>/bin/fw-balance-c.dll` と PDB が出る |
 | エンジンが DLL を読む | ○ Docker で作った `windows-x64` の zip の `ipemu-engine.exe` に `--firmware balance=native:<dll>` で装着できる |
 | 閉ループ | ○ `Idle -> SwingUp` (0.51 s) → `SwingUp -> Balance` (6.22 s) → 倒立維持。`driver.fault = 0` / `mcu.overruns = 0` |
 | wasm 形との一致 | ○ 最終状態が wasm 形と同一 (`plant.theta = 6.290254954721464`)。trace-hash は異なるが、これは native 形が fuel を数えず `exec-ns = 0` になるため (想定どおり。上の「native 形には fuel も epoch も効きません」) |

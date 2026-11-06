@@ -1,56 +1,39 @@
 {
   "version": "0.2.1",
+  "defaults": {},
   "configurations": [
     {
       "type": "default",
-      "name": "ipemu run (native firmware, 仮想時間)",
+      "name": "ipemu-engine (native firmware, headless)",
       "project": "CMakeLists.txt",
-      "projectTarget": "fw_balance",
-      "exe": "${workspaceRoot}\\..\\..\\dist\\ipemu-client-0.1.0-windows-x64\\resources\\bin\\ipemu-engine.exe",
-      "currentDir": "${workspaceRoot}\\..\\..",
+      "projectTarget": "fw_balance.dll (fw-balance-c.dll)",
+      "exe": "${env.IPEMU_ENGINE}",
       "args": [
         "run",
-        "--manifest",
-        "dev/cartpole.manifest.json",
-        "--firmware",
-        "balance=native:${cmake.buildRoot}\\Debug\\fw-balance-c.dll",
+        "--manifest", "${workspaceRoot}\..\..\dev\cartpole.manifest.json",
+        "--firmware", "balance=native:${cmake.buildRoot}\bin\fw-balance-c.dll",
         "--no-signature-check",
-        "--run-seconds",
-        "60"
+        "--run-seconds", "30",
+        "--print-every", "1"
       ],
-      "env": {
-        "RUST_LOG": "info"
-      }
+      "env": { "RUST_BACKTRACE": "0" }
     },
     {
       "type": "default",
-      "name": "ipemu serve (native firmware, 実時間 + シェル)",
+      "name": "ipemu-engine (native firmware, serve + 実時間)",
       "project": "CMakeLists.txt",
-      "projectTarget": "fw_balance",
-      "exe": "${workspaceRoot}\\..\\..\\dist\\ipemu-client-0.1.0-windows-x64\\resources\\bin\\ipemu-engine.exe",
-      "currentDir": "${workspaceRoot}\\..\\..",
+      "projectTarget": "fw_balance.dll (fw-balance-c.dll)",
+      "exe": "${env.IPEMU_ENGINE}",
       "args": [
         "serve",
-        "--manifest",
-        "dev/cartpole.manifest.json",
-        "--firmware",
-        "balance=native:${cmake.buildRoot}\\Debug\\fw-balance-c.dll",
+        "--manifest", "${workspaceRoot}\..\..\dev\cartpole.manifest.json",
+        "--firmware", "balance=native:${cmake.buildRoot}\bin\fw-balance-c.dll",
         "--no-signature-check",
-        "--pacing",
-        "realtime",
+        "--pacing", "realtime",
         "--auto-start",
         "--debug-friendly"
       ],
-      "env": {
-        "RUST_LOG": "info"
-      }
-    },
-    {
-      "type": "dll",
-      "exe": "",
-      "project": "CMakeLists.txt",
-      "projectTarget": "fw-balance-c.dll (bin\\fw-balance-c.dll)",
-      "name": "fw-balance-c.dll (bin\\fw-balance-c.dll)"
+      "env": { "RUST_BACKTRACE": "0" }
     }
   ]
 }
