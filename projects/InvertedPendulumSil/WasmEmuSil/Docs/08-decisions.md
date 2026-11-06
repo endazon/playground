@@ -104,7 +104,7 @@ Q1〜Q11 はすべて裁定済み (D13〜D24 に反映)。実装中に新たに�
 
 | # | 項目 | 選択肢 | 影響 |
 | --- | --- | --- | --- |
-| Q13 | VS の F5 手順の実機確認 (Windows) | M2 では Linux で native .so のロードと restartRequired の経路まで確認。Windows 実機は未確認 | 手順書の修正があれば 05 に反映 |
+| Q13 | VS の F5 手順の実機確認 (Windows) | **2026-11-06 に確認済み** (Windows 11 + VS Community 2026): CMake + MSVC で `fw-balance-c.dll` + PDB が建ち、配布 zip のエンジンが装着して倒立維持まで通る。手順書の誤り (存在しない `--shell auto`、`run` の `--debug-friendly`、`run` サブコマンドの欠落、DLL 名、ファイル名) を直し、`launch.vs.json` のテンプレートを同梱した。**ブレークポイントで止める操作だけ未確認** | [05 の「実機で確認したこと」](05-firmware.md) |
 
 ## マイルストーン
 | M | 内容 | 完了条件 |

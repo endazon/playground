@@ -163,31 +163,48 @@ TCP・ファイルなど HAL 外の資源は、wasm 形では **WASI preview 2 �
 Rust のビルド環境は不要です (エンジン自体をデバッグする場合だけ Rust が要ります)。
 
 ### 方法 A: F5 で起動 (推奨)
-1. `firmware/fw-balance` を CMake プロジェクトとして開く (または生成した `.vcxproj` をソリューションに含める)。
-2. `launch.vs.json` (CMake) またはプロジェクトの「デバッグ」設定で、起動するプログラムを `ipemu-engine.exe` にする。
-   ```jsonc
-   // firmware/fw-balance/.vs/launch.vs.json (テンプレートをリポジトリに同梱する)
-   {
-     "version": "0.2.1",
-     "configurations": [{
-       "type": "default", "name": "ipemu (native firmware)",
-       "project": "CMakeLists.txt", "projectTarget": "fw_balance.dll",
-       "exe": "${env.IPEMU_HOME}/ipemu-engine.exe",
-       "args": ["--manifest", "${workspaceRoot}/../../dev/cartpole.manifest.json",
-                "--firmware", "balance=native:${cmake.buildRoot}/fw_balance.dll",
-                "--no-signature-check", "--debug-friendly", "--shell", "auto"]
-     }]
-   }
+1. 配布 zip を展開し、エンジンの場所を控える: `resources/bin/ipemu-engine.exe`。
+   環境変数に入れておくと `launch.vs.json` がそのまま使えます:
+   ```cmd
+   setx IPEMU_ENGINE_EXE C:\path\to\ipemu-client\resources\bin\ipemu-engine.exe
    ```
-3. `controller.c` にブレークポイントを置いて F5。エンジンが起動し、`--shell auto` で UI シェルも立ち上がります。
-   ブレークで止まると**仮想時間ごと止まる**ので、再開してもウォッチドッグや保護は鳴りません。
+2. Visual Studio の「フォルダーを開く」で `firmware/fw-balance-c` を開く (CMake プロジェクトとして認識される)。
+   同梱の [`firmware/fw-balance-c/launch.vs.json`](../firmware/fw-balance-c/launch.vs.json) を
+   **`.vs/launch.vs.json` にコピー**する (`.vs/` は無視対象なのでコミットされない)。
+   構成は 2 つ入っています:
+   - `ipemu run (native firmware, 仮想時間)` — 仮想時間で回す。ブレークで止めても仮想時間ごと止まるので、
+     再開してもウォッチドッグや保護は鳴りません。`run` に `--debug-friendly` はありません (要りません)
+   - `ipemu serve (native firmware, 実時間 + シェル)` — UI シェルから繋いで動かす。実時間ペーシングなので
+     `--debug-friendly` を付けます (ブレーク中に溜まった壁時計を捨て、epoch interruption の予算を無制限にする)
+3. `src/fw_balance.c` (状態機械と LQR。設定の読み出しは `src/cfg.c`、HAL は `src/ip_hal_native.c`) に
+   ブレークポイントを置いて F5。`fw_balance_step` で止めると 1 tick ずつ追えます。
 4. 変更 → ビルド → F5 のサイクル。native 形は**エンジンを再起動して**読み直します (ネイティブ DLL の
    プロセス内アンロードは信頼できないためです)。プラントも初期状態に戻ります。
+
+DLL の名前は CMake の `OUTPUT_NAME` / `PREFIX` の設定により **`fw-balance-c.dll`** です
+(`<buildRoot>\Debug\fw-balance-c.dll`。PDB は隣に出ます)。`--firmware` のスロット名は manifest の
+`balance` です。コマンドラインで同じことをするなら:
+```cmd
+ipemu-engine.exe run --manifest dev/cartpole.manifest.json --no-signature-check ^
+    --firmware balance=native:...\build\msvc\Debug\fw-balance-c.dll --run-seconds 60
+```
 
 ### 方法 B: 起動中のエンジンにアタッチ
 「デバッグ → プロセスにアタッチ」で `ipemu-engine.exe` を選び、コードの種類を「ネイティブ」にします。
 PDB が DLL の隣にあればブレークポイントが効きます。UI から「ファームウェア再読込」を選ぶとエンジンを再起動します。
 
+### 実機で確認したこと (Windows 11 + Visual Studio Community 2026、2026-11-06。Q13)
+| 段階 | 結果 |
+| --- | --- |
+| ネイティブ DLL のビルド | ○ VS 同梱の CMake (4.3.1) + MSVC 14.51 / ジェネレータ `Visual Studio 18 2026`。`fw-balance-c.dll` と PDB が出る |
+| エンジンが DLL を読む | ○ Docker で作った `windows-x64` の zip の `ipemu-engine.exe` に `--firmware balance=native:<dll>` で装着できる |
+| 閉ループ | ○ `Idle -> SwingUp` (0.51 s) → `SwingUp -> Balance` (6.22 s) → 倒立維持。`driver.fault = 0` / `mcu.overruns = 0` |
+| wasm 形との一致 | ○ 最終状態が wasm 形と同一 (`plant.theta = 6.290254954721464`)。trace-hash は異なるが、これは native 形が fuel を数えず `exec-ns = 0` になるため (想定どおり。上の「native 形には fuel も epoch も効きません」) |
+| ブレークポイントで止める | **未確認** (対話操作が要るため) |
+
+ビルド時に native 形で 1 回出る警告 (`timingModel=fuel ですが native 形は fuel を計測しません`) は想定どおりです。
+**この DLL のビルドだけはコンテナではなくホストで行います** (VS のデバッガが読む PDB を作るのが目的なので、
+VS 自身にビルドさせるのが筋です)。配布物の wasm 形は従来どおり `scripts/docker.sh` で作れます。
 ### `--debug-friendly`
 - 実時間ペーシングの追いつきを無効化 (ブレーク中に溜まった壁時計を捨てる)
 - epoch interruption の予算を無制限にする (ブレーク中に trap させない)

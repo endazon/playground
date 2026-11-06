@@ -17,5 +17,7 @@ set_target_properties(fw_balance PROPERTIES OUTPUT_NAME "fw-balance-c" PREFIX ""
 if(NOT WIN32)
   target_link_libraries(fw_balance PRIVATE m)
 endif()
-# デバッグ情報を常に出す (ブレークポイントのため)
-target_compile_options(fw_balance PRIVATE $<$<C_COMPILER_ID:MSVC>:/Zi /W4> $<$<NOT:$<C_COMPILER_ID:MSVC>>:-g -Wall -Wextra>)
+# デバッグ情報を常に出す (ブレークポイントのため)。
+# MSVC には /utf-8 が要る: ソースは UTF-8 だが、既定では実行環境のコードページ (日本語なら CP932)
+# として読もうとして C4819 を山ほど出す
+target_compile_options(fw_balance PRIVATE $<$<C_COMPILER_ID:MSVC>:/Zi /W4 /utf-8> $<$<NOT:$<C_COMPILER_ID:MSVC>>:-g -Wall -Wextra>)

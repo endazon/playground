@@ -1,0 +1,58 @@
+// Visual Studio (Windows) で C 版ファームウェアをデバッグするための構成のテンプレート。
+//
+//   使い方: このファイルを `.vs/launch.vs.json` にコピーする (`.vs/` は無視対象なのでコミットされない)。
+//           Visual Studio の「フォルダーを開く」で firmware/fw-balance-c を開き、
+//           CMake の構成が済んだら上の緑の再生ボタンから構成を選んで F5。
+//
+//   前提: Visual Studio 2022 以降 + 「C++ によるデスクトップ開発」。Rust は要らない
+//         (エンジン自体をデバッグするときだけ必要)。
+//   エンジン: 配布 zip の `resources/bin/ipemu-engine.exe` を使う。場所を環境変数
+//            IPEMU_ENGINE_EXE で指しておく (例: setx IPEMU_ENGINE_EXE
+//            C:\ipemu\resources\bin\ipemu-engine.exe)。
+//   DLL: CMakeLists.txt が OUTPUT_NAME を fw-balance-c、PREFIX を空にしているので
+//        `<buildRoot>\<Debug|Release>\fw-balance-c.dll` に出る。PDB は隣に出る (/Zi)。
+//
+//   手順と注意は Docs/05-firmware.md の「Visual Studio でのデバッグ実行 (Windows)」。
+{
+  "version": "0.2.1",
+  "configurations": [
+    {
+      // 仮想時間で 60 秒ぶん回す。ブレークで止めても仮想時間ごと止まるので、
+      // 再開してもウォッチドッグや保護は鳴らない (run に --debug-friendly は無い。要らない)
+      "type": "default",
+      "name": "ipemu run (native firmware, 仮想時間)",
+      "project": "CMakeLists.txt",
+      "projectTarget": "fw_balance",
+      "exe": "${env.IPEMU_ENGINE_EXE}",
+      "currentDir": "${workspaceRoot}\..\..",
+      "args": [
+        "run",
+        "--manifest", "dev/cartpole.manifest.json",
+        "--firmware", "balance=native:${cmake.buildRoot}\Debug\fw-balance-c.dll",
+        "--no-signature-check",
+        "--run-seconds", "60"
+      ]
+    },
+    {
+      // UI シェルから繋いで動かしたいとき。実時間ペーシングなので --debug-friendly を付ける
+      // (ブレーク中に溜まった壁時計を捨て、epoch interruption の予算を無制限にする)。
+      // 起動すると 1 行目に {"port","token",...} が出るので、シェルか
+      // `ipemu-engine attach --port <port> --token <token>` で繋ぐ
+      "type": "default",
+      "name": "ipemu serve (native firmware, 実時間 + シェル)",
+      "project": "CMakeLists.txt",
+      "projectTarget": "fw_balance",
+      "exe": "${env.IPEMU_ENGINE_EXE}",
+      "currentDir": "${workspaceRoot}\..\..",
+      "args": [
+        "serve",
+        "--manifest", "dev/cartpole.manifest.json",
+        "--firmware", "balance=native:${cmake.buildRoot}\Debug\fw-balance-c.dll",
+        "--no-signature-check",
+        "--pacing", "realtime",
+        "--auto-start",
+        "--debug-friendly"
+      ]
+    }
+  ]
+}
