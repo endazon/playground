@@ -70,3 +70,34 @@ fuel の絶対値はコンパイラの版で変わるため、テストは値を
 ## ファームウェアの単体テスト
 `abi/ip_hal.h` の native バックエンドをモック (`tests/hal_mock.c`) に差し替えれば、
 ファームウェアはエンジンなしでテストできます。状態機械の遷移、ゲイン計算、保護の判定はここで押さえます。
+
+## コンテナでの検証 (D67)
+ホストにツールチェインを入れずに、同じ検証を [`scripts/docker.sh`](../scripts/docker.sh) で回せます。
+
+| コマンド | 内容 |
+| --- | --- |
+| `./scripts/docker.sh check` | `scripts/check.sh` 一式 (fmt / clippy / 部品と FW のビルド / `cargo test` / manifest 検証 / ts-rs の最新性 / `pnpm lint`・`test`・`build`) |
+| `./scripts/docker.sh artifacts` | 部品 (wasm) / FW (wasm + native) / UI バンドル / 管理・ポータル SPA を `build/` に出す |
+| `./scripts/docker.sh server-up` → `server-verify` | サーバを compose で起動し、**コンテナの中から** API を叩いて応答コードを照合する |
+| `./scripts/docker.sh client --all` | 配布 zip 6 通り ([07 の配布](07-client-app.md#配布-m6)) |
+
+`check` の中の `gen-ipc-types.sh --check` は git の差分で判定するので、コンテナでは同期した内容を
+使い捨ての索引に入れて基準にします (`/work` に `.git` が無いため)。markdownlint は設定がモノレポ直下に
+あるので、コンテナでは理由を出して省略します (ルートで `scripts/check.sh` を回すと走ります)。
+
+### `server-verify` が照合すること (2026-11-06 に全件一致)
+| 経路 | 期待 |
+| --- | --- |
+| `GET /healthz` / `GET /` | 200 (ポータル SPA が返る) |
+| `GET /api/v1/catalog` / `GET /api/auth/me` / `GET /api/admin/users` (未認証) | 401 |
+| `POST /api/auth/login` (初期 admin) | 200。以降は `Authorization: Bearer <token>` |
+| `GET /api/auth/me` / `/api/admin/users` / `/api/admin/groups` / `/api/admin/audit` / `/api/v1/keys` | 200 |
+| `POST /api/auth/password` (新パスワード = 今と同じ) | 200。`mustChangePassword` は `true` のまま (D68) |
+| `POST /api/auth/password` (別の値で 10 文字未満) | 400 |
+| `POST /api/auth/password` (現在のパスワードが違う) | 401 |
+| `POST /api/auth/logout` → `GET /api/auth/me` | 200 → 401 |
+| 署名鍵とストア | `/keys` と `/data/store` が非 root (`ipemu`, uid 10001) 所有で読み書きできている |
+
+初期パスワードは環境変数 → `.env` → 起動ログの生成値の順に探します (雛形は
+[`.env.example`](../.env.example))。ストアは**名前付きボリューム**です: ホストディレクトリを bind すると
+所有者がホスト側のままで非 root のサーバが書けず、Windows の drvfs は `uid=0` 固定なので必ず失敗します。

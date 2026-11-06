@@ -10,11 +10,28 @@
       "exe": "${env.IPEMU_ENGINE}",
       "args": [
         "run",
-        "--manifest", "${workspaceRoot}\\..\\..\\dev\\cartpole.manifest.json",
-        "--firmware", "balance=native:${cmake.buildRoot}\\fw-balance-c.dll",
+        "--manifest", "${workspaceRoot}\..\..\dev\cartpole.manifest.json",
+        "--firmware", "balance=native:${cmake.buildRoot}\bin\fw-balance-c.dll",
         "--no-signature-check",
         "--run-seconds", "30",
         "--print-every", "1"
+      ],
+      "env": { "RUST_BACKTRACE": "0" }
+    },
+    {
+      "type": "default",
+      "name": "ipemu-engine (native firmware, serve + 実時間)",
+      "project": "CMakeLists.txt",
+      "projectTarget": "fw_balance.dll (fw-balance-c.dll)",
+      "exe": "${env.IPEMU_ENGINE}",
+      "args": [
+        "serve",
+        "--manifest", "${workspaceRoot}\..\..\dev\cartpole.manifest.json",
+        "--firmware", "balance=native:${cmake.buildRoot}\bin\fw-balance-c.dll",
+        "--no-signature-check",
+        "--pacing", "realtime",
+        "--auto-start",
+        "--debug-friendly"
       ],
       "env": { "RUST_BACKTRACE": "0" }
     }

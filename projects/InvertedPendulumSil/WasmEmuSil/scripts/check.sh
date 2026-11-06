@@ -45,6 +45,13 @@ fi
 
 if command -v npx >/dev/null 2>&1 && [ $QUICK -eq 0 ]; then
   step "markdownlint"
-  (cd ../../.. && npx --yes markdownlint-cli2 "projects/InvertedPendulumSil/WasmEmuSil/**/*.md" "!**/node_modules/**") || true
+  # 設定 (.markdownlint-cli2.jsonc / .markdownlint.yml) はモノレポ直下にある。
+  # コンテナ (scripts/docker.sh check) では WasmEmuSil だけを持ち込むので、そこには無い
+  if [ -f ../../../.markdownlint-cli2.jsonc ]; then
+    (cd ../../.. && npx --yes markdownlint-cli2 "projects/InvertedPendulumSil/WasmEmuSil/**/*.md" "!**/node_modules/**") || true
+  else
+    echo "設定 (../../../.markdownlint-cli2.jsonc) が見つからないので省略。"
+    echo "モノレポのルートで scripts/check.sh を走らせるか、ルートで markdownlint-cli2 を直接叩いてください"
+  fi
 fi
 echo; echo "all checks passed"

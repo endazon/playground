@@ -1,0 +1,29 @@
+# Docker ビルドコンテキストから外すもの (ホストの成果物はイメージ内に持ち込まない)
+.git
+.gitignore
+.vs/
+.vscode/
+
+# Rust / スクリプトの成果物
+target/
+build/
+dist/
+firmware/fw-balance-c/build/
+firmware/fw-balance-c/gen/*.o
+
+# Node
+node_modules/
+**/node_modules/
+apps/shell/dist/
+apps/web/dist/
+apps/sim-ui/dist/
+
+# ローカル実行時の状態・鍵 (コンテナにはボリュームで渡す)
+dev/keys/
+dev/store/
+store/
+data/
+
+# ドキュメント・画像 (サーバ / クライアントのビルドには不要)
+Docs/
+README.md

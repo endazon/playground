@@ -48,7 +48,7 @@ ASP.NET Core 案との比較は [08-decisions.md](08-decisions.md)。
 ## ポータル (利用者向け)
 | 画面 | できること |
 | --- | --- |
-| ログイン | ローカルアカウント。初回はパスワード変更を強制 |
+| ログイン | ローカルアカウント。初回はパスワード変更を強制。新パスワードは 10 文字以上だが、**今と同じもの (= 初期パスワード) は長さを問わず選べる**。その場合 `mustChangePassword` は下がらないので、ログインのたびに変更画面に戻る (実験・検証で初期パスワードを使い続けるため) |
 | カタログ | 公開範囲内の構成を一覧。名前・説明・要求 capability・既定 revision。検索とタグ |
 | 構成の詳細 | トポロジ図 (部品と配線)、パラメータの要約、必要な capability と承認者・理由 |
 | **起動** | シェル内なら `window.ipemu.launch(...)`、通常のブラウザなら `ipemu://launch?...` へ遷移。クライアント未インストールなら zip の案内を出す |
@@ -115,7 +115,7 @@ Svelte / Vue も候補でしたが、「2 つの UI で同じ部品を使う」�
 | 項目 | 実装 | 備考 |
 | --- | --- | --- |
 | 認証 | **Bearer のみ** (`sess_` ログインセッション / `lt_` チケット交換トークン / `ipk_` API キー)。Cookie は使わない | D36。設計案の Cookie + CSRF から変えた理由: ポータル → シェル → エンジンへ渡す資格情報が同じトークンで済み、CSRF が構造的に消える。代償として SPA が sessionStorage にトークンを持つため XSS 耐性は HttpOnly Cookie に劣る。**緩和策**: (1) ログインセッションの寿命は 12 時間 (`session_ttl_secs`、再ログインで更新)、(2) SPA と API に厳格な CSP (`default-src 'self'; script-src 'self'` で inline script 禁止。`style-src` の `'unsafe-inline'` は CodeMirror の動的スタイルのため)、(3) 破壊的な管理操作 (承認・公開・公開範囲・既定 revision・ユーザ・API キー) はロール検査に加えて**ログインから 1 時間以内のセッション** (`Principal::require_fresh_login`、`403 reauth_required`) を要求し、古いトークンでは再ログインを促す。(4) チケット交換トークン (`lt_`) は配信 API 限定で、新鮮なログインとは見なさない (D51) |
-| `/api/auth` | `POST login` / `POST logout` / `GET me` / `POST password` | 初回ログインは `mustChangePassword` を返し、SPA が変更画面へ誘導 |
+| `/api/auth` | `POST login` / `POST logout` / `GET me` / `POST password` | 初回ログインは `mustChangePassword` を返し、SPA が変更画面へ誘導。`POST password` は変更後の `mustChangePassword` を返す (今と同じパスワードを選んだときは `true` のまま) |
 | ログイン抑止 | (ユーザ名, 送信元 IP) ごとに連続失敗 5 回、ユーザ名単独で 50 回で 30 秒ロック (メモリ上)。ユーザ不在時もダミーのハッシュ検証で応答時間を揃える | D53。送信元は接続元 (`ConnectInfo`)、`IPEMU_TRUST_PROXY=1` のときだけ `X-Forwarded-For` の先頭 |
 | 配信 API | 表のとおり。追加: `GET /api/v1/keys` (公開鍵の参考表示)、`GET /api/v1/launches/mine` (自分の起動履歴) | `keys` は**信頼の根拠ではない** (信頼鍵はクライアント同梱 / 設定) |
 | manifest 取得 | `GET manifests/{id}?rev=n\|default` は `ETag` (= 本文 sha256)、`X-Ipemu-Launch-Id` (起動履歴の ID)、`X-Ipemu-Signed`、`X-Ipemu-Revision` を返す。取得のたびに `launches` 行を作る | editor 以上は未公開 revision を署名なしで取れる (`X-Ipemu-Signed: false`)。エンジンは `--no-signature-check` が必要 |

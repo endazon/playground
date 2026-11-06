@@ -22,7 +22,40 @@
 
 ![構成図](Docs/images/architecture.svg)
 
+## クイックスタート (Docker だけで作る・動かす)
+ホストに Rust / Node / clang / zig を入れずに、ビルドと確認をすべてコンテナの中で行う入口が
+[`scripts/docker.sh`](scripts/docker.sh) です。必要なのは Docker (または Rancher Desktop の nerdctl) だけ。
+
+```bash
+cd projects/InvertedPendulumSil/WasmEmuSil
+./scripts/docker.sh images                 # ビルド用イメージ 2 つ (ipemu-build / ipemu-cross) を作る
+./scripts/docker.sh artifacts              # 部品 (wasm) / FW / UI バンドル → build/
+./scripts/docker.sh check                  # fmt / clippy / 全テスト / lint / build (PR の前にこれ)
+./scripts/docker.sh server-up              # サーバを compose で起動 (127.0.0.1:8080)
+./scripts/docker.sh server-verify          # 起動中のサーバをコンテナの中から叩いて確認
+./scripts/docker.sh client --all           # クライアント配布 zip → dist/ (6 プラットフォーム)
+./scripts/docker.sh all                    # 上を順に全部
+./scripts/docker.sh run -- cargo run -p ipemu-engine -- run --manifest dev/cartpole.manifest.json \
+    --no-signature-check --run-seconds 20  # コンテナの中でエンジンを回す
+```
+
+仕組み: リポジトリは `/src` に読み取り専用で渡し、作業コピーは名前付きボリューム `/work` に置きます
+(`target/` と `node_modules/` がボリュームに残るので 2 回目以降が速い)。成果物だけが `/out`
+(= リポジトリ) に書き戻されるので、`build/` と `dist/` にはホストのツールチェインを使ったときと同じものが出ます。
+
+- エンジンのクロスビルドの振り分け: linux (x64 / arm64) と macOS (x64 / arm64) は `cargo-zigbuild`、
+  windows-x64 は `cargo-xwin` (MSVC ABI。Microsoft の CRT / SDK を初回に取得)、
+  **windows-arm64 だけ GNU-LLVM ABI** (`aarch64-pc-windows-gnullvm`)。MSVC ABI では `ring` のビルドが通らないため
+  (理由は [`docker/build-entrypoint.sh`](docker/build-entrypoint.sh) の windows の節)。
+- **macOS 版は Apple の SDK なしで作れます** (zig が macOS の libc スタブを同梱していて、エンジンは
+  Apple のフレームワークヘッダを使わないため)。Mac の SDK を `--macos-sdk <path>` で渡すこともできます。
+  どちらで作っても未署名・未公証なので、配るなら Mac で署名し直すこと。
+- 6 環境のうち 1 つが落ちても残りは作り、できた分は `dist/` に出します (最後に落ちた組を報告)。
+- 土台イメージが `docker.io` から引けない環境 (認証ヘルパが壊れている / 遮断) では
+  自動で `mirror.gcr.io/library` に切り替えて作り直します。固定したいときは `--base-registry <reg>`。
+
 ## クイックスタート (M1: headless)
+ホストにツールチェインを入れて直接動かす場合 (コンテナでやるなら上の節)。
 前提: Rust (stable、`wasm32-unknown-unknown` ターゲット)、`wasm-tools`、`wit-bindgen-cli`、clang。
 ```bash
 cd projects/InvertedPendulumSil/WasmEmuSil
@@ -90,6 +123,7 @@ cargo run -p ipemu-engine -- attach --port <port> --token <token>   # 端末で 
 ### 配布 zip (M6)
 ```bash
 scripts/package.sh --target linux-x64          # → dist/ipemu-client-<version>-linux-x64.zip (未署名。--all で 6 通り、--cross でクロスビルド)
+./scripts/docker.sh client --all               # 同じものをコンテナの中で (ホストにツールチェイン不要。macOS は --macos-sdk が要る)
 ```
 中身・署名の足し方・検証済みの範囲は [`Docs/07-client-app.md`](Docs/07-client-app.md) の「配布 (M6)」。
 
@@ -107,7 +141,7 @@ PUB=$(python3 -c "import json;print(json.load(open('dev/keys/public.json'))['key
 cargo run -q -p ipemu-engine -- run --server http://127.0.0.1:8080 --api-key ipk_... --launch cartpole \
     --trusted-key dev-2026=$PUB --run-seconds 20          # 取得 → 署名検証 → キャッシュ → 倒立維持
 cargo run -q -p ipemu-engine -- catalog --local            # キャッシュ済み構成。サーバを止めても起動できる
-docker compose up --build                                  # コンテナで動かす (compose.yaml)
+./scripts/docker.sh server-up                               # コンテナで動かす (compose.yaml) → server-verify で確認
 ```
 手順の詳細は [`dev/README.md`](dev/README.md)、API と画面は [`Docs/06-server-app.md`](Docs/06-server-app.md) の「実装 (M3/M4)」。
 
@@ -150,6 +184,10 @@ WasmEmuSil/
   dev/cartpole.manifest.json ✅ ローカル開発用 manifest (path 参照・署名なし)。dev/README.md に署名鍵とサーバの手順
   dev/cartpole-netdelay.manifest.json ✅ (M6) comm-link を制御ループに入れた遅延実験用 manifest (Docs/10)
   Dockerfile / compose.yaml  ✅ ipemu-server のコンテナ (ループバック公開、cap_drop、リソース上限)
+  .dockerignore              ✅ ビルドコンテキストから成果物・鍵・node_modules を外す
+  docker/Dockerfile.build    ✅ ビルド用イメージ (toolchain: 部品 / FW / UI / check、cross: 6 プラットフォームの配布 zip)
+  docker/build-entrypoint.sh ✅ /src → /work に同期して artifacts / check / client を実行し、成果物を /out に戻す
+  scripts/docker.sh          ✅ コンテナでのビルド・サーバ起動・確認の入口 (ホストに Rust / Node を入れない)
   crates/
     ip-model/                ✅ 物理モデル・線形化・離散 LQR・スイングアップ・速度推定 (no_std, libm)
     ipemu-core/              ✅ manifest 解釈と検証 (V1〜V12)、capability 型・import 抽出・capabilitiesHash (JCS)、同意の型、配線グラフ、スケジューラ

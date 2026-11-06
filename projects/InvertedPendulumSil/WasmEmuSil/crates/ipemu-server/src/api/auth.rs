@@ -99,25 +99,41 @@ async fn change_password(
     UserAuth(p): UserAuth,
     Json(req): Json<PasswordReq>,
 ) -> ApiResult<Json<Value>> {
-    if req.new_password.len() < 10 {
-        return Err(ApiError::bad_request("新しいパスワードは 10 文字以上"));
-    }
-    let (hash,): (String,) = sqlx::query_as("SELECT password_hash FROM users WHERE id = ?")
-        .bind(&p.id)
-        .fetch_one(&st.pool)
-        .await?;
+    let (hash, must_change): (String, i64) =
+        sqlx::query_as("SELECT password_hash, must_change_password FROM users WHERE id = ?")
+            .bind(&p.id)
+            .fetch_one(&st.pool)
+            .await?;
     if !auth::verify_password(&req.current_password, &hash) {
         return Err(ApiError::unauthorized("現在のパスワードが違います"));
     }
+    // 今と同じパスワードを選べる (実験・検証用に初期パスワードを使い続けられるように)。
+    // そのときは長さの最低条件を課さず、must_change_password も下げないので、
+    // ログインのたびにパスワード変更画面に戻る。
+    let keep = auth::verify_password(&req.new_password, &hash);
+    if !keep && req.new_password.len() < 10 {
+        return Err(ApiError::bad_request("新しいパスワードは 10 文字以上"));
+    }
     let new_hash = auth::hash_password(&req.new_password)?;
+    let must_after = if keep { must_change } else { 0 };
     sqlx::query(
-        "UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?",
+        "UPDATE users SET password_hash = ?, must_change_password = ?, updated_at = ? WHERE id = ?",
     )
     .bind(&new_hash)
+    .bind(must_after)
     .bind(util::now_str())
     .bind(&p.id)
     .execute(&st.pool)
     .await?;
-    crate::audit::record(&st.pool, &p, "auth.password_change", &p.name, json!({})).await?;
-    Ok(Json(json!({ "ok": true })))
+    crate::audit::record(
+        &st.pool,
+        &p,
+        "auth.password_change",
+        &p.name,
+        json!({ "keptSamePassword": keep }),
+    )
+    .await?;
+    Ok(Json(
+        json!({ "ok": true, "mustChangePassword": must_after != 0 }),
+    ))
 }

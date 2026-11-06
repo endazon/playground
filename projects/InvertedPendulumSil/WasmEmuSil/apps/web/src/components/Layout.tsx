@@ -36,7 +36,7 @@ export function Layout() {
       </header>
       {principal?.mustChangePassword && (
         <div className="banner">
-          初回ログインです。<Link to="/me/password">パスワードを変更</Link>してください。
+          パスワードが初期値のままです。<Link to="/me/password">パスワードを変更</Link>してください。
         </div>
       )}
       <main>
