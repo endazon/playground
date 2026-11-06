@@ -14,7 +14,7 @@
     "test": "pnpm -r --filter './apps/**' run test",
     "dev:ui": "pnpm --filter @ipemu/sim-ui run dev",
     "shell": "pnpm --filter @ipemu/shell run start",
-    "dev:web": "pnpm --filter ipemu-web run dev"
+    "dev:web": "pnpm --filter @ipemu/web run dev"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

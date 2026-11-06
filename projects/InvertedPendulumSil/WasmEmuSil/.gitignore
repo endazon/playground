@@ -1,18 +1,43 @@
-# Rust
+# WasmEmuSil 固有の無視設定 (OS / エディタなど共通のものはリポジトリ直下の .gitignore)
+
+# ---- Rust -----------------------------------------------------------------
 target/
-# ビルド成果物 (scripts/build-*.sh が build/ に出す)
+# クロスビルド時に CARGO_TARGET_DIR を分けた場合
+target-*/
+
+# ---- scripts/build-*.sh と scripts/docker.sh の出力 ------------------------
+# 部品 (wasm) / FW / UI バンドル / コンテナ作業用の一時物はすべて build/ に出る
 build/
-# ネイティブ FW のビルド
+# クライアント配布 zip (scripts/package.sh, scripts/docker.sh client)
+/dist/
+
+# ---- ネイティブ FW のビルド --------------------------------------------------
 firmware/fw-balance-c/build/
-# Node
-node_modules/
 # wit-bindgen が生成するオブジェクト (build.sh が再生成する)
 firmware/fw-balance-c/gen/*.o
-# Electron シェルのビルド (esbuild / vite)
+
+# ---- Node ------------------------------------------------------------------
+node_modules/
+# Electron シェル / UI / SPA のビルド (esbuild / vite)
 apps/shell/dist/
-# 署名鍵 (ipemu-server keygen) とローカル実行時の保存領域
+apps/sim-ui/dist/
+apps/web/dist/
+# Electron 本体と electron-builder のキャッシュ (ホストで直接ビルドしたとき)
+.cache/
+*.tsbuildinfo
+
+# ---- サーバのローカル実行 ----------------------------------------------------
+# 署名鍵 (ipemu-server keygen)。秘密鍵はコミットしない
 dev/keys/
+# アーティファクト (内容アドレス) と SQLite。compose は ./store を /data/store に渡す
 dev/store/
 store/
-# クライアント配布 zip (scripts/package.sh)
-/dist/
+# compose の上書き (ローカル専用)
+compose.override.yaml
+compose.override.yml
+
+# ---- エンジンのローカル実行 --------------------------------------------------
+# --record / --data-dir / consent list の出力を直置きしたとき
+/out.csv
+/consent.json
+/data/

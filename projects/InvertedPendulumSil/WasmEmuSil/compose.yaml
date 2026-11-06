@@ -6,6 +6,9 @@ services:
     build:
       context: .
       target: runtime
+      args:
+        # 土台イメージの取得元 (docker.io の認証ヘルパが壊れている環境では mirror.gcr.io/library)
+        BASE_REGISTRY: ${IPEMU_BASE_REGISTRY:-docker.io/library}
     image: ipemu-server:latest
     security_opt:
       - no-new-privileges:true
@@ -31,9 +34,17 @@ services:
       IPEMU_LOG_FORMAT: ${IPEMU_LOG_FORMAT:-json}
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
-      # アーティファクト (内容アドレス) と SQLite。バックアップはこのディレクトリの丸ごとコピー
-      - ./store:/data/store
-      # 署名鍵: `cargo run -p ipemu-server -- keygen --out dev/keys` で作る (dev/README.md)。秘密鍵はコミットしない
+      # アーティファクト (内容アドレス) と SQLite。名前付きボリュームにしてある:
+      #   ホストディレクトリを bind すると所有者がホスト側のままで、非 root (uid 10001) の
+      #   サーバが書けない (Windows の drvfs は uid=0 固定なので必ず失敗する)。
+      #   バックアップ / 復元はボリュームを tar で出し入れする:
+      #     docker run --rm -v wasmemusil_store:/data -v "$PWD:/backup" debian:bookworm-slim \
+      #       tar -C /data -czf /backup/store.tar.gz .
+      #   Linux / macOS でホストディレクトリに置きたい場合は下の bind に差し替えて
+      #   `user: "0:0"` か、ホスト側を uid 10001 所有にすること。
+      - store:/data/store
+      # - ./store:/data/store
+      # 署名鍵: `scripts/docker.sh server-keygen` で作る (dev/README.md)。秘密鍵はコミットしない
       - ./dev/keys:/keys:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
@@ -41,3 +52,7 @@ services:
       timeout: 3s
       retries: 6
       start_period: 5s
+
+volumes:
+  # アーティファクトと SQLite の永続領域 (実体は wasmemusil_store)
+  store:

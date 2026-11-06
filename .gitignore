@@ -1,3 +1,148 @@
+# ---------------------------------------------------------------------------
+# リポジトリ全体の無視設定。言語・プロジェクト固有のものは各
+# projects/*/.gitignore に置く (ここは OS / エディタ / 共通のビルド成果物)。
+# ---------------------------------------------------------------------------
 
 # Claude Code のサブエージェント用 worktree (ローカル専用)
 .claude/worktrees/
+
+# ---- OS -------------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+.DS_Store
+.AppleDouble
+.Spotlight-V100
+.Trashes
+._*
+
+# ---- エディタ / IDE --------------------------------------------------------
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+*.opensdf
+*.sdf
+*.ipch
+# Visual Studio Code (共有したい設定は個別に -f で追加する)
+.vscode/
+.history/
+# JetBrains / Qt Creator / Vim / Emacs
+.idea/
+*.iml
+CMakeLists.txt.user
+*.swp
+*.swo
+*~
+\#*\#
+.*.kate-swp
+
+# ---- .NET -----------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Dd]ebug[Pp]ublic/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.nupkg
+*.snupkg
+BenchmarkDotNet.Artifacts/
+TestResults/
+coverage*.json
+coverage*.xml
+coverage*.info
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# ---- C / C++ (CMake) ------------------------------------------------------
+# ビルドディレクトリ (out/ は Visual Studio の CMake 既定)
+build/
+cmake-build-*/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+install_manifest.txt
+vcpkg_installed/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.gcda
+*.gcno
+*.gcov
+
+# ---- Rust -----------------------------------------------------------------
+target/
+**/*.rs.bk
+*.profraw
+
+# ---- Node / フロントエンド -------------------------------------------------
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-error.log*
+.turbo/
+.vite/
+.parcel-cache/
+.eslintcache
+.tsbuildinfo
+*.tsbuildinfo
+
+# ---- Python (ツール類) ----------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ---- コンテナ / ローカル実行 ------------------------------------------------
+# Docker / nerdctl のローカル状態や、コンテナが書き出す永続領域
+.docker/
+docker-compose.override.yml
+compose.override.yaml
+# 秘密や環境依存の値 (.env.example のような雛形はコミットする)
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# ---- 鍵・証明書 -----------------------------------------------------------
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+!**/testdata/**/*.pem
+
+# ---- ログ・一時ファイル ----------------------------------------------------
+*.log
+!**/testdata/**/*.log
+*.tmp
+*.bak
+*.orig
+*.rej

@@ -1,0 +1,92 @@
+# WasmEmuSil のビルド用イメージ (ホストに Rust / Node / clang / zig を入れずに済ませる)。
+#   toolchain: 部品 (wasm) / FW / UI バンドル / scripts/check.sh 用。ホストと同じ linux-x64 向け
+#   cross:     toolchain + クロスビルド一式 (cargo-zigbuild + zig, cargo-xwin) → 6 プラットフォームの配布 zip
+# 使い方は scripts/docker.sh (直接 build/run するより、そちらを通すこと)。
+# BASE_REGISTRY: 土台イメージの取得元。docker.io の認証ヘルパが壊れている環境では
+#   --build-arg BASE_REGISTRY=mirror.gcr.io/library に切り替える (scripts/docker.sh が自動で再試行する)。
+#
+# 段の順序は「重い所を先、entrypoint スクリプトを最後」にしてある。
+# そうしないと docker/build-entrypoint.sh を直すたびに cargo install からやり直しになる。
+
+# ---- Node (実体だけ土台から持ってくる) ----------------------------------------
+ARG BASE_REGISTRY=docker.io/library
+FROM ${BASE_REGISTRY}/node:22-bookworm-slim AS nodejs
+
+# ---- 共通のツールチェイン ------------------------------------------------------
+FROM ${BASE_REGISTRY}/rust:1-bookworm AS base
+
+# clang: C 版 FW を wasm32 に出す / ring などの C を含む crate
+# rsync: /src (読み取り専用バインド) → /work (ボリューム) の同期 (docker/build-entrypoint.sh)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential clang lld llvm cmake pkg-config file git curl ca-certificates \
+        rsync zip unzip python3 python3-pip libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node 22 + pnpm (corepack)。公式イメージから実体だけ持ってくる (NodeSource を足さない)
+COPY --from=nodejs /usr/local/bin/node /usr/local/bin/node
+COPY --from=nodejs /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack \
+    && corepack enable && node -v && pnpm -v
+
+# rust-toolchain.toml が channel = "stable" なので、stable を既定にしてから target を足す
+# (そうしないと /work で cargo を叩いた時点で stable が別途入り、ここで足した target が見えない)
+RUN rustup toolchain install stable --profile minimal \
+        --component rustfmt --component clippy --component rust-src \
+    && rustup default stable \
+    && rustup target add --toolchain stable wasm32-unknown-unknown wasm32-wasip2
+
+# 部品を Component Model の形にする道具 (scripts/build-components.sh / build-firmware.sh)
+RUN cargo install --locked wasm-tools wit-bindgen-cli && rm -rf "$CARGO_HOME"/registry/cache
+
+# pnpm / electron のキャッシュはボリュームに逃がす (scripts/docker.sh が /root/.cache をマウントする)
+ENV npm_config_store_dir=/root/.cache/pnpm-store \
+    ELECTRON_CACHE=/root/.cache/electron \
+    IPEMU_SRC=/src IPEMU_WORK=/work IPEMU_OUT=/out
+
+# ---- クロスビルドの道具 (配布 zip 用) -----------------------------------------
+FROM base AS cross-base
+
+# linux-arm64 / windows-x64 / windows-arm64 / (SDK があれば macOS) 向けの Rust target
+RUN rustup target add --toolchain stable \
+        aarch64-unknown-linux-gnu \
+        x86_64-pc-windows-msvc aarch64-pc-windows-msvc \
+        x86_64-apple-darwin aarch64-apple-darwin
+
+# zig (cargo-zigbuild の裏側。linux-gnu のクロスと、SDK があれば macOS 向け) と
+# cargo-xwin (windows-msvc 向け。Microsoft の CRT / SDK を初回に取得する)
+RUN pip3 install --no-cache-dir --break-system-packages ziglang \
+    && cargo install --locked cargo-zigbuild cargo-xwin \
+    && rm -rf "$CARGO_HOME"/registry/cache \
+    && printf '#!/bin/sh\nexec python3 -m ziglang "$@"\n' > /usr/local/bin/zig \
+    && chmod +x /usr/local/bin/zig && zig version
+
+# windows-arm64 は MSVC ABI では通らない (cargo-xwin + cc-rs + ring の組み合わせ。理由は
+# docker/build-entrypoint.sh の windows の節) ので、GNU-LLVM ABI でビルドする
+RUN rustup target add --toolchain stable aarch64-pc-windows-gnullvm
+
+# cargo-xwin は MSVC 互換ドライバ (clang-cl) を呼ぶ。Debian の clang パッケージは
+# clang-cl という名前の実体を置かない (clang は argv[0] で駆動方式を変える) ので繋いでおく。
+# これが無いと cc-rs の「コンパイラの系統の判定」が失敗し、MSVC 用の /imsvc を付けたまま
+# GNU 方式の clang を呼んでしまう (ring の aarch64-pc-windows-msvc ビルドが落ちる)
+RUN ln -sf /usr/bin/clang /usr/local/bin/clang-cl && clang-cl --version | head -1
+
+# cargo-xwin が Microsoft の EULA に同意済みとして動く (取得先は Microsoft 公式)
+ENV XWIN_ACCEPT_LICENSE=1 \
+    XWIN_CACHE_DIR=/root/.cache/xwin
+
+# ---- 出荷する 2 つの段 (entrypoint だけが違う) ---------------------------------
+FROM base AS toolchain
+COPY docker/build-entrypoint.sh /usr/local/bin/build-entrypoint
+RUN chmod +x /usr/local/bin/build-entrypoint
+WORKDIR /work
+ENTRYPOINT ["build-entrypoint"]
+CMD ["artifacts"]
+
+FROM cross-base AS cross
+COPY docker/build-entrypoint.sh /usr/local/bin/build-entrypoint
+RUN chmod +x /usr/local/bin/build-entrypoint
+WORKDIR /work
+ENTRYPOINT ["build-entrypoint"]
+CMD ["client", "--all"]

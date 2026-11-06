@@ -22,8 +22,15 @@ export function ChangePasswordPage() {
       setError(new Error("確認用のパスワードが一致しません"));
       return;
     }
+    if (f.newPassword !== f.currentPassword && f.newPassword.length < 10) {
+      setError(new Error("新しいパスワードは 10 文字以上にしてください (今と同じものを選ぶなら長さは問いません)"));
+      return;
+    }
     try {
-      await post("/api/auth/password", { currentPassword: f.currentPassword, newPassword: f.newPassword });
+      await post<{ mustChangePassword: boolean }>("/api/auth/password", {
+        currentPassword: f.currentPassword,
+        newPassword: f.newPassword,
+      });
       await refresh();
       nav("/");
     } catch (e) {
@@ -39,9 +46,21 @@ export function ChangePasswordPage() {
           <input type="password" autoComplete="current-password" {...register("currentPassword", { required: true })} />
         </label>
         <label>
-          新しいパスワード (10 文字以上)
-          <input type="password" autoComplete="new-password" {...register("newPassword", { required: true, minLength: 10 })} />
+          新しいパスワード (10 文字以上。今と同じものも選べます)
+          <input
+            type="password"
+            autoComplete="new-password"
+            {...register("newPassword", {
+              required: true,
+              // 今と同じパスワードを選び直すときは長さを問わない (初期パスワードを使い続ける用)。
+              // そのかわり変更待ちは解けず、ログインのたびにこの画面に戻る
+              validate: (v) => v === watch("currentPassword") || v.length >= 10,
+            })}
+          />
         </label>
+        <p className="muted">
+          今と同じパスワードを選ぶと、変更待ちのままになります (ログインのたびにこの画面が出ます)。
+        </p>
         <label>
           確認
           <input type="password" autoComplete="new-password" {...register("confirm", { required: true, validate: (v) => v === watch("newPassword") })} />

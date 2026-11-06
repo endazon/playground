@@ -1312,3 +1312,79 @@ async fn telemetry_rejects_oversized_or_malformed_fields() {
     assert_eq!(n, 2, "拒否したものは保存しない");
     cx.app.stop().await;
 }
+
+/// パスワード変更: 今と同じパスワード (= 初期パスワード) をそのまま選べる。
+/// その場合は長さの最低条件を課さず、`must_change_password` も下げないので、
+/// ログインのたびに変更画面へ戻る。別の値にすれば 10 文字以上が要り、変更待ちが解ける。
+#[tokio::test]
+async fn password_change_can_keep_the_initial_password() {
+    // 初期パスワードを 10 文字未満にしておく (実験用の admin/admin と同じ形)
+    let cx = Ctx::with_config(|c| c.admin_bootstrap_password = Some("admin".into())).await;
+    let tok = cx.login("admin", "admin").await;
+
+    let (s, b) = cx.get(&tok, "/api/auth/me").await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["principal"]["mustChangePassword"], json!(true));
+
+    // 現在のパスワードが違えば拒否
+    let (s, _) = cx
+        .post(
+            &tok,
+            "/api/auth/password",
+            json!({"currentPassword": "wrong", "newPassword": "admin"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+
+    // 今と違う短いパスワードは拒否 (10 文字未満)
+    let (s, _) = cx
+        .post(
+            &tok,
+            "/api/auth/password",
+            json!({"currentPassword": "admin", "newPassword": "short"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+
+    // 今と同じなら 10 文字未満でも通る。変更待ちは残る
+    let (s, b) = cx
+        .post(
+            &tok,
+            "/api/auth/password",
+            json!({"currentPassword": "admin", "newPassword": "admin"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["mustChangePassword"], json!(true));
+
+    // 入り直しても変更待ちのまま = 毎ログインで変更画面が出る
+    let tok2 = cx.login("admin", "admin").await;
+    let (_, b) = cx.get(&tok2, "/api/auth/me").await;
+    assert_eq!(b["principal"]["mustChangePassword"], json!(true));
+
+    // 別の十分長いパスワードにすれば変更待ちが解ける
+    let (s, b) = cx
+        .post(
+            &tok2,
+            "/api/auth/password",
+            json!({"currentPassword": "admin", "newPassword": "new-password-1234"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["mustChangePassword"], json!(false));
+
+    let tok3 = cx.login("admin", "new-password-1234").await;
+    let (_, b) = cx.get(&tok3, "/api/auth/me").await;
+    assert_eq!(b["principal"]["mustChangePassword"], json!(false));
+
+    // 変更待ちでないときに同じパスワードを選び直しても、変更待ちは立たない
+    let (s, b) = cx
+        .post(
+            &tok3,
+            "/api/auth/password",
+            json!({"currentPassword": "new-password-1234", "newPassword": "new-password-1234"}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["mustChangePassword"], json!(false));
+}

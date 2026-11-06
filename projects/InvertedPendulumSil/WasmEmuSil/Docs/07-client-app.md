@@ -315,6 +315,9 @@ scripts/package.sh --target linux-x64                      # → dist/ipemu-clie
 scripts/package.sh --target linux-arm64 --cross zigbuild   # pip install ziglang && cargo install --locked cargo-zigbuild
 scripts/package.sh --target windows-x64 --cross xwin       # cargo install --locked cargo-xwin (Microsoft の CRT / SDK を取得する)
 scripts/package.sh --all --cross zigbuild                  # 6 通り。macOS / Windows MSVC は下の注意を読む
+
+# ホストにツールチェインを入れずに、コンテナの中で 6 通りまとめて作る (target ごとの --cross は自動で振り分け)
+./scripts/docker.sh client --all                           # → dist/ (README の「Docker だけで作る・動かす」)
 ```
 遮断環境では `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` が要る (`ELECTRON_BUILDER_BINARIES_MIRROR` も同様に
 `https://npmmirror.com/mirrors/electron-builder-binaries/`。zip だけなら 7zip の取得にだけ使う)。
@@ -338,6 +341,23 @@ resources/bin/ipemu-engine(.exe)   エンジン (macOS は ipemu.app/Contents/Re
 `apps/shell/electron-builder.yml` の冒頭に手順がある。macOS は `mac.identity: null` を消して `CSC_LINK` / `CSC_KEY_PASSWORD`
 (公証は `notarize: true` と `APPLE_API_KEY` 系)、Windows は `win.signAndEditExecutable: false` を消して `CSC_LINK` / `CSC_KEY_PASSWORD`
 (Azure Trusted Signing は `win.azureSignOptions`)。コードとスクリプトは変えない。
+
+### コンテナでの再現 (2026-11-06)
+`./scripts/docker.sh client --all` (Windows ホスト + Rancher Desktop の nerdctl、ビルドは Linux x64 コンテナ) で
+**6 通りすべて**が出ることを確認した。`--cross` の振り分けはコンテナ側 (`docker/build-entrypoint.sh`) が target ごとに行う
+(linux / macOS = zigbuild、windows-x64 = xwin、windows-arm64 = zigbuild + gnullvm。D66 の判断どおり)。
+同梱物のアーキテクチャは `file` で確認済み:
+
+| zip | 大きさ | Electron 本体 | 同梱エンジン |
+| --- | --- | --- | --- |
+| linux-x64 | 124 MB | ELF x86-64 | ELF x86-64 (`resources/bin/ipemu-engine`) |
+| linux-arm64 | 123 MB | ELF aarch64 | ELF aarch64 |
+| windows-x64 | 154 MB | PE32+ x86-64 | PE32+ x86-64 (`resources/bin/ipemu-engine.exe`) |
+| windows-arm64 | 151 MB | PE32+ Aarch64 | PE32+ Aarch64 (gnullvm) |
+| macos-x64 | 125 MB | — | Mach-O x86_64 (`ipemu.app/Contents/Resources/bin/ipemu-engine`) |
+| macos-arm64 | 120 MB | — | Mach-O arm64 (同上) |
+
+**実行は確認していない** (Linux x64 以外は下の表のとおり)。macOS / Windows の正式な配布物は実機で作り直して確認する。
 
 ### 検証済みの範囲 (Linux x64 のコンテナで 2026-11 に実施)
 | 配布 zip | エンジンのビルド | zip 作成 (electron-builder) | 確認した内容 |
