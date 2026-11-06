@@ -6,9 +6,18 @@
 //
 //   前提: Visual Studio 2022 以降 + 「C++ によるデスクトップ開発」。Rust は要らない
 //         (エンジン自体をデバッグするときだけ必要)。
-//   エンジン: 配布 zip の `resources/bin/ipemu-engine.exe` を使う。場所を環境変数
-//            IPEMU_ENGINE_EXE で指しておく (例: setx IPEMU_ENGINE_EXE
-//            C:\ipemu\resources\bin\ipemu-engine.exe)。
+//
+//   `exe` (エンジンの場所): 既定は配布 zip を dist/ に展開した場所にしてある。
+//     scripts/docker.sh client --target windows-x64 で作った zip を
+//       dist/ipemu-client-<version>-windows-x64/
+//     に展開すればそのまま動く。別の場所に置くなら `exe` を実パスに書き換える。
+//     `${env.IPEMU_ENGINE_EXE}` も使えるが、それは **VS を起動したときの環境変数**を見る
+//     (下の `env` ブロックはデバッグ対象プロセスに渡すものなので、`exe` の展開には使われない)。
+//     環境変数で指したいときは setx してから VS を起動し直すこと:
+//       setx IPEMU_ENGINE_EXE C:\path\to\resources\bin\ipemu-engine.exe
+//
+//   `env`: エンジンに渡す環境変数。IPEMU_* は Docs/07 と `ipemu-engine run --help` を参照。
+//
 //   DLL: CMakeLists.txt が OUTPUT_NAME を fw-balance-c、PREFIX を空にしているので
 //        `<buildRoot>\<Debug|Release>\fw-balance-c.dll` に出る。PDB は隣に出る (/Zi)。
 //
@@ -23,15 +32,19 @@
       "name": "ipemu run (native firmware, 仮想時間)",
       "project": "CMakeLists.txt",
       "projectTarget": "fw_balance",
-      "exe": "${env.IPEMU_ENGINE_EXE}",
-      "currentDir": "${workspaceRoot}\..\..",
+      "exe": "${workspaceRoot}\\..\\..\\dist\\ipemu-client-0.1.0-windows-x64\\resources\\bin\\ipemu-engine.exe",
+      "currentDir": "${workspaceRoot}\\..\\..",
       "args": [
         "run",
         "--manifest", "dev/cartpole.manifest.json",
-        "--firmware", "balance=native:${cmake.buildRoot}\Debug\fw-balance-c.dll",
+        "--firmware", "balance=native:${cmake.buildRoot}\\Debug\\fw-balance-c.dll",
         "--no-signature-check",
         "--run-seconds", "60"
-      ]
+      ],
+      "env": {
+        // 部品 / FW のログをもっと出したいとき (trace|debug|info|warn|error|off は --log でも渡せる)
+        "RUST_LOG": "info"
+      }
     },
     {
       // UI シェルから繋いで動かしたいとき。実時間ペーシングなので --debug-friendly を付ける
@@ -42,17 +55,20 @@
       "name": "ipemu serve (native firmware, 実時間 + シェル)",
       "project": "CMakeLists.txt",
       "projectTarget": "fw_balance",
-      "exe": "${env.IPEMU_ENGINE_EXE}",
-      "currentDir": "${workspaceRoot}\..\..",
+      "exe": "${workspaceRoot}\\..\\..\\dist\\ipemu-client-0.1.0-windows-x64\\resources\\bin\\ipemu-engine.exe",
+      "currentDir": "${workspaceRoot}\\..\\..",
       "args": [
         "serve",
         "--manifest", "dev/cartpole.manifest.json",
-        "--firmware", "balance=native:${cmake.buildRoot}\Debug\fw-balance-c.dll",
+        "--firmware", "balance=native:${cmake.buildRoot}\\Debug\\fw-balance-c.dll",
         "--no-signature-check",
         "--pacing", "realtime",
         "--auto-start",
         "--debug-friendly"
-      ]
+      ],
+      "env": {
+        "RUST_LOG": "info"
+      }
     }
   ]
 }

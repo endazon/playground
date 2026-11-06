@@ -163,8 +163,12 @@ TCP・ファイルなど HAL 外の資源は、wasm 形では **WASI preview 2 �
 Rust のビルド環境は不要です (エンジン自体をデバッグする場合だけ Rust が要ります)。
 
 ### 方法 A: F5 で起動 (推奨)
-1. 配布 zip を展開し、エンジンの場所を控える: `resources/bin/ipemu-engine.exe`。
-   環境変数に入れておくと `launch.vs.json` がそのまま使えます:
+1. 配布 zip を `dist/ipemu-client-<version>-windows-x64/` に展開する。テンプレートの `exe` は
+   そこの `resources/bin/ipemu-engine.exe` を指しているので、これだけで動きます。
+   別の場所に置くなら `exe` を実パスに書き換えてください。
+   環境変数で指したい場合は `"exe": "${env.IPEMU_ENGINE_EXE}"` にして、**VS を起動する前に**
+   設定しておきます (`${env.*}` は VS 自身の環境を見るので、同じファイルの `env` ブロックでは
+   効きません。`env` はデバッグ対象プロセスに渡すものです):
    ```cmd
    setx IPEMU_ENGINE_EXE C:\path\to\ipemu-client\resources\bin\ipemu-engine.exe
    ```
