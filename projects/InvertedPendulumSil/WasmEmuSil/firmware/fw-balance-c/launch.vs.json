@@ -18,8 +18,9 @@
 //
 //   `env`: エンジンに渡す環境変数。IPEMU_* は Docs/07 と `ipemu-engine run --help` を参照。
 //
-//   DLL: CMakeLists.txt が OUTPUT_NAME を fw-balance-c、PREFIX を空にしているので
-//        `<buildRoot>\<Debug|Release>\fw-balance-c.dll` に出る。PDB は隣に出る (/Zi)。
+//   DLL: `<buildRoot>\bin\fw-balance-c.dll` に出る。CMakeLists が出力先を bin/ に固定して
+//        いるので、VS の既定の Ninja (単一構成) でも -G "Visual Studio NN" (多構成) でも
+//        同じ場所です。PDB は隣に出ます (/Zi)。
 //
 //   手順と注意は Docs/05-firmware.md の「Visual Studio でのデバッグ実行 (Windows)」。
 {
@@ -37,7 +38,7 @@
       "args": [
         "run",
         "--manifest", "dev/cartpole.manifest.json",
-        "--firmware", "balance=native:${cmake.buildRoot}\\Debug\\fw-balance-c.dll",
+        "--firmware", "balance=native:${cmake.buildRoot}\\bin\\fw-balance-c.dll",
         "--no-signature-check",
         "--run-seconds", "60"
       ],
@@ -60,7 +61,7 @@
       "args": [
         "serve",
         "--manifest", "dev/cartpole.manifest.json",
-        "--firmware", "balance=native:${cmake.buildRoot}\\Debug\\fw-balance-c.dll",
+        "--firmware", "balance=native:${cmake.buildRoot}\\bin\\fw-balance-c.dll",
         "--no-signature-check",
         "--pacing", "realtime",
         "--auto-start",

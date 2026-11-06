@@ -185,12 +185,14 @@ Rust のビルド環境は不要です (エンジン自体をデバッグする�
 4. 変更 → ビルド → F5 のサイクル。native 形は**エンジンを再起動して**読み直します (ネイティブ DLL の
    プロセス内アンロードは信頼できないためです)。プラントも初期状態に戻ります。
 
-DLL の名前は CMake の `OUTPUT_NAME` / `PREFIX` の設定により **`fw-balance-c.dll`** です
-(`<buildRoot>\Debug\fw-balance-c.dll`。PDB は隣に出ます)。`--firmware` のスロット名は manifest の
-`balance` です。コマンドラインで同じことをするなら:
+DLL の名前は CMake の `OUTPUT_NAME` / `PREFIX` の設定により **`fw-balance-c.dll`** で、
+場所は **`<buildRoot>\bin\`** です。CMakeLists が出力先を `bin/` に固定しているので、
+VS の「フォルダーを開く」の既定 (Ninja、単一構成) でも `-G "Visual Studio NN"` (多構成) でも
+同じ場所に出ます。PDB は隣に出ます。`--firmware` のスロット名は manifest の `balance` です。
+コマンドラインで同じことをするなら:
 ```cmd
 ipemu-engine.exe run --manifest dev/cartpole.manifest.json --no-signature-check ^
-    --firmware balance=native:...\build\msvc\Debug\fw-balance-c.dll --run-seconds 60
+    --firmware balance=native:...\build\ninja\bin\fw-balance-c.dll --run-seconds 60
 ```
 
 ### 方法 B: 起動中のエンジンにアタッチ
